@@ -177,12 +177,6 @@ Generation order is now: managed engine → Ollama → cloud key → offline rul
 Settings persist in `server/settings.json`, so the backend autostarts your last
 model on next launch.
 
-## Privacy and secrets
-
-- `server/settings.json`, `.env` files, model folders, `llama.cpp/`, and `tts/` are ignored by git.
-- Cloud keys stay in browser localStorage; do not paste API keys, tokens, or private paths into issues, logs, or committed docs.
-- Before pushing, this repo is checked for obvious committed secrets and the `origin` remote is expected to contain no embedded credentials.
-
 ## Troubleshooting
 
 - `npm` not recognized → install Node.js 20 LTS and reopen the terminal.
