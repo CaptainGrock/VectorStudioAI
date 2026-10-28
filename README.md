@@ -151,10 +151,9 @@ public/assets/       <- bank.svg, arrow.svg, person.svg
 scene.json           <- default render props for `npm run render`
 ```
 
-## Local engine (same technique as JobKing)
+## Local engine
 
-The **Local engine** panel at the top of the left sidebar is a slim port of
-JobKing's Settings → ModelSetup flow, adapted from its
+The **Local engine** panel at the top of the left sidebar: Settings → ModelSetup flow, adapted from its
 `server/hardware.js`, `modelscan.js`, `modelcatalog.js`, `modeldownload.js`
 and `llamaengine.js`:
 
