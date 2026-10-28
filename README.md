@@ -4,6 +4,11 @@ Prompt-to-video vector infographic studio. Describe an animation in plain text, 
 
 No Pinokio required. Just Node.js + this folder + `start.bat`.
 
+## Examples
+
+- [Example 1](examples/example.mp4)
+- [Example 2](examples/example2.mp4)
+
 ## Quick start (Windows)
 
 1. Install Node.js 20 LTS from https://nodejs.org/ (includes npm).
