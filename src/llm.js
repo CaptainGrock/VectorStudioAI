@@ -314,7 +314,7 @@ export function diagnoseNoPatch(scene, datasets, prompt) {
     return `Y-axis ticks are on by default — tell me the units and I'll format every division, e.g. “y-axis in $M millions”, “thousands”, or “percent”. (Words like “total amount” alone describe the data, not the axis — that's why nothing changed.)`
   }
   if (stillIntent && (scene.layers || []).some((l) => l.type === 'line_chart' || l.type === 'area_chart')) {
-    return `Already stationary — line and area points hold their final positions while the wipe reveals them left-to-right (dots pop in sequence with Stagger). If the motion itself feels off, ask to retime instead, e.g. “slower reveal” or “all at once”.`;
+    return `Already stationary — line and area points hold their final positions while the wipe reveals them left-to-right (dots pop in sequence with Stagger). Two alternatives: say “connect the dots” and the dots pop first while each segment draws between them; say “wipe reveal” to go back. To change pacing instead, try “slower reveal” or “all at once”.`;
   }
   const dataIntent = /\bgroup(?:s|ed|ing)?\b|\bcount\b|how many|\baverag|\bmean\b|\bsum\b|\btop\s+\d|\bbottom\s+\d|\bfilter\b|\bcolumn\b|\bfield\b|\bheader\b|\bdataset\b|\bexcluding\b|\bignor\w+|\bstack(?:ed)?\b|\bunstack\b|\bclustered\b/.test(low);
   const { table } = resolveEditTable(scene, datasets, p);
@@ -650,6 +650,20 @@ export function parseSpeed(p) {
   return out
 }
 
+// Line draw style: "connect the dots", "dots pop first then connect",
+// "no wipe/slide reveal" → dots pop in sequence and each segment draws
+// between two popped dots. Stored as data.drawMode; the wipe is default.
+function parseDrawMode(p) {
+  const s = String(p || '').toLowerCase()
+  const t = chartTypeFromPrompt(p)
+  if (t && t !== 'line_chart') return {}
+  const connect = /connect( the| those| these)? (dots|points|them|lines?)|\bconnect the dots\b|(dots?|points?).{0,40}then.{0,20}connect|connect.{0,20}(dots?|points?|lines?)|(dots?|points?) first|draw the line between|no (wipe|slide|sweep)/.test(s)
+  // Dots-then-connect only reads when dots pop in sequence: default a
+  // gentle stagger unless the prompt paces otherwise (parseSpeed spreads
+  // after this, so "all at once" / explicit stagger words still win).
+  return connect ? { drawMode: 'connect', stagger: 4 } : {}
+}
+
 // Axis display units: "y-axis in $M millions", "thousands", "percent".
 // Stored as data.yFormat; line/area/scatter tick labels honor it.
 export function parseAxisFormat(p) {
@@ -674,7 +688,7 @@ export function buildTableChartLayer(p, table, base = defaultScene) {
     id: nid('layer'), name: `${layerData.valueCol}${layerData.filteredBy ? ` (${layerData.filteredBy})` : ''} by ${layerData.aggregatedBy || layerData.labelCol}`, type,
     ...(orientation ? { orientation } : {}),
     ...titleFlags(p),
-    startFrame: 0, endFrame: base.durationInFrames,        data: { ...layerData, ...lineage(p, table), ...parseSpeed(p), ...parseAxisFormat(p), ...(variant ? { variant } : {}), ...(uniform ? { pointColors: layerData.values.map(() => uniform), legend: [] } : (!layerData.aggregatedBy ? (colorizeTable(p, table, layerData) || {}) : {})) },
+    startFrame: 0, endFrame: base.durationInFrames,        data: { ...layerData, ...lineage(p, table), ...parseDrawMode(p), ...parseSpeed(p), ...parseAxisFormat(p), ...(variant ? { variant } : {}), ...(uniform ? { pointColors: layerData.values.map(() => uniform), legend: [] } : (!layerData.aggregatedBy ? (colorizeTable(p, table, layerData) || {}) : {})) },
         keyframes: [
           { frame: 0, properties: { scale: 1, opacity: 0 } },
           { frame: 40, properties: { scale: 1, opacity: 1 }, easing: 'easeOutExpo' },
@@ -874,6 +888,7 @@ export function refreshLayerData(layer, table) {
         ? { label: it.label, color: legendByLabel.get(String(it.label)) } : it)),
     ...(d.reveal !== undefined ? { reveal: d.reveal } : {}),
     ...(d.stagger !== undefined ? { stagger: d.stagger } : {}),
+    ...(d.drawMode ? { drawMode: d.drawMode } : {}),
     ...(d.variant !== undefined ? { variant: d.variant } : {}),
     ...lineage(bp, table),
   }
@@ -1314,6 +1329,28 @@ export function ruleBasedPatch(scene, prompt, datasets = [], images = []) {
       }
     })
   }
+  // Line draw style: "connect the dots", "dots pop first then connect",
+  // "no wipe/slide reveal" → dots-first draw mode; "wipe/sweep reveal"
+  // restores the left-to-right wipe. Targets line charts (named or all).
+  const connectAsk = /connect( the| those| these)? (dots|points|them|lines?)|\bconnect the dots\b|(dots?|points?).{0,40}then.{0,20}connect|connect.{0,20}(dots?|points?|lines?)|(dots?|points?) first|draw the line between/.test(p)
+    || (/no (wipe|slide|sweep)/.test(p) && /line|chart|graph/.test(p))
+  const wipeAsk = /\bwipe\b|\bsweep\b|slide reveal|sweep reveal/.test(p)
+  if (connectAsk || wipeAsk) {
+    const namedHit = scene.layers.some((o) => o.name && p.includes(String(o.name).toLowerCase()))
+    scene.layers.forEach((l, li) => {
+      if (l.type !== 'line_chart') return
+      const named = l.name && p.includes(String(l.name).toLowerCase())
+      if (namedHit && !named) return
+      if (connectAsk && l.data?.drawMode !== 'connect') {
+        patch.push({ op: 'replace', path: `/layers/${li}/data/drawMode`, value: 'connect' })
+        // Dots-then-connect needs sequential pops: default a gentle
+        // stagger unless the layer already paces itself.
+        if (l.data?.stagger == null) patch.push({ op: 'replace', path: `/layers/${li}/data/stagger`, value: 4 })
+      } else if (!connectAsk && wipeAsk && l.data?.drawMode) {
+        patch.push({ op: 'remove', path: `/layers/${li}/data/drawMode` })
+      }
+    })
+  }
   // Motion feel: "ease in / accelerate / slow start" → easeInCubic (slow
   // start, fast arrival); "ease out / gentle landing / decelerate / slow
   // finish" → easeOutCubic (fast start, gentle landing); "regular / steady
@@ -1657,7 +1694,7 @@ async function tryEngine(messages) {
 }
 
 export async function generateScene(prompt, opts = {}) {
-  const system = opts.systemGenerate || 'Return ONLY a JSON Scene Graph: {fps,durationInFrames,width,height,layers:[{id,name,type(bar_chart|line_chart|map_bubbles|pie_chart|area_chart|scatter_chart|histogram|waterfall|funnel_chart|radar_chart|surface_plot|text|vector_shape|sprite|image_layer),startFrame,endFrame,data?,text?,assetUrl?,keyframes:[{frame,properties:{x?,y?,scale?,opacity?,rotation?},easing?}]}]}. Image layers use imageName (positional x/y); charts/maps are full-canvas. orientation horizontal|vertical for bar/histogram; pie takes data.variant donut; stacked bars keep type bar_chart with data.series (array of {label, values[], color}) instead of data.values; showTitle/showLegend false hides the title/legend.'
+  const system = opts.systemGenerate || 'Return ONLY a JSON Scene Graph: {fps,durationInFrames,width,height,layers:[{id,name,type(bar_chart|line_chart|map_bubbles|pie_chart|area_chart|scatter_chart|histogram|waterfall|funnel_chart|radar_chart|surface_plot|text|vector_shape|sprite|image_layer),startFrame,endFrame,data?,text?,assetUrl?,keyframes:[{frame,properties:{x?,y?,scale?,opacity?,rotation?},easing?}]}]}. Image layers use imageName (positional x/y); charts/maps are full-canvas. orientation horizontal|vertical for bar/histogram; pie takes data.variant donut; stacked bars keep type bar_chart with data.series (array of {label, values[], color}) instead of data.values; a line chart with data.drawMode "connect" pops dots first then draws segments instead of the wipe; showTitle/showLegend false hides the title/legend.'
   // Attached datasets travel with the prompt: the LLM gets a compact summary,
   // the offline rules get the full tables.
   const datasets = opts.datasets || []
@@ -1705,7 +1742,7 @@ export async function editScene(scene, prompt, opts = {}) {
   // Type/data switches stay in scope even for user-tweaked Advanced prompts
   // (appended at runtime so saved custom prompts are never overwritten).
   if (!system.includes('Type/data switches')) {
-    system += ' Type/data switches are in scope: to change chart type, replace /layers/N/type (bar_chart|line_chart|pie_chart|area_chart|scatter_chart|histogram|waterfall|funnel_chart|radar_chart|surface_plot) and keep or rebuild its /layers/N/data from the dataset summary; orientation horizontal|vertical re-orients bars. Regrouping is in scope too: rebuild /layers/N/data to group by a column (labels = group names), count/average/sum a metric, take the top N, filter rows by value ("only Cup and Waffle Cone", "excluding Texas"), or honour "ignore <column>". Stacked bars keep type bar_chart with data.series (array of {label, values[], color}, one entry per stack segment) instead of data.values; to stack, rebuild data with labels + series grouped by one column and split by another; to unstack, rebuild with plain labels/values.'
+    system += ' Line draw style: set /layers/N/data/drawMode to "connect" and a line chart pops its dots first, then draws each segment between them ("connect the dots"); remove drawMode for the default left-to-right wipe. Type/data switches are in scope: to change chart type, replace /layers/N/type (bar_chart|line_chart|pie_chart|area_chart|scatter_chart|histogram|waterfall|funnel_chart|radar_chart|surface_plot) and keep or rebuild its /layers/N/data from the dataset summary; orientation horizontal|vertical re-orients bars. Regrouping is in scope too: rebuild /layers/N/data to group by a column (labels = group names), count/average/sum a metric, take the top N, filter rows by value ("only Cup and Waffle Cone", "excluding Texas"), or honour "ignore <column>". Stacked bars keep type bar_chart with data.series (array of {label, values[], color}, one entry per stack segment) instead of data.values; to stack, rebuild data with labels + series grouped by one column and split by another; to unstack, rebuild with plain labels/values.'
   }
   // Like generation, the edit model gets the attached datasets as a compact
   // summary so "use the other dataset" resolves to real labels/values.

@@ -212,11 +212,17 @@ function LineChart({ layer, frame }) {
     ? series.map((s, si) => ({ pts: s.values.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' '), color: s.color || CHART_PALETTE[si % CHART_PALETTE.length] }))
     : [{ pts: values.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' '), color: '#4da3ff' }]
   const autoLegend = legend.length ? legend : multi ? series.map((s, i) => ({ label: s.label, color: s.color || CHART_PALETTE[i % CHART_PALETTE.length] })) : legend
+  // Draw mode: 'connect' pops the dots first, then draws each segment
+  // between two popped dots (dash draw keyed to the later dot's pop,
+  // with a small lead so dots visibly precede their segment).
+  // Default is the left-to-right wipe revealing the whole line at once.
+  const connect = layer.data?.drawMode === 'connect'
+  const segE = (a, b) => { const m = Math.min(a, b); return m <= 0 ? 0 : Math.min(1, (m - 0.15) / 0.85) }
   const step = Math.max(1, Math.ceil(labels.length / 10))
   return (
     <div style={{ width: 1280, height: 720, padding: 48, display: 'flex', flexDirection: 'column' }}>
       {showT(layer) && <div style={{ fontSize: 34, fontWeight: 700, marginBottom: 16, ...titleFont(layer) }}>{layer.name}</div>}
-      <div style={{ clipPath: `inset(0 ${(1 - progress) * 100}% 0 0)`, flex: 1, minHeight: 0 }}>
+      <div style={connect ? { flex: 1, minHeight: 0 } : { clipPath: `inset(0 ${(1 - progress) * 100}% 0 0)`, flex: 1, minHeight: 0 }}>
         <svg viewBox="0 0 1020 380" width="100%" height="100%" preserveAspectRatio="none" style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 12, display: 'block' }}>
           {[0.25, 0.5, 0.75, 1].map((f) => (
             <g key={f}>
@@ -225,14 +231,23 @@ function LineChart({ layer, frame }) {
             </g>
           ))}
           <line x1={60} y1={320} x2={1000} y2={320} stroke="rgba(255,255,255,0.35)" strokeWidth={2} />
-          {lines.map((L, si) => (
-            <g key={si}>
-              <polyline points={L.pts} fill="none" stroke={L.color} strokeWidth={6} strokeLinejoin="round" />
-              {(multi ? series[si].values : values).map((v, i) => (
-                <circle key={i} cx={X(i)} cy={Y(v)} r={n > 12 ? 6 : 10} fill={multi ? L.color : (pointColors[i] || '#4da3ff')} opacity={pointEOA(frame, lT, i)} />
-              ))}
-            </g>
-          ))}
+          {lines.map((L, si) => {
+            const vals = multi ? series[si].values : values
+            return (
+              <g key={si}>
+                {!connect && <polyline points={L.pts} fill="none" stroke={L.color} strokeWidth={6} strokeLinejoin="round" />}
+                {connect && vals.slice(0, -1).map((v, i) => {
+                  const e = segE(pointEOA(frame, lT, i), pointEOA(frame, lT, i + 1))
+                  const x1 = X(i), y1 = Y(v), x2 = X(i + 1), y2 = Y(vals[i + 1])
+                  const len = Math.hypot(x2 - x1, y2 - y1) || 1
+                  return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={L.color} strokeWidth={6} strokeLinecap="round" strokeDasharray={len} strokeDashoffset={len * (1 - e)} />
+                })}
+                {vals.map((v, i) => (
+                  <circle key={`d${i}`} cx={X(i)} cy={Y(v)} r={n > 12 ? 6 : 10} fill={multi ? L.color : (pointColors[i] || '#4da3ff')} opacity={pointEOA(frame, lT, i)} />
+                ))}
+              </g>
+            )
+          })}
         </svg>
       </div>
       {showL(layer) && <Legend items={autoLegend} />}
