@@ -1,0 +1,15 @@
+node_modules/
+models/
+llama.cpp/
+server/settings.json
+*.part
+dist/
+out.mp4
+out/
+*.mp4
+.DS_Store
+
+.env
+.env.*
+*.log
+scene.json

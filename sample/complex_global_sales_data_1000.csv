@@ -1,0 +1,1001 @@
+Order ID,Order Date,Country,Category,Subcategory,Sales Channel,Order Priority,Quantity Sold,Unit Price ($),Unit Cost ($),Total Revenue ($),Discount Rate,Discount Amount ($),Net Revenue ($),Total Cost ($),Profit ($),Profit Margin (%),Payment Method,Customer Rating
+ORD-10370,2025-01-01,Germany,Electronics,Tablets,Online,High,89,386.13,251.29,34365.57,0.1,3436.56,30929.01,22364.81,8564.2,27.69,Credit Card,4
+ORD-10029,2025-01-03,Brazil,Toys & Games,Action Figures,Direct Sales,High,37,60.09,24.47,2223.33,0.2,444.67,1778.66,905.39,873.27,49.1,Credit Card,2
+ORD-10827,2025-01-05,United Kingdom,Sports & Outdoors,Athletic Wear,In-Store,Low,138,845.58,511.82,116690.04,0.15,17503.51,99186.53,70631.16,28555.37,28.79,Invoice,5
+ORD-10573,2025-01-06,Germany,Sports & Outdoors,Outdoor Accessories,In-Store,Medium,89,899.54,557.63,80059.06,0.05,4002.95,76056.11,49629.07,26427.04,34.75,Invoice,4
+ORD-10891,2025-01-06,France,Clothing,Outerwear,Wholesale,Low,139,953.68,432.07,132561.52,0.05,6628.08,125933.44,60057.73,65875.71,52.31,Crypto,3
+ORD-10796,2025-01-06,France,Groceries,Snacks,Online,Medium,14,413.37,189.01,5787.18,0.15,868.08,4919.1,2646.14,2272.96,46.21,Bank Transfer,3
+ORD-10553,2025-01-07,Australia,Automotive,Interior Accessories,In-Store,Critical,98,1134.57,759.53,111187.86,0.0,0.0,111187.86,74433.94,36753.92,33.06,Invoice,3
+ORD-10488,2025-01-07,United States,Furniture,Office Chairs,Online,Critical,2,1089.31,509.25,2178.62,0.2,435.72,1742.9,1018.5,724.4,41.56,Bank Transfer,4
+ORD-10375,2025-01-08,United Kingdom,Groceries,Beverages,In-Store,Medium,99,1084.84,444.62,107399.16,0.0,0.0,107399.16,44017.38,63381.78,59.02,Crypto,4
+ORD-10936,2025-01-08,Japan,Electronics,Laptops,Direct Sales,Low,94,229.35,97.69,21558.9,0.1,2155.89,19403.01,9182.86,10220.15,52.67,Bank Transfer,4
+ORD-10549,2025-01-09,United States,Beauty & Personal Care,Skincare,Online,Medium,85,110.4,74.41,9384.0,0.1,938.4,8445.6,6324.85,2120.75,25.11,Crypto,4
+ORD-10274,2025-01-11,France,Groceries,Snacks,Direct Sales,Medium,99,13.74,6.45,1360.26,0.15,204.04,1156.22,638.55,517.67,44.77,Credit Card,4
+ORD-10244,2025-01-11,Australia,Automotive,Tires & Wheels,In-Store,Medium,72,1183.63,669.81,85221.36,0.1,8522.14,76699.22,48226.32,28472.9,37.12,Credit Card,4
+ORD-10739,2025-01-12,United States,Groceries,Pantry Staples,In-Store,Medium,122,1174.6,811.23,143301.2,0.15,21495.18,121806.02,98970.06,22835.96,18.75,Crypto,3
+ORD-10326,2025-01-12,United Kingdom,Furniture,Bookshelves,Online,Critical,49,822.21,518.11,40288.29,0.05,2014.41,38273.88,25387.39,12886.49,33.67,Invoice,5
+ORD-10765,2025-01-12,Germany,Sports & Outdoors,Bicycles,Online,High,22,783.61,518.33,17239.42,0.2,3447.88,13791.54,11403.26,2388.28,17.32,Crypto,3
+ORD-10358,2025-01-12,India,Electronics,Smartwatches,In-Store,High,78,302.56,164.37,23599.68,0.2,4719.94,18879.74,12820.86,6058.88,32.09,Crypto,5
+ORD-10634,2025-01-13,United Kingdom,Clothing,Accessories,Wholesale,Medium,24,576.51,459.29,13836.24,0.1,1383.62,12452.62,11022.96,1429.66,11.48,Invoice,4
+ORD-10843,2025-01-13,Japan,Clothing,Outerwear,Online,Medium,125,545.82,261.86,68227.5,0.0,0.0,68227.5,32732.5,35495.0,52.02,Invoice,4
+ORD-10431,2025-01-13,United Kingdom,Sports & Outdoors,Bicycles,In-Store,Medium,76,1088.42,759.04,82719.92,0.05,4136.0,78583.92,57687.04,20896.88,26.59,Crypto,4
+ORD-10410,2025-01-14,United States,Sports & Outdoors,Athletic Wear,In-Store,Medium,120,720.94,542.41,86512.8,0.0,0.0,86512.8,65089.2,21423.6,24.76,PayPal,4
+ORD-10622,2025-01-14,United States,Electronics,Smartphones,Wholesale,High,133,370.19,217.34,49235.27,0.0,0.0,49235.27,28906.22,20329.05,41.29,Bank Transfer,5
+ORD-10471,2025-01-16,Japan,Toys & Games,Puzzles,In-Store,High,94,803.65,407.34,75543.1,0.15,11331.46,64211.64,38289.96,25921.68,40.37,Invoice,5
+ORD-10846,2025-01-16,Australia,Toys & Games,Educational Toys,Direct Sales,Medium,48,654.01,267.81,31392.48,0.0,0.0,31392.48,12854.88,18537.6,59.05,Crypto,4
+ORD-10861,2025-01-16,Japan,Toys & Games,Educational Toys,Wholesale,Critical,127,456.54,362.35,57980.58,0.0,0.0,57980.58,46018.45,11962.13,20.63,Invoice,3
+ORD-10040,2025-01-17,Brazil,Automotive,Interior Accessories,Direct Sales,Low,109,938.02,415.35,102244.18,0.1,10224.42,92019.76,45273.15,46746.61,50.8,Bank Transfer,4
+ORD-10022,2025-01-17,Germany,Electronics,Smartphones,Wholesale,Low,80,1048.81,726.71,83904.8,0.1,8390.48,75514.32,58136.8,17377.52,23.01,Crypto,4
+ORD-10506,2025-01-18,Canada,Sports & Outdoors,Camping Gear,Direct Sales,High,130,1100.94,793.04,143122.2,0.05,7156.11,135966.09,103095.2,32870.89,24.18,Bank Transfer,4
+ORD-10980,2025-01-19,India,Sports & Outdoors,Outdoor Accessories,Wholesale,High,28,1050.41,476.69,29411.48,0.0,0.0,29411.48,13347.32,16064.16,54.62,Invoice,1
+ORD-10746,2025-01-19,Australia,Toys & Games,Action Figures,Wholesale,High,61,31.37,13.48,1913.57,0.05,95.68,1817.89,822.28,995.61,54.77,Bank Transfer,4
+ORD-10200,2025-01-19,Australia,Automotive,Interior Accessories,In-Store,Low,108,953.19,727.44,102944.52,0.15,15441.68,87502.84,78563.52,8939.32,10.22,PayPal,4
+ORD-10113,2025-01-20,United Kingdom,Automotive,Tires & Wheels,Online,Low,111,543.85,374.62,60367.35,0.15,9055.1,51312.25,41582.82,9729.43,18.96,PayPal,2
+ORD-10340,2025-01-20,Brazil,Clothing,Footwear,Direct Sales,Medium,11,768.95,559.82,8458.45,0.0,0.0,8458.45,6158.02,2300.43,27.2,PayPal,3
+ORD-10425,2025-01-20,Brazil,Automotive,Car Electronics,Online,High,38,53.69,31.67,2040.22,0.0,0.0,2040.22,1203.46,836.76,41.01,Bank Transfer,1
+ORD-10526,2025-01-21,Canada,Clothing,Outerwear,Direct Sales,Medium,41,602.04,307.27,24683.64,0.1,2468.36,22215.28,12598.07,9617.21,43.29,Credit Card,4
+ORD-10887,2025-01-21,Germany,Groceries,Snacks,Wholesale,Medium,27,613.8,326.28,16572.6,0.05,828.63,15743.97,8809.56,6934.41,44.04,Credit Card,2
+ORD-10125,2025-01-21,Canada,Sports & Outdoors,Bicycles,Wholesale,Low,49,562.08,443.37,27541.92,0.05,1377.1,26164.82,21725.13,4439.69,16.97,Credit Card,3
+ORD-10074,2025-01-21,Australia,Clothing,Accessories,Direct Sales,Critical,36,1113.17,472.1,40074.12,0.15,6011.12,34063.0,16995.6,17067.4,50.11,PayPal,2
+ORD-10372,2025-01-21,Germany,Toys & Games,Board Games,Direct Sales,Low,31,214.48,130.24,6648.88,0.0,0.0,6648.88,4037.44,2611.44,39.28,Invoice,1
+ORD-10042,2025-01-22,Germany,Groceries,Organic Foods,In-Store,High,29,540.69,356.33,15680.01,0.05,784.0,14896.01,10333.57,4562.44,30.63,Invoice,1
+ORD-10689,2025-01-22,Canada,Groceries,Organic Foods,Online,Critical,107,969.73,457.57,103761.11,0.2,20752.22,83008.89,48959.99,34048.9,41.02,Credit Card,5
+ORD-10180,2025-01-22,Germany,Sports & Outdoors,Bicycles,Wholesale,High,12,601.07,308.78,7212.84,0.0,0.0,7212.84,3705.36,3507.48,48.63,Bank Transfer,4
+ORD-10054,2025-01-22,Germany,Automotive,Tires & Wheels,Wholesale,Medium,106,531.94,367.0,56385.64,0.05,2819.28,53566.36,38902.0,14664.36,27.38,Invoice,3
+ORD-10960,2025-01-23,Japan,Clothing,Women's Apparel,Direct Sales,Low,20,1140.91,489.41,22818.2,0.0,0.0,22818.2,9788.2,13030.0,57.1,Invoice,5
+ORD-10754,2025-01-24,India,Groceries,Pantry Staples,Direct Sales,Medium,132,918.7,531.87,121268.4,0.1,12126.84,109141.56,70206.84,38934.72,35.67,PayPal,3
+ORD-10697,2025-01-24,France,Electronics,Laptops,Online,Medium,69,137.32,94.45,9475.08,0.15,1421.26,8053.82,6517.05,1536.77,19.08,Invoice,5
+ORD-10537,2025-01-24,United States,Furniture,Sofas,Direct Sales,Medium,124,11.51,8.72,1427.24,0.05,71.36,1355.88,1081.28,274.6,20.25,Bank Transfer,2
+ORD-10677,2025-01-25,Germany,Sports & Outdoors,Bicycles,In-Store,High,95,1085.8,573.38,103151.0,0.1,10315.1,92835.9,54471.1,38364.8,41.33,Credit Card,3
+ORD-10296,2025-01-25,France,Groceries,Beverages,In-Store,Medium,113,63.85,31.11,7215.05,0.0,0.0,7215.05,3515.43,3699.62,51.28,PayPal,5
+ORD-10700,2025-01-25,Germany,Furniture,Sofas,In-Store,High,1,256.89,195.84,256.89,0.1,25.69,231.2,195.84,35.36,15.29,Credit Card,4
+ORD-10855,2025-01-25,Japan,Sports & Outdoors,Athletic Wear,Direct Sales,Medium,111,972.75,484.55,107975.25,0.05,5398.76,102576.49,53785.05,48791.44,47.57,Invoice,5
+ORD-10529,2025-01-25,Germany,Furniture,Desks,Online,High,64,55.28,38.22,3537.92,0.05,176.9,3361.02,2446.08,914.94,27.22,Crypto,2
+ORD-10823,2025-01-26,France,Toys & Games,Building Blocks,Direct Sales,Critical,8,984.74,609.41,7877.92,0.0,0.0,7877.92,4875.28,3002.64,38.11,Credit Card,4
+ORD-10518,2025-01-26,Japan,Electronics,Smartphones,Wholesale,High,51,1033.33,501.39,52699.83,0.05,2634.99,50064.84,25570.89,24493.95,48.92,Credit Card,5
+ORD-10456,2025-01-27,Canada,Clothing,Men's Apparel,Online,Medium,72,703.9,483.72,50680.8,0.0,0.0,50680.8,34827.84,15852.96,31.28,Bank Transfer,2
+ORD-10971,2025-01-28,Brazil,Automotive,Tires & Wheels,In-Store,Low,85,501.19,353.69,42601.15,0.05,2130.06,40471.09,30063.65,10407.44,25.72,Invoice,4
+ORD-10489,2025-01-28,United States,Beauty & Personal Care,Makeup,Direct Sales,High,36,181.2,80.07,6523.2,0.05,326.16,6197.04,2882.52,3314.52,53.49,Credit Card,2
+ORD-10659,2025-01-28,France,Beauty & Personal Care,Makeup,Online,Medium,17,883.73,372.97,15023.41,0.15,2253.51,12769.9,6340.49,6429.41,50.35,Bank Transfer,3
+ORD-10947,2025-01-28,Germany,Clothing,Outerwear,Online,High,1,962.49,610.22,962.49,0.2,192.5,769.99,610.22,159.77,20.75,Credit Card,4
+ORD-10224,2025-01-29,Brazil,Furniture,Desks,Online,Critical,62,627.25,295.9,38889.5,0.2,7777.9,31111.6,18345.8,12765.8,41.03,Crypto,5
+ORD-10320,2025-01-30,United Kingdom,Automotive,Interior Accessories,Online,Medium,118,319.2,240.82,37665.6,0.15,5649.84,32015.76,28416.76,3599.0,11.24,Invoice,2
+ORD-10972,2025-01-30,France,Toys & Games,Educational Toys,Direct Sales,High,143,483.8,252.04,69183.4,0.1,6918.34,62265.06,36041.72,26223.34,42.12,Crypto,3
+ORD-10696,2025-02-02,Germany,Furniture,Bookshelves,Wholesale,High,28,1124.86,523.97,31496.08,0.0,0.0,31496.08,14671.16,16824.92,53.42,Credit Card,1
+ORD-10676,2025-02-02,United States,Beauty & Personal Care,Skincare,Wholesale,Low,80,1074.77,480.45,85981.6,0.2,17196.32,68785.28,38436.0,30349.28,44.12,Crypto,4
+ORD-10043,2025-02-02,Japan,Automotive,Tires & Wheels,Wholesale,High,26,199.14,116.98,5177.64,0.15,776.65,4400.99,3041.48,1359.51,30.89,PayPal,4
+ORD-10016,2025-02-03,United States,Sports & Outdoors,Fitness Equipment,In-Store,High,87,136.83,62.4,11904.21,0.0,0.0,11904.21,5428.8,6475.41,54.4,PayPal,4
+ORD-10884,2025-02-04,United States,Sports & Outdoors,Outdoor Accessories,Online,Medium,97,202.66,101.27,19658.02,0.0,0.0,19658.02,9823.19,9834.83,50.03,Crypto,5
+ORD-10567,2025-02-04,Germany,Beauty & Personal Care,Fragrance,Online,Medium,83,822.98,346.42,68307.34,0.1,6830.73,61476.61,28752.86,32723.75,53.23,Invoice,1
+ORD-10548,2025-02-07,Brazil,Toys & Games,Educational Toys,Wholesale,Low,34,635.88,460.07,21619.92,0.0,0.0,21619.92,15642.38,5977.54,27.65,Invoice,4
+ORD-10212,2025-02-07,United Kingdom,Automotive,Tools & Equipment,Wholesale,Medium,141,512.93,267.32,72323.13,0.0,0.0,72323.13,37692.12,34631.01,47.88,Credit Card,3
+ORD-10956,2025-02-07,Germany,Electronics,Smartwatches,In-Store,Medium,144,731.52,399.42,105338.88,0.15,15800.83,89538.05,57516.48,32021.57,35.76,Credit Card,3
+ORD-10044,2025-02-08,Australia,Sports & Outdoors,Outdoor Accessories,Wholesale,Medium,130,929.66,457.41,120855.8,0.0,0.0,120855.8,59463.3,61392.5,50.8,PayPal,5
+ORD-10812,2025-02-09,Brazil,Sports & Outdoors,Fitness Equipment,In-Store,High,57,1037.66,800.77,59146.62,0.0,0.0,59146.62,45643.89,13502.73,22.83,PayPal,5
+ORD-10446,2025-02-11,India,Sports & Outdoors,Outdoor Accessories,In-Store,Medium,102,428.74,292.51,43731.48,0.05,2186.57,41544.91,29836.02,11708.89,28.18,Credit Card,4
+ORD-10127,2025-02-12,India,Automotive,Car Electronics,Online,High,98,586.79,273.63,57505.42,0.15,8625.81,48879.61,26815.74,22063.87,45.14,Credit Card,4
+ORD-10756,2025-02-14,Brazil,Clothing,Outerwear,Online,Medium,92,808.28,550.63,74361.76,0.0,0.0,74361.76,50657.96,23703.8,31.88,Invoice,2
+ORD-10402,2025-02-14,United States,Automotive,Interior Accessories,Online,Critical,44,1163.84,807.57,51208.96,0.1,5120.9,46088.06,35533.08,10554.98,22.9,PayPal,5
+ORD-10193,2025-02-14,Japan,Clothing,Outerwear,Direct Sales,Low,98,727.92,429.01,71336.16,0.0,0.0,71336.16,42042.98,29293.18,41.06,Invoice,2
+ORD-10648,2025-02-15,Germany,Automotive,Car Electronics,Direct Sales,Medium,148,89.02,70.84,13174.96,0.0,0.0,13174.96,10484.32,2690.64,20.42,Bank Transfer,4
+ORD-10574,2025-02-15,Brazil,Beauty & Personal Care,Personal Hygiene,Direct Sales,Critical,131,1059.23,822.77,138759.13,0.1,13875.91,124883.22,107782.87,17100.35,13.69,Invoice,4
+ORD-10413,2025-02-15,Germany,Groceries,Confectionery,In-Store,Medium,49,33.83,14.38,1657.67,0.0,0.0,1657.67,704.62,953.05,57.49,Crypto,4
+ORD-10609,2025-02-16,France,Beauty & Personal Care,Fragrance,Direct Sales,High,125,489.62,322.98,61202.5,0.1,6120.25,55082.25,40372.5,14709.75,26.71,Bank Transfer,3
+ORD-10604,2025-02-16,India,Furniture,Desks,Direct Sales,Low,77,608.66,263.65,46866.82,0.05,2343.34,44523.48,20301.05,24222.43,54.4,Bank Transfer,5
+ORD-10857,2025-02-18,United Kingdom,Clothing,Men's Apparel,Wholesale,High,71,1053.15,805.65,74773.65,0.0,0.0,74773.65,57201.15,17572.5,23.5,Bank Transfer,3
+ORD-10898,2025-02-19,Germany,Electronics,Smartwatches,Online,Medium,32,11.35,4.9,363.2,0.1,36.32,326.88,156.8,170.08,52.03,Bank Transfer,1
+ORD-10426,2025-02-20,Canada,Toys & Games,Puzzles,In-Store,High,149,626.43,404.47,93338.07,0.0,0.0,93338.07,60266.03,33072.04,35.43,Credit Card,4
+ORD-10009,2025-02-24,Australia,Clothing,Women's Apparel,In-Store,High,124,962.89,762.2,119398.36,0.1,11939.84,107458.52,94512.8,12945.72,12.05,Crypto,4
+ORD-10019,2025-02-24,Brazil,Toys & Games,Educational Toys,Direct Sales,Medium,36,652.41,303.24,23486.76,0.1,2348.68,21138.08,10916.64,10221.44,48.36,Credit Card,4
+ORD-10406,2025-02-25,India,Groceries,Organic Foods,Direct Sales,Medium,130,460.09,279.24,59811.7,0.05,2990.58,56821.12,36301.2,20519.92,36.11,Credit Card,4
+ORD-10483,2025-02-27,Canada,Electronics,Smartphones,Online,High,87,757.73,358.89,65922.51,0.0,0.0,65922.51,31223.43,34699.08,52.64,PayPal,4
+ORD-10657,2025-02-28,Germany,Clothing,Women's Apparel,Direct Sales,Low,145,116.53,66.83,16896.85,0.0,0.0,16896.85,9690.35,7206.5,42.65,Credit Card,5
+ORD-10252,2025-03-03,United States,Electronics,Smartwatches,Wholesale,High,61,133.38,55.95,8136.18,0.05,406.81,7729.37,3412.95,4316.42,55.84,Credit Card,4
+ORD-10614,2025-03-05,Japan,Toys & Games,Board Games,In-Store,Medium,52,927.78,385.52,48244.56,0.0,0.0,48244.56,20047.04,28197.52,58.45,Invoice,4
+ORD-10778,2025-03-06,United Kingdom,Automotive,Interior Accessories,Online,High,23,989.69,744.01,22762.87,0.05,1138.14,21624.73,17112.23,4512.5,20.87,PayPal,3
+ORD-10943,2025-03-06,India,Clothing,Outerwear,In-Store,Medium,44,410.33,283.32,18054.52,0.05,902.73,17151.79,12466.08,4685.71,27.32,Credit Card,3
+ORD-10071,2025-03-06,Germany,Automotive,Oils & Fluids,Wholesale,Medium,49,659.37,380.96,32309.13,0.0,0.0,32309.13,18667.04,13642.09,42.22,PayPal,4
+ORD-10360,2025-03-09,India,Furniture,Bookshelves,In-Store,Medium,24,385.28,214.7,9246.72,0.0,0.0,9246.72,5152.8,4093.92,44.27,Credit Card,2
+ORD-10534,2025-03-10,Germany,Beauty & Personal Care,Skincare,Online,Critical,101,782.96,407.96,79078.96,0.05,3953.95,75125.01,41203.96,33921.05,45.15,Credit Card,2
+ORD-10374,2025-03-10,Australia,Sports & Outdoors,Athletic Wear,Wholesale,High,2,981.13,399.89,1962.26,0.1,196.23,1766.03,799.78,966.25,54.71,Crypto,3
+ORD-10239,2025-03-10,United States,Beauty & Personal Care,Fragrance,Direct Sales,Medium,23,313.31,218.38,7206.13,0.0,0.0,7206.13,5022.74,2183.39,30.3,Credit Card,5
+ORD-10124,2025-03-11,Canada,Groceries,Organic Foods,Direct Sales,Low,149,72.19,40.97,10756.31,0.0,0.0,10756.31,6104.53,4651.78,43.25,Credit Card,4
+ORD-10999,2025-03-11,Germany,Automotive,Interior Accessories,Wholesale,Medium,108,368.13,226.68,39758.04,0.1,3975.8,35782.24,24481.44,11300.8,31.58,PayPal,5
+ORD-10905,2025-03-12,India,Toys & Games,Action Figures,Online,High,46,1037.0,614.48,47702.0,0.0,0.0,47702.0,28266.08,19435.92,40.74,Crypto,3
+ORD-10395,2025-03-12,Brazil,Furniture,Desks,Wholesale,High,68,1190.64,884.66,80963.52,0.0,0.0,80963.52,60156.88,20806.64,25.7,Crypto,4
+ORD-10505,2025-03-13,France,Furniture,Sofas,Online,High,26,721.18,501.63,18750.68,0.0,0.0,18750.68,13042.38,5708.3,30.44,PayPal,4
+ORD-10287,2025-03-13,United States,Clothing,Women's Apparel,In-Store,Low,103,159.33,112.98,16410.99,0.0,0.0,16410.99,11636.94,4774.05,29.09,Crypto,5
+ORD-10507,2025-03-13,Germany,Electronics,Tablets,In-Store,Critical,6,589.33,456.12,3535.98,0.05,176.8,3359.18,2736.72,622.46,18.53,PayPal,2
+ORD-10248,2025-03-14,Brazil,Groceries,Beverages,Online,High,80,252.09,113.68,20167.2,0.0,0.0,20167.2,9094.4,11072.8,54.9,Crypto,3
+ORD-10492,2025-03-14,United States,Sports & Outdoors,Camping Gear,Direct Sales,Low,142,1176.15,934.15,167013.3,0.1,16701.33,150311.97,132649.3,17662.67,11.75,PayPal,5
+ORD-10727,2025-03-15,United States,Beauty & Personal Care,Makeup,In-Store,Critical,142,469.53,367.06,66673.26,0.15,10000.99,56672.27,52122.52,4549.75,8.03,Bank Transfer,3
+ORD-10665,2025-03-15,India,Automotive,Oils & Fluids,Wholesale,Low,52,174.51,100.48,9074.52,0.05,453.73,8620.79,5224.96,3395.83,39.39,Crypto,4
+ORD-10376,2025-03-15,Brazil,Electronics,Smartwatches,Wholesale,Medium,56,1118.72,725.1,62648.32,0.1,6264.83,56383.49,40605.6,15777.89,27.98,Crypto,5
+ORD-10265,2025-03-16,France,Beauty & Personal Care,Personal Hygiene,Wholesale,High,89,781.88,398.85,69587.32,0.0,0.0,69587.32,35497.65,34089.67,48.99,Invoice,4
+ORD-10343,2025-03-16,United States,Automotive,Interior Accessories,Wholesale,Medium,23,388.4,245.43,8933.2,0.0,0.0,8933.2,5644.89,3288.31,36.81,Credit Card,2
+ORD-10081,2025-03-18,India,Toys & Games,Board Games,In-Store,Medium,7,837.22,470.29,5860.54,0.05,293.03,5567.51,3292.03,2275.48,40.87,Credit Card,4
+ORD-10447,2025-03-19,France,Toys & Games,Educational Toys,Online,Low,69,33.14,15.76,2286.66,0.05,114.33,2172.33,1087.44,1084.89,49.94,PayPal,1
+ORD-10330,2025-03-19,Canada,Sports & Outdoors,Athletic Wear,Online,Medium,125,39.37,21.46,4921.25,0.05,246.06,4675.19,2682.5,1992.69,42.62,Crypto,4
+ORD-10991,2025-03-23,Germany,Electronics,Laptops,Online,Critical,10,835.57,466.12,8355.7,0.0,0.0,8355.7,4661.2,3694.5,44.22,Credit Card,3
+ORD-10171,2025-03-23,United Kingdom,Automotive,Tools & Equipment,Wholesale,Critical,48,1195.39,506.59,57378.72,0.0,0.0,57378.72,24316.32,33062.4,57.62,Credit Card,5
+ORD-10225,2025-03-23,Germany,Beauty & Personal Care,Skincare,Online,Medium,71,324.49,156.45,23038.79,0.05,1151.94,21886.85,11107.95,10778.9,49.25,Bank Transfer,3
+ORD-10312,2025-03-24,France,Automotive,Tools & Equipment,Direct Sales,Critical,25,200.67,93.99,5016.75,0.05,250.84,4765.91,2349.75,2416.16,50.7,Credit Card,5
+ORD-10842,2025-03-25,Australia,Groceries,Organic Foods,In-Store,High,134,753.92,403.69,101025.28,0.0,0.0,101025.28,54094.46,46930.82,46.45,Invoice,3
+ORD-10555,2025-03-26,France,Groceries,Snacks,Wholesale,Low,141,640.76,263.44,90347.16,0.0,0.0,90347.16,37145.04,53202.12,58.89,PayPal,5
+ORD-10874,2025-03-27,Germany,Furniture,Sofas,Direct Sales,Low,65,1136.05,787.67,73843.25,0.05,3692.16,70151.09,51198.55,18952.54,27.02,Bank Transfer,3
+ORD-10024,2025-03-27,Germany,Automotive,Oils & Fluids,Wholesale,Medium,72,1165.56,906.46,83920.32,0.05,4196.02,79724.3,65265.12,14459.18,18.14,Invoice,5
+ORD-10811,2025-03-28,Japan,Electronics,Smartwatches,Wholesale,Medium,100,875.25,387.67,87525.0,0.0,0.0,87525.0,38767.0,48758.0,55.71,Bank Transfer,4
+ORD-10102,2025-03-28,United States,Sports & Outdoors,Bicycles,Direct Sales,Low,17,1148.24,798.03,19520.08,0.0,0.0,19520.08,13566.51,5953.57,30.5,Invoice,3
+ORD-10324,2025-03-29,United States,Clothing,Accessories,Direct Sales,High,111,983.87,409.34,109209.57,0.15,16381.44,92828.13,45436.74,47391.39,51.05,Invoice,3
+ORD-10649,2025-03-29,India,Toys & Games,Building Blocks,Online,High,61,257.33,186.66,15697.13,0.1,1569.71,14127.42,11386.26,2741.16,19.4,Crypto,4
+ORD-10220,2025-03-30,Germany,Automotive,Tools & Equipment,Direct Sales,Medium,120,981.53,589.51,117783.6,0.0,0.0,117783.6,70741.2,47042.4,39.94,PayPal,5
+ORD-10981,2025-03-31,Brazil,Groceries,Pantry Staples,Wholesale,Medium,17,1007.41,614.6,17125.97,0.0,0.0,17125.97,10448.2,6677.77,38.99,Bank Transfer,4
+ORD-10350,2025-03-31,Japan,Toys & Games,Building Blocks,Direct Sales,High,19,624.38,394.77,11863.22,0.15,1779.48,10083.74,7500.63,2583.11,25.62,Credit Card,5
+ORD-10747,2025-04-02,Brazil,Sports & Outdoors,Outdoor Accessories,Online,High,99,1147.8,779.71,113632.2,0.0,0.0,113632.2,77191.29,36440.91,32.07,Crypto,5
+ORD-10497,2025-04-02,Germany,Sports & Outdoors,Athletic Wear,In-Store,High,118,1186.3,637.9,139983.4,0.0,0.0,139983.4,75272.2,64711.2,46.23,Credit Card,3
+ORD-10725,2025-04-03,India,Automotive,Tires & Wheels,Online,High,114,135.56,91.26,15453.84,0.1,1545.38,13908.46,10403.64,3504.82,25.2,Credit Card,4
+ORD-10745,2025-04-03,India,Beauty & Personal Care,Haircare,Wholesale,Low,17,483.72,198.61,8223.24,0.0,0.0,8223.24,3376.37,4846.87,58.94,Credit Card,1
+ORD-10835,2025-04-03,Germany,Electronics,Headphones,Wholesale,Medium,109,349.9,177.88,38139.1,0.15,5720.86,32418.24,19388.92,13029.32,40.19,Invoice,5
+ORD-10386,2025-04-05,United States,Beauty & Personal Care,Fragrance,Wholesale,High,79,94.39,50.96,7456.81,0.15,1118.52,6338.29,4025.84,2312.45,36.48,PayPal,4
+ORD-10474,2025-04-07,Japan,Furniture,Bookshelves,Wholesale,Medium,39,1169.58,924.25,45613.62,0.0,0.0,45613.62,36045.75,9567.87,20.98,PayPal,4
+ORD-10222,2025-04-07,France,Electronics,Smartwatches,In-Store,High,120,942.67,484.82,113120.4,0.05,5656.02,107464.38,58178.4,49285.98,45.86,PayPal,4
+ORD-10128,2025-04-08,United Kingdom,Sports & Outdoors,Athletic Wear,Direct Sales,High,38,969.62,565.96,36845.56,0.0,0.0,36845.56,21506.48,15339.08,41.63,Credit Card,3
+ORD-10353,2025-04-08,Brazil,Toys & Games,Action Figures,Direct Sales,Critical,25,540.01,219.15,13500.25,0.0,0.0,13500.25,5478.75,8021.5,59.42,Invoice,4
+ORD-10636,2025-04-09,India,Furniture,Office Chairs,Online,High,131,654.69,296.2,85764.39,0.1,8576.44,77187.95,38802.2,38385.75,49.73,Bank Transfer,4
+ORD-10787,2025-04-11,Australia,Furniture,Office Chairs,Direct Sales,Low,97,323.93,131.14,31421.21,0.05,1571.06,29850.15,12720.58,17129.57,57.39,Credit Card,4
+ORD-10908,2025-04-12,Japan,Sports & Outdoors,Bicycles,Direct Sales,Medium,31,966.62,457.81,29965.22,0.0,0.0,29965.22,14192.11,15773.11,52.64,Crypto,3
+ORD-10215,2025-04-12,United States,Electronics,Smartphones,Wholesale,Medium,127,994.73,675.31,126330.71,0.1,12633.07,113697.64,85764.37,27933.27,24.57,PayPal,5
+ORD-10050,2025-04-12,India,Groceries,Organic Foods,In-Store,High,41,298.03,236.83,12219.23,0.0,0.0,12219.23,9710.03,2509.2,20.53,Invoice,4
+ORD-10393,2025-04-15,Australia,Beauty & Personal Care,Fragrance,In-Store,Low,34,74.06,35.25,2518.04,0.0,0.0,2518.04,1198.5,1319.54,52.4,Crypto,2
+ORD-10579,2025-04-16,United States,Beauty & Personal Care,Fragrance,In-Store,High,11,421.33,293.8,4634.63,0.05,231.73,4402.9,3231.8,1171.1,26.6,Invoice,2
+ORD-10494,2025-04-16,Germany,Clothing,Men's Apparel,Online,High,137,752.69,443.81,103118.53,0.15,15467.78,87650.75,60801.97,26848.78,30.63,Credit Card,1
+ORD-10310,2025-04-16,United States,Groceries,Pantry Staples,Wholesale,Medium,41,260.95,193.85,10698.95,0.1,1069.9,9629.05,7947.85,1681.2,17.46,PayPal,5
+ORD-10907,2025-04-17,Germany,Furniture,Office Chairs,Wholesale,Medium,25,507.87,361.31,12696.75,0.1,1269.68,11427.07,9032.75,2394.32,20.95,Credit Card,5
+ORD-10942,2025-04-18,Germany,Beauty & Personal Care,Personal Hygiene,Online,Medium,123,547.57,431.2,67351.11,0.0,0.0,67351.11,53037.6,14313.51,21.25,Crypto,3
+ORD-10241,2025-04-19,United Kingdom,Automotive,Car Electronics,In-Store,High,87,1007.11,748.79,87618.57,0.1,8761.86,78856.71,65144.73,13711.98,17.39,Credit Card,1
+ORD-10166,2025-04-19,United Kingdom,Furniture,Office Chairs,Online,Medium,21,1160.04,722.8,24360.84,0.0,0.0,24360.84,15178.8,9182.04,37.69,Invoice,4
+ORD-10451,2025-04-19,Canada,Sports & Outdoors,Bicycles,Online,Medium,87,955.08,620.88,83091.96,0.15,12463.79,70628.17,54016.56,16611.61,23.52,Bank Transfer,5
+ORD-10966,2025-04-21,Brazil,Electronics,Headphones,In-Store,Medium,46,969.05,438.87,44576.3,0.1,4457.63,40118.67,20188.02,19930.65,49.68,PayPal,5
+ORD-10383,2025-04-22,Japan,Clothing,Men's Apparel,Online,High,56,779.74,506.82,43665.44,0.05,2183.27,41482.17,28381.92,13100.25,31.58,Crypto,2
+ORD-10651,2025-04-22,Germany,Beauty & Personal Care,Skincare,Online,Low,105,747.29,500.84,78465.45,0.1,7846.54,70618.91,52588.2,18030.71,25.53,PayPal,3
+ORD-10424,2025-04-22,Brazil,Beauty & Personal Care,Personal Hygiene,In-Store,Medium,14,1028.64,720.03,14400.96,0.1,1440.1,12960.86,10080.42,2880.44,22.22,Invoice,3
+ORD-10112,2025-04-22,India,Beauty & Personal Care,Fragrance,In-Store,High,58,52.02,36.33,3017.16,0.0,0.0,3017.16,2107.14,910.02,30.16,Bank Transfer,5
+ORD-10174,2025-04-23,Brazil,Automotive,Tires & Wheels,Online,Medium,37,891.17,407.39,32973.29,0.1,3297.33,29675.96,15073.43,14602.53,49.21,Crypto,5
+ORD-10562,2025-04-23,Japan,Toys & Games,Board Games,Online,Medium,113,325.62,219.61,36795.06,0.15,5519.26,31275.8,24815.93,6459.87,20.65,Bank Transfer,4
+ORD-10815,2025-04-23,France,Electronics,Headphones,Wholesale,Low,15,337.23,145.64,5058.45,0.05,252.92,4805.53,2184.6,2620.93,54.54,Credit Card,4
+ORD-10394,2025-04-23,France,Clothing,Accessories,In-Store,High,146,1040.58,420.36,151924.68,0.1,15192.47,136732.21,61372.56,75359.65,55.11,Bank Transfer,1
+ORD-10117,2025-04-23,Australia,Electronics,Laptops,Wholesale,Medium,47,1198.03,926.37,56307.41,0.05,2815.37,53492.04,43539.39,9952.65,18.61,Credit Card,4
+ORD-10732,2025-04-23,France,Furniture,Bookshelves,Direct Sales,High,111,310.18,190.35,34429.98,0.1,3443.0,30986.98,21128.85,9858.13,31.81,PayPal,5
+ORD-10495,2025-04-24,India,Automotive,Interior Accessories,Online,High,4,755.84,346.51,3023.36,0.1,302.34,2721.02,1386.04,1334.98,49.06,PayPal,4
+ORD-10487,2025-04-25,Germany,Clothing,Accessories,Wholesale,Low,75,357.78,185.3,26833.5,0.0,0.0,26833.5,13897.5,12936.0,48.21,PayPal,4
+ORD-10382,2025-04-25,Canada,Beauty & Personal Care,Makeup,Wholesale,High,78,540.04,234.22,42123.12,0.1,4212.31,37910.81,18269.16,19641.65,51.81,PayPal,5
+ORD-10559,2025-04-26,United Kingdom,Furniture,Office Chairs,In-Store,High,144,922.55,468.02,132847.2,0.05,6642.36,126204.84,67394.88,58809.96,46.6,PayPal,3
+ORD-10753,2025-04-26,India,Furniture,Office Chairs,Direct Sales,High,147,345.5,211.56,50788.5,0.0,0.0,50788.5,31099.32,19689.18,38.77,Credit Card,5
+ORD-10467,2025-04-27,Brazil,Furniture,Desks,Direct Sales,Medium,31,287.1,171.34,8900.1,0.0,0.0,8900.1,5311.54,3588.56,40.32,Credit Card,2
+ORD-10078,2025-04-28,France,Toys & Games,Building Blocks,Online,High,15,737.07,416.01,11056.05,0.1,1105.6,9950.45,6240.15,3710.3,37.29,Credit Card,3
+ORD-10837,2025-04-28,Germany,Electronics,Laptops,Online,High,115,279.99,146.81,32198.85,0.2,6439.77,25759.08,16883.15,8875.93,34.46,Invoice,1
+ORD-10013,2025-04-29,Germany,Sports & Outdoors,Outdoor Accessories,In-Store,High,137,528.99,273.9,72471.63,0.15,10870.74,61600.89,37524.3,24076.59,39.08,Invoice,2
+ORD-10845,2025-04-30,United States,Groceries,Organic Foods,Wholesale,Medium,69,183.76,94.76,12679.44,0.0,0.0,12679.44,6538.44,6141.0,48.43,Crypto,5
+ORD-10791,2025-05-01,United States,Beauty & Personal Care,Haircare,Direct Sales,Medium,91,894.57,448.03,81405.87,0.05,4070.29,77335.58,40770.73,36564.85,47.28,Credit Card,5
+ORD-10305,2025-05-02,Brazil,Groceries,Confectionery,Online,Medium,107,1155.09,667.23,123594.63,0.1,12359.46,111235.17,71393.61,39841.56,35.82,Bank Transfer,4
+ORD-10475,2025-05-03,United States,Automotive,Tires & Wheels,Wholesale,High,103,923.77,647.3,95148.31,0.05,4757.42,90390.89,66671.9,23718.99,26.24,PayPal,2
+ORD-10355,2025-05-03,United Kingdom,Clothing,Women's Apparel,Direct Sales,Medium,35,70.87,39.62,2480.45,0.05,124.02,2356.43,1386.7,969.73,41.15,PayPal,5
+ORD-10236,2025-05-03,Japan,Furniture,Sofas,In-Store,High,37,942.94,535.36,34888.78,0.05,1744.44,33144.34,19808.32,13336.02,40.24,PayPal,4
+ORD-10640,2025-05-04,Germany,Electronics,Headphones,Wholesale,Medium,131,838.1,390.41,109791.1,0.1,10979.11,98811.99,51143.71,47668.28,48.24,Bank Transfer,5
+ORD-10096,2025-05-04,Japan,Automotive,Interior Accessories,Wholesale,High,62,788.35,427.04,48877.7,0.05,2443.88,46433.82,26476.48,19957.34,42.98,Crypto,4
+ORD-10683,2025-05-05,India,Clothing,Accessories,Online,Medium,73,808.75,333.67,59038.75,0.1,5903.88,53134.87,24357.91,28776.96,54.16,Bank Transfer,5
+ORD-10476,2025-05-06,Germany,Sports & Outdoors,Fitness Equipment,In-Store,Medium,10,337.45,188.7,3374.5,0.15,506.17,2868.33,1887.0,981.33,34.21,Credit Card,5
+ORD-10002,2025-05-07,Germany,Electronics,Smartwatches,Wholesale,High,51,886.37,685.83,45204.87,0.15,6780.73,38424.14,34977.33,3446.81,8.97,Credit Card,2
+ORD-10331,2025-05-08,Germany,Beauty & Personal Care,Fragrance,Online,Medium,127,840.42,638.81,106733.34,0.1,10673.33,96060.01,81128.87,14931.14,15.54,Credit Card,5
+ORD-10913,2025-05-08,Canada,Automotive,Tools & Equipment,Wholesale,Medium,30,747.68,323.82,22430.4,0.1,2243.04,20187.36,9714.6,10472.76,51.88,Credit Card,3
+ORD-10568,2025-05-08,Canada,Automotive,Car Electronics,Wholesale,High,75,571.32,447.87,42849.0,0.1,4284.9,38564.1,33590.25,4973.85,12.9,Crypto,5
+ORD-10093,2025-05-08,Germany,Furniture,Dining Tables,Direct Sales,High,93,31.05,19.9,2887.65,0.0,0.0,2887.65,1850.7,1036.95,35.91,PayPal,4
+ORD-10111,2025-05-09,France,Clothing,Men's Apparel,Direct Sales,Low,64,962.08,463.35,61573.12,0.05,3078.66,58494.46,29654.4,28840.06,49.3,PayPal,3
+ORD-10257,2025-05-09,France,Furniture,Dining Tables,Wholesale,Medium,22,85.14,60.51,1873.08,0.1,187.31,1685.77,1331.22,354.55,21.03,Invoice,5
+ORD-10792,2025-05-10,India,Clothing,Accessories,Online,Medium,35,508.32,291.13,17791.2,0.0,0.0,17791.2,10189.55,7601.65,42.73,PayPal,1
+ORD-10403,2025-05-10,Australia,Furniture,Office Chairs,Direct Sales,Critical,119,578.51,342.05,68842.69,0.1,6884.27,61958.42,40703.95,21254.47,34.3,PayPal,3
+ORD-10021,2025-05-11,Canada,Sports & Outdoors,Athletic Wear,Direct Sales,Critical,102,712.37,387.81,72661.74,0.0,0.0,72661.74,39556.62,33105.12,45.56,PayPal,5
+ORD-10390,2025-05-12,France,Automotive,Interior Accessories,In-Store,Medium,69,318.93,127.78,22006.17,0.0,0.0,22006.17,8816.82,13189.35,59.93,Crypto,3
+ORD-10731,2025-05-13,Germany,Sports & Outdoors,Fitness Equipment,Online,Medium,138,1051.69,595.46,145133.22,0.05,7256.66,137876.56,82173.48,55703.08,40.4,Bank Transfer,4
+ORD-10073,2025-05-13,Canada,Groceries,Confectionery,Wholesale,Medium,15,479.29,297.05,7189.35,0.1,718.94,6470.41,4455.75,2014.66,31.14,Invoice,5
+ORD-10414,2025-05-14,Germany,Groceries,Beverages,In-Store,Medium,90,719.76,427.45,64778.4,0.0,0.0,64778.4,38470.5,26307.9,40.61,Invoice,3
+ORD-10763,2025-05-15,Brazil,Electronics,Headphones,Wholesale,Critical,56,889.35,426.11,49803.6,0.1,4980.36,44823.24,23862.16,20961.08,46.76,Crypto,5
+ORD-10757,2025-05-15,Japan,Groceries,Organic Foods,Wholesale,High,9,86.8,54.78,781.2,0.0,0.0,781.2,493.02,288.18,36.89,Crypto,5
+ORD-10853,2025-05-17,Brazil,Clothing,Women's Apparel,Direct Sales,Critical,100,1057.02,560.08,105702.0,0.0,0.0,105702.0,56008.0,49694.0,47.01,PayPal,2
+ORD-10748,2025-05-17,Japan,Automotive,Oils & Fluids,Direct Sales,Medium,38,1191.85,838.25,45290.3,0.1,4529.03,40761.27,31853.5,8907.77,21.85,Bank Transfer,5
+ORD-10708,2025-05-19,United Kingdom,Automotive,Car Electronics,Wholesale,Low,96,925.09,535.36,88808.64,0.05,4440.43,84368.21,51394.56,32973.65,39.08,Crypto,4
+ORD-10554,2025-05-21,Canada,Beauty & Personal Care,Fragrance,Wholesale,High,33,997.94,664.23,32932.02,0.0,0.0,32932.02,21919.59,11012.43,33.44,PayPal,4
+ORD-10464,2025-05-21,Japan,Electronics,Smartwatches,Direct Sales,Medium,81,844.86,341.27,68433.66,0.05,3421.68,65011.98,27642.87,37369.11,57.48,Invoice,3
+ORD-10499,2025-05-21,Australia,Beauty & Personal Care,Makeup,Wholesale,Low,130,93.38,39.47,12139.4,0.0,0.0,12139.4,5131.1,7008.3,57.73,Invoice,5
+ORD-10580,2025-05-21,Canada,Electronics,Laptops,Direct Sales,Medium,128,735.53,369.49,94147.84,0.05,4707.39,89440.45,47294.72,42145.73,47.12,Bank Transfer,5
+ORD-10611,2025-05-22,Germany,Automotive,Car Electronics,Online,High,141,855.96,675.65,120690.36,0.1,12069.04,108621.32,95266.65,13354.67,12.29,Credit Card,4
+ORD-10052,2025-05-23,Canada,Furniture,Sofas,Online,Critical,61,850.71,351.03,51893.31,0.15,7784.0,44109.31,21412.83,22696.48,51.46,Credit Card,4
+ORD-10140,2025-05-23,France,Clothing,Men's Apparel,Online,Medium,142,1085.29,535.16,154111.18,0.1,15411.12,138700.06,75992.72,62707.34,45.21,Invoice,4
+ORD-10435,2025-05-24,Germany,Groceries,Confectionery,In-Store,Low,140,464.74,242.0,65063.6,0.0,0.0,65063.6,33880.0,31183.6,47.93,Credit Card,4
+ORD-10380,2025-05-24,Japan,Groceries,Organic Foods,Direct Sales,Low,80,972.5,729.57,77800.0,0.0,0.0,77800.0,58365.6,19434.4,24.98,Crypto,5
+ORD-10061,2025-05-25,India,Electronics,Smartwatches,In-Store,High,5,396.98,281.61,1984.9,0.0,0.0,1984.9,1408.05,576.85,29.06,Crypto,3
+ORD-10647,2025-05-25,Germany,Sports & Outdoors,Fitness Equipment,Online,Low,148,315.45,216.26,46686.6,0.05,2334.33,44352.27,32006.48,12345.79,27.84,Credit Card,1
+ORD-10938,2025-05-26,France,Groceries,Beverages,Direct Sales,High,48,558.5,389.53,26808.0,0.2,5361.6,21446.4,18697.44,2748.96,12.82,PayPal,3
+ORD-10012,2025-05-27,United Kingdom,Beauty & Personal Care,Personal Hygiene,Direct Sales,High,129,982.76,527.47,126776.04,0.0,0.0,126776.04,68043.63,58732.41,46.33,Bank Transfer,4
+ORD-10786,2025-05-27,France,Automotive,Tools & Equipment,Online,High,139,1059.19,590.88,147227.41,0.1,14722.74,132504.67,82132.32,50372.35,38.02,PayPal,3
+ORD-10172,2025-05-27,Japan,Clothing,Footwear,Online,Medium,31,883.5,622.9,27388.5,0.15,4108.27,23280.23,19309.9,3970.33,17.05,PayPal,5
+ORD-10686,2025-05-27,United Kingdom,Beauty & Personal Care,Makeup,Wholesale,Low,115,1015.3,770.64,116759.5,0.0,0.0,116759.5,88623.6,28135.9,24.1,Crypto,5
+ORD-10161,2025-05-28,United Kingdom,Sports & Outdoors,Camping Gear,Direct Sales,Medium,126,719.23,316.82,90622.98,0.1,9062.3,81560.68,39919.32,41641.36,51.06,Bank Transfer,5
+ORD-10332,2025-05-28,Canada,Toys & Games,Puzzles,Wholesale,Low,123,107.18,82.5,13183.14,0.0,0.0,13183.14,10147.5,3035.64,23.03,PayPal,4
+ORD-10975,2025-05-28,Brazil,Clothing,Women's Apparel,Wholesale,Medium,41,849.08,628.42,34812.28,0.05,1740.61,33071.67,25765.22,7306.45,22.09,Bank Transfer,3
+ORD-10108,2025-05-29,France,Toys & Games,Building Blocks,Direct Sales,Low,86,906.29,460.15,77940.94,0.05,3897.05,74043.89,39572.9,34470.99,46.55,Crypto,3
+ORD-10188,2025-05-29,Brazil,Toys & Games,Board Games,Direct Sales,Low,13,79.13,35.18,1028.69,0.05,51.43,977.26,457.34,519.92,53.2,Invoice,2
+ORD-10969,2025-05-30,Brazil,Automotive,Tires & Wheels,In-Store,Low,54,889.56,468.98,48036.24,0.1,4803.62,43232.62,25324.92,17907.7,41.42,Crypto,4
+ORD-10311,2025-05-30,Australia,Clothing,Accessories,Wholesale,High,137,728.2,483.38,99763.4,0.1,9976.34,89787.06,66223.06,23564.0,26.24,Credit Card,3
+ORD-10828,2025-05-30,Germany,Furniture,Sofas,Wholesale,Medium,42,234.16,126.53,9834.72,0.15,1475.21,8359.51,5314.26,3045.25,36.43,Crypto,5
+ORD-10832,2025-06-03,Australia,Furniture,Dining Tables,Wholesale,High,60,645.37,411.99,38722.2,0.0,0.0,38722.2,24719.4,14002.8,36.16,Crypto,4
+ORD-10206,2025-06-03,Germany,Beauty & Personal Care,Haircare,Wholesale,Medium,105,282.15,220.79,29625.75,0.0,0.0,29625.75,23182.95,6442.8,21.75,Crypto,3
+ORD-10163,2025-06-04,Japan,Clothing,Footwear,In-Store,Medium,6,909.89,530.84,5459.34,0.0,0.0,5459.34,3185.04,2274.3,41.66,Crypto,5
+ORD-10944,2025-06-04,India,Groceries,Snacks,In-Store,Medium,24,58.18,32.65,1396.32,0.15,209.45,1186.87,783.6,403.27,33.98,Bank Transfer,3
+ORD-10419,2025-06-04,France,Clothing,Accessories,Direct Sales,Medium,69,226.36,129.51,15618.84,0.0,0.0,15618.84,8936.19,6682.65,42.79,Crypto,4
+ORD-10536,2025-06-07,United States,Groceries,Organic Foods,Direct Sales,Low,82,120.09,52.88,9847.38,0.0,0.0,9847.38,4336.16,5511.22,55.97,PayPal,4
+ORD-10014,2025-06-07,Brazil,Clothing,Men's Apparel,In-Store,Low,14,892.61,606.56,12496.54,0.05,624.83,11871.71,8491.84,3379.87,28.47,Credit Card,2
+ORD-10057,2025-06-08,Germany,Sports & Outdoors,Athletic Wear,Online,Medium,108,923.59,555.94,99747.72,0.05,4987.39,94760.33,60041.52,34718.81,36.64,PayPal,4
+ORD-10126,2025-06-10,Canada,Sports & Outdoors,Athletic Wear,Wholesale,Medium,71,823.67,509.06,58480.57,0.2,11696.11,46784.46,36143.26,10641.2,22.75,Crypto,5
+ORD-10006,2025-06-10,United States,Sports & Outdoors,Bicycles,In-Store,Medium,114,799.61,376.79,91155.54,0.2,18231.11,72924.43,42954.06,29970.37,41.1,Credit Card,4
+ORD-10941,2025-06-10,Canada,Automotive,Interior Accessories,Wholesale,Medium,8,31.96,19.76,255.68,0.1,25.57,230.11,158.08,72.03,31.3,PayPal,4
+ORD-10135,2025-06-11,Germany,Beauty & Personal Care,Haircare,Wholesale,High,128,25.0,15.6,3200.0,0.05,160.0,3040.0,1996.8,1043.2,34.32,Credit Card,5
+ORD-10294,2025-06-11,Australia,Automotive,Interior Accessories,Direct Sales,High,132,383.51,259.41,50623.32,0.0,0.0,50623.32,34242.12,16381.2,32.36,Credit Card,4
+ORD-10046,2025-06-11,United Kingdom,Groceries,Beverages,Online,High,18,1038.59,612.02,18694.62,0.2,3738.92,14955.7,11016.36,3939.34,26.34,Credit Card,5
+ORD-10882,2025-06-12,United Kingdom,Toys & Games,Board Games,Wholesale,Critical,19,1013.74,684.63,19261.06,0.0,0.0,19261.06,13007.97,6253.09,32.46,Crypto,3
+ORD-10685,2025-06-12,Brazil,Clothing,Accessories,In-Store,High,75,211.58,137.17,15868.5,0.1,1586.85,14281.65,10287.75,3993.9,27.97,Crypto,2
+ORD-10132,2025-06-13,France,Sports & Outdoors,Fitness Equipment,Wholesale,Low,104,629.03,364.23,65419.12,0.05,3270.96,62148.16,37879.92,24268.24,39.05,Bank Transfer,3
+ORD-10551,2025-06-13,Australia,Sports & Outdoors,Camping Gear,In-Store,High,104,503.18,354.73,52330.72,0.15,7849.61,44481.11,36891.92,7589.19,17.06,Invoice,3
+ORD-10470,2025-06-15,Japan,Sports & Outdoors,Outdoor Accessories,In-Store,Medium,64,659.06,298.8,42179.84,0.1,4217.98,37961.86,19123.2,18838.66,49.63,Bank Transfer,3
+ORD-10469,2025-06-15,Canada,Groceries,Pantry Staples,Online,Medium,113,1002.85,632.74,113322.05,0.05,5666.1,107655.95,71499.62,36156.33,33.59,Bank Transfer,4
+ORD-10705,2025-06-15,Germany,Clothing,Women's Apparel,Online,Medium,31,598.05,414.3,18539.55,0.0,0.0,18539.55,12843.3,5696.25,30.72,Bank Transfer,3
+ORD-10729,2025-06-16,India,Beauty & Personal Care,Makeup,Direct Sales,Medium,112,355.08,231.36,39768.96,0.0,0.0,39768.96,25912.32,13856.64,34.84,Credit Card,1
+ORD-10984,2025-06-16,Germany,Automotive,Car Electronics,Wholesale,Medium,111,1122.12,642.8,124555.32,0.05,6227.77,118327.55,71350.8,46976.75,39.7,Bank Transfer,4
+ORD-10856,2025-06-17,Germany,Automotive,Oils & Fluids,Direct Sales,Low,26,681.31,450.74,17714.06,0.15,2657.11,15056.95,11719.24,3337.71,22.17,Crypto,3
+ORD-10369,2025-06-17,United Kingdom,Automotive,Oils & Fluids,Wholesale,Low,19,754.56,467.99,14336.64,0.05,716.83,13619.81,8891.81,4728.0,34.71,Crypto,3
+ORD-10027,2025-06-19,Canada,Toys & Games,Puzzles,Wholesale,Low,18,1127.49,811.24,20294.82,0.2,4058.96,16235.86,14602.32,1633.54,10.06,Invoice,2
+ORD-10038,2025-06-19,Germany,Automotive,Tires & Wheels,In-Store,Low,133,1058.24,792.34,140745.92,0.0,0.0,140745.92,105381.22,35364.7,25.13,Bank Transfer,2
+ORD-10203,2025-06-19,Brazil,Furniture,Bookshelves,In-Store,Medium,121,489.29,370.81,59204.09,0.0,0.0,59204.09,44868.01,14336.08,24.21,Invoice,3
+ORD-10441,2025-06-19,Japan,Automotive,Interior Accessories,Online,Medium,132,844.31,476.44,111448.92,0.05,5572.45,105876.47,62890.08,42986.39,40.6,Bank Transfer,5
+ORD-10307,2025-06-20,India,Automotive,Oils & Fluids,In-Store,High,108,1100.54,719.94,118858.32,0.05,5942.92,112915.4,77753.52,35161.88,31.14,PayPal,2
+ORD-10400,2025-06-20,United States,Electronics,Headphones,Wholesale,Critical,71,609.41,457.89,43268.11,0.2,8653.62,34614.49,32510.19,2104.3,6.08,PayPal,4
+ORD-10107,2025-06-21,United Kingdom,Toys & Games,Board Games,Direct Sales,Critical,122,980.98,730.39,119679.56,0.1,11967.96,107711.6,89107.58,18604.02,17.27,Credit Card,4
+ORD-10800,2025-06-21,United States,Electronics,Smartwatches,Direct Sales,Medium,7,696.69,374.06,4876.83,0.0,0.0,4876.83,2618.42,2258.41,46.31,Bank Transfer,4
+ORD-10904,2025-06-23,Germany,Furniture,Dining Tables,Wholesale,Low,65,980.1,425.26,63706.5,0.05,3185.32,60521.18,27641.9,32879.28,54.33,Credit Card,4
+ORD-10516,2025-06-23,France,Clothing,Outerwear,Direct Sales,Low,87,316.76,215.57,27558.12,0.0,0.0,27558.12,18754.59,8803.53,31.95,Bank Transfer,4
+ORD-10885,2025-06-24,Germany,Sports & Outdoors,Athletic Wear,Wholesale,High,66,331.83,185.87,21900.78,0.15,3285.12,18615.66,12267.42,6348.24,34.1,PayPal,1
+ORD-10744,2025-06-25,United Kingdom,Automotive,Interior Accessories,Wholesale,High,101,737.68,500.45,74505.68,0.0,0.0,74505.68,50545.45,23960.23,32.16,PayPal,2
+ORD-10591,2025-06-25,United States,Furniture,Bookshelves,Online,Medium,125,887.47,668.16,110933.75,0.05,5546.69,105387.06,83520.0,21867.06,20.75,PayPal,4
+ORD-10655,2025-06-27,Canada,Clothing,Men's Apparel,In-Store,Critical,128,868.94,375.41,111224.32,0.0,0.0,111224.32,48052.48,63171.84,56.8,Invoice,4
+ORD-10256,2025-06-27,United Kingdom,Furniture,Desks,In-Store,High,128,663.72,407.06,84956.16,0.05,4247.81,80708.35,52103.68,28604.67,35.44,PayPal,4
+ORD-10347,2025-06-27,India,Sports & Outdoors,Bicycles,Direct Sales,Medium,36,652.93,281.88,23505.48,0.05,1175.27,22330.21,10147.68,12182.53,54.56,Credit Card,4
+ORD-10691,2025-06-28,Canada,Electronics,Laptops,Online,Low,66,1106.49,499.52,73028.34,0.05,3651.42,69376.92,32968.32,36408.6,52.48,Invoice,2
+ORD-10354,2025-06-28,Australia,Electronics,Smartphones,In-Store,Low,42,347.2,255.16,14582.4,0.05,729.12,13853.28,10716.72,3136.56,22.64,Bank Transfer,2
+ORD-10552,2025-06-29,Japan,Clothing,Outerwear,Direct Sales,Low,22,502.82,341.49,11062.04,0.0,0.0,11062.04,7512.78,3549.26,32.09,PayPal,3
+ORD-10798,2025-06-29,Germany,Groceries,Snacks,Direct Sales,Medium,1,197.82,139.61,197.82,0.05,9.89,187.93,139.61,48.32,25.71,Invoice,2
+ORD-10405,2025-06-29,Japan,Automotive,Interior Accessories,Wholesale,High,149,464.73,210.48,69244.77,0.0,0.0,69244.77,31361.52,37883.25,54.71,Bank Transfer,4
+ORD-10345,2025-06-30,Japan,Beauty & Personal Care,Haircare,In-Store,Medium,7,782.03,611.41,5474.21,0.0,0.0,5474.21,4279.87,1194.34,21.82,Bank Transfer,3
+ORD-10774,2025-06-30,India,Groceries,Pantry Staples,Wholesale,Medium,117,1103.66,838.74,129128.22,0.05,6456.41,122671.81,98132.58,24539.23,20.0,Credit Card,5
+ORD-10437,2025-06-30,United States,Automotive,Car Electronics,Direct Sales,Critical,51,253.71,182.47,12939.21,0.1,1293.92,11645.29,9305.97,2339.32,20.09,Crypto,4
+ORD-10438,2025-07-01,United Kingdom,Furniture,Sofas,In-Store,Critical,146,65.92,35.3,9624.32,0.05,481.22,9143.1,5153.8,3989.3,43.63,Bank Transfer,5
+ORD-10607,2025-07-05,Canada,Toys & Games,Board Games,Wholesale,High,136,775.61,391.69,105482.96,0.0,0.0,105482.96,53269.84,52213.12,49.5,Credit Card,3
+ORD-10291,2025-07-05,United Kingdom,Toys & Games,Puzzles,Direct Sales,Medium,48,1003.14,776.62,48150.72,0.0,0.0,48150.72,37277.76,10872.96,22.58,Bank Transfer,5
+ORD-10279,2025-07-06,Japan,Automotive,Tools & Equipment,Online,Medium,131,227.58,166.2,29812.98,0.0,0.0,29812.98,21772.2,8040.78,26.97,Crypto,4
+ORD-10176,2025-07-07,Canada,Sports & Outdoors,Outdoor Accessories,Wholesale,Medium,16,821.28,365.61,13140.48,0.1,1314.05,11826.43,5849.76,5976.67,50.54,Invoice,4
+ORD-10177,2025-07-07,Canada,Furniture,Desks,Online,High,34,344.4,248.45,11709.6,0.15,1756.44,9953.16,8447.3,1505.86,15.13,PayPal,1
+ORD-10693,2025-07-07,India,Automotive,Car Electronics,In-Store,Medium,55,1010.08,665.86,55554.4,0.0,0.0,55554.4,36622.3,18932.1,34.08,Crypto,5
+ORD-10323,2025-07-08,United Kingdom,Automotive,Oils & Fluids,Direct Sales,High,116,541.27,350.48,62787.32,0.1,6278.73,56508.59,40655.68,15852.91,28.05,Crypto,4
+ORD-10095,2025-07-09,United Kingdom,Automotive,Tools & Equipment,Online,Medium,103,282.38,139.23,29085.14,0.0,0.0,29085.14,14340.69,14744.45,50.69,Crypto,4
+ORD-10105,2025-07-09,Canada,Furniture,Dining Tables,Direct Sales,Medium,2,726.24,459.69,1452.48,0.1,145.25,1307.23,919.38,387.85,29.67,Invoice,3
+ORD-10543,2025-07-10,Germany,Clothing,Footwear,Wholesale,Critical,123,1005.19,488.71,123638.37,0.0,0.0,123638.37,60111.33,63527.04,51.38,PayPal,3
+ORD-10699,2025-07-10,Canada,Electronics,Laptops,Wholesale,High,54,547.45,406.59,29562.3,0.15,4434.34,25127.96,21955.86,3172.1,12.62,Crypto,4
+ORD-10337,2025-07-12,Germany,Sports & Outdoors,Fitness Equipment,Online,Medium,84,821.81,432.35,69032.04,0.0,0.0,69032.04,36317.4,32714.64,47.39,PayPal,4
+ORD-10571,2025-07-12,United Kingdom,Toys & Games,Action Figures,In-Store,Medium,77,585.62,303.26,45092.74,0.0,0.0,45092.74,23351.02,21741.72,48.22,Credit Card,4
+ORD-10821,2025-07-15,Brazil,Toys & Games,Educational Toys,Wholesale,Medium,26,300.64,187.64,7816.64,0.0,0.0,7816.64,4878.64,2938.0,37.59,Bank Transfer,4
+ORD-10195,2025-07-18,Germany,Electronics,Laptops,Online,High,45,338.72,268.49,15242.4,0.05,762.12,14480.28,12082.05,2398.23,16.56,Invoice,4
+ORD-10023,2025-07-19,India,Furniture,Office Chairs,Direct Sales,Medium,109,807.2,337.14,87984.8,0.05,4399.24,83585.56,36748.26,46837.3,56.04,Credit Card,3
+ORD-10101,2025-07-19,United States,Automotive,Car Electronics,Direct Sales,Medium,69,887.55,536.87,61240.95,0.1,6124.1,55116.85,37044.03,18072.82,32.79,Crypto,1
+ORD-10924,2025-07-19,United Kingdom,Automotive,Tools & Equipment,Wholesale,Critical,80,1063.0,722.65,85040.0,0.05,4252.0,80788.0,57812.0,22976.0,28.44,Invoice,4
+ORD-10175,2025-07-20,United States,Beauty & Personal Care,Makeup,In-Store,Low,23,590.28,254.45,13576.44,0.05,678.82,12897.62,5852.35,7045.27,54.62,PayPal,3
+ORD-10525,2025-07-21,Brazil,Sports & Outdoors,Bicycles,Wholesale,High,127,260.45,176.02,33077.15,0.15,4961.57,28115.58,22354.54,5761.04,20.49,Invoice,3
+ORD-10214,2025-07-21,Canada,Automotive,Car Electronics,Online,Critical,10,583.42,317.78,5834.2,0.15,875.13,4959.07,3177.8,1781.27,35.92,Credit Card,2
+ORD-10738,2025-07-21,France,Furniture,Office Chairs,Direct Sales,Critical,34,1051.18,761.4,35740.12,0.2,7148.02,28592.1,25887.6,2704.5,9.46,Crypto,5
+ORD-10577,2025-07-21,Germany,Clothing,Outerwear,In-Store,High,43,242.48,105.41,10426.64,0.05,521.33,9905.31,4532.63,5372.68,54.24,Crypto,1
+ORD-10627,2025-07-23,France,Toys & Games,Building Blocks,Wholesale,High,20,382.16,227.16,7643.2,0.1,764.32,6878.88,4543.2,2335.68,33.95,Bank Transfer,5
+ORD-10968,2025-07-23,Germany,Sports & Outdoors,Camping Gear,In-Store,Medium,113,290.21,132.07,32793.73,0.05,1639.69,31154.04,14923.91,16230.13,52.1,Bank Transfer,4
+ORD-10237,2025-07-24,Germany,Toys & Games,Educational Toys,Wholesale,Medium,68,259.93,133.19,17675.24,0.1,1767.52,15907.72,9056.92,6850.8,43.07,Bank Transfer,4
+ORD-10377,2025-07-25,Germany,Clothing,Accessories,Wholesale,Low,31,1159.11,646.11,35932.41,0.0,0.0,35932.41,20029.41,15903.0,44.26,Bank Transfer,5
+ORD-10065,2025-07-25,Germany,Beauty & Personal Care,Personal Hygiene,In-Store,Critical,43,30.68,16.24,1319.24,0.2,263.85,1055.39,698.32,357.07,33.83,PayPal,4
+ORD-10213,2025-07-25,India,Toys & Games,Puzzles,Wholesale,High,39,272.38,192.03,10622.82,0.05,531.14,10091.68,7489.17,2602.51,25.79,Credit Card,4
+ORD-10684,2025-07-26,Brazil,Clothing,Women's Apparel,Direct Sales,Medium,10,901.69,708.62,9016.9,0.0,0.0,9016.9,7086.2,1930.7,21.41,PayPal,3
+ORD-10762,2025-07-26,France,Sports & Outdoors,Fitness Equipment,Direct Sales,Medium,44,830.04,519.63,36521.76,0.15,5478.26,31043.5,22863.72,8179.78,26.35,Credit Card,5
+ORD-10760,2025-07-27,India,Clothing,Accessories,Direct Sales,Medium,96,1090.37,618.93,104675.52,0.1,10467.55,94207.97,59417.28,34790.69,36.93,PayPal,4
+ORD-10485,2025-07-28,United States,Sports & Outdoors,Athletic Wear,Online,Medium,3,857.54,403.35,2572.62,0.0,0.0,2572.62,1210.05,1362.57,52.96,Invoice,1
+ORD-10301,2025-07-28,Japan,Toys & Games,Puzzles,Online,High,17,400.53,193.71,6809.01,0.0,0.0,6809.01,3293.07,3515.94,51.64,Credit Card,4
+ORD-10871,2025-07-28,Germany,Furniture,Dining Tables,Direct Sales,Medium,116,393.58,253.53,45655.28,0.15,6848.29,38806.99,29409.48,9397.51,24.22,PayPal,3
+ORD-10454,2025-07-29,United States,Toys & Games,Puzzles,Wholesale,Low,129,422.88,242.19,54551.52,0.1,5455.15,49096.37,31242.51,17853.86,36.36,Invoice,5
+ORD-10141,2025-07-29,United Kingdom,Electronics,Headphones,Wholesale,Medium,91,473.81,261.45,43116.71,0.0,0.0,43116.71,23791.95,19324.76,44.82,Crypto,4
+ORD-10455,2025-07-30,Germany,Electronics,Tablets,Online,High,10,320.41,129.33,3204.1,0.05,160.21,3043.89,1293.3,1750.59,57.51,Invoice,4
+ORD-10520,2025-07-31,Canada,Beauty & Personal Care,Fragrance,Online,High,39,1156.08,886.73,45087.12,0.1,4508.71,40578.41,34582.47,5995.94,14.78,Invoice,2
+ORD-10662,2025-08-01,Germany,Electronics,Laptops,Wholesale,High,11,1046.89,837.05,11515.79,0.05,575.79,10940.0,9207.55,1732.45,15.84,Credit Card,5
+ORD-10858,2025-08-01,France,Toys & Games,Educational Toys,Wholesale,Medium,91,764.18,393.21,69540.38,0.1,6954.04,62586.34,35782.11,26804.23,42.83,Credit Card,2
+ORD-10098,2025-08-01,Germany,Furniture,Dining Tables,Online,Low,139,550.71,406.28,76548.69,0.0,0.0,76548.69,56472.92,20075.77,26.23,Bank Transfer,2
+ORD-10599,2025-08-03,Germany,Furniture,Bookshelves,In-Store,Critical,70,288.58,122.35,20200.6,0.05,1010.03,19190.57,8564.5,10626.07,55.37,Invoice,5
+ORD-10479,2025-08-05,Brazil,Groceries,Beverages,Online,High,21,312.57,203.93,6563.97,0.0,0.0,6563.97,4282.53,2281.44,34.76,Invoice,4
+ORD-10989,2025-08-05,Germany,Furniture,Sofas,In-Store,Low,17,1178.63,516.83,20036.71,0.05,1001.84,19034.87,8786.11,10248.76,53.84,Bank Transfer,4
+ORD-10900,2025-08-05,Germany,Electronics,Laptops,Wholesale,High,141,1183.79,726.18,166914.39,0.0,0.0,166914.39,102391.38,64523.01,38.66,Bank Transfer,3
+ORD-10259,2025-08-05,Brazil,Toys & Games,Puzzles,Direct Sales,Medium,104,803.46,351.7,83559.84,0.1,8355.98,75203.86,36576.8,38627.06,51.36,Credit Card,4
+ORD-10032,2025-08-06,India,Electronics,Laptops,Wholesale,High,5,78.83,62.09,394.15,0.15,59.12,335.03,310.45,24.58,7.34,PayPal,4
+ORD-10854,2025-08-06,Brazil,Automotive,Car Electronics,In-Store,Low,73,1004.23,467.03,73308.79,0.15,10996.32,62312.47,34093.19,28219.28,45.29,Credit Card,3
+ORD-10650,2025-08-07,India,Clothing,Accessories,Wholesale,Medium,46,1191.4,849.98,54804.4,0.15,8220.66,46583.74,39099.08,7484.66,16.07,Invoice,4
+ORD-10922,2025-08-07,Japan,Groceries,Beverages,Online,Critical,64,743.36,575.7,47575.04,0.2,9515.01,38060.03,36844.8,1215.23,3.19,PayPal,5
+ORD-10449,2025-08-07,France,Beauty & Personal Care,Fragrance,Direct Sales,Medium,25,1151.06,526.18,28776.5,0.05,1438.82,27337.68,13154.5,14183.18,51.88,Credit Card,3
+ORD-10869,2025-08-08,France,Electronics,Laptops,Wholesale,Critical,149,742.58,325.26,110644.42,0.2,22128.88,88515.54,48463.74,40051.8,45.25,Invoice,4
+ORD-10593,2025-08-13,United Kingdom,Beauty & Personal Care,Personal Hygiene,Wholesale,Critical,62,1087.85,859.44,67446.7,0.0,0.0,67446.7,53285.28,14161.42,21.0,Bank Transfer,3
+ORD-10509,2025-08-14,United Kingdom,Furniture,Desks,Wholesale,Medium,120,1027.65,558.53,123318.0,0.05,6165.9,117152.1,67023.6,50128.5,42.79,PayPal,2
+ORD-10031,2025-08-14,India,Automotive,Tools & Equipment,Direct Sales,Medium,148,1007.01,495.68,149037.48,0.1,14903.75,134133.73,73360.64,60773.09,45.31,Bank Transfer,1
+ORD-10131,2025-08-15,Japan,Automotive,Tools & Equipment,Wholesale,High,147,534.88,255.8,78627.36,0.0,0.0,78627.36,37602.6,41024.76,52.18,Invoice,5
+ORD-10728,2025-08-16,Canada,Furniture,Dining Tables,In-Store,Medium,16,945.91,385.2,15134.56,0.05,756.73,14377.83,6163.2,8214.63,57.13,Invoice,3
+ORD-10695,2025-08-16,India,Beauty & Personal Care,Fragrance,Wholesale,Critical,46,1109.82,454.76,51051.72,0.05,2552.59,48499.13,20918.96,27580.17,56.87,PayPal,3
+ORD-10351,2025-08-17,Japan,Toys & Games,Puzzles,Wholesale,Critical,149,25.36,12.44,3778.64,0.05,188.93,3589.71,1853.56,1736.15,48.36,Crypto,4
+ORD-10408,2025-08-17,India,Furniture,Office Chairs,Direct Sales,Low,137,417.98,185.83,57263.26,0.05,2863.16,54400.1,25458.71,28941.39,53.2,Bank Transfer,4
+ORD-10932,2025-08-18,India,Beauty & Personal Care,Haircare,Direct Sales,Low,119,557.78,231.91,66375.82,0.0,0.0,66375.82,27597.29,38778.53,58.42,Invoice,4
+ORD-10308,2025-08-18,Canada,Furniture,Dining Tables,Online,Medium,60,538.25,407.69,32295.0,0.1,3229.5,29065.5,24461.4,4604.1,15.84,Bank Transfer,3
+ORD-10178,2025-08-19,France,Automotive,Car Electronics,Online,High,13,728.16,395.48,9466.08,0.05,473.3,8992.78,5141.24,3851.54,42.83,Credit Card,4
+ORD-10781,2025-08-19,Brazil,Clothing,Women's Apparel,In-Store,High,128,1174.35,850.24,150316.8,0.05,7515.84,142800.96,108830.72,33970.24,23.79,PayPal,4
+ORD-10462,2025-08-19,Brazil,Electronics,Smartwatches,In-Store,High,137,268.77,146.93,36821.49,0.0,0.0,36821.49,20129.41,16692.08,45.33,Invoice,5
+ORD-10530,2025-08-23,United States,Groceries,Pantry Staples,In-Store,Medium,140,709.87,473.33,99381.8,0.0,0.0,99381.8,66266.2,33115.6,33.32,Crypto,4
+ORD-10015,2025-08-23,Germany,Furniture,Desks,Online,Low,37,31.88,24.41,1179.56,0.0,0.0,1179.56,903.17,276.39,23.43,Invoice,4
+ORD-10545,2025-08-24,Australia,Groceries,Confectionery,In-Store,Medium,111,1020.87,629.35,113316.57,0.1,11331.66,101984.91,69857.85,32127.06,31.5,PayPal,2
+ORD-10298,2025-08-25,Japan,Sports & Outdoors,Outdoor Accessories,Online,High,2,889.25,367.24,1778.5,0.1,177.85,1600.65,734.48,866.17,54.11,Invoice,3
+ORD-10230,2025-08-25,Germany,Groceries,Beverages,In-Store,Low,54,399.18,301.79,21555.72,0.0,0.0,21555.72,16296.66,5259.06,24.4,Credit Card,4
+ORD-10550,2025-08-27,Brazil,Furniture,Office Chairs,Online,Medium,139,565.35,238.06,78583.65,0.0,0.0,78583.65,33090.34,45493.31,57.89,PayPal,4
+ORD-10940,2025-08-27,Brazil,Sports & Outdoors,Outdoor Accessories,Direct Sales,Critical,47,151.2,94.98,7106.4,0.15,1065.96,6040.44,4464.06,1576.38,26.1,Crypto,4
+ORD-10996,2025-08-28,Japan,Sports & Outdoors,Outdoor Accessories,Wholesale,Medium,94,331.3,221.03,31142.2,0.1,3114.22,28027.98,20776.82,7251.16,25.87,Invoice,5
+ORD-10986,2025-08-28,India,Clothing,Accessories,Online,Low,43,900.79,517.82,38733.97,0.1,3873.4,34860.57,22266.26,12594.31,36.13,Invoice,3
+ORD-10706,2025-08-29,India,Clothing,Footwear,Direct Sales,High,35,1020.03,696.09,35701.05,0.05,1785.05,33916.0,24363.15,9552.85,28.17,Crypto,5
+ORD-10718,2025-08-29,Germany,Clothing,Outerwear,In-Store,Medium,134,745.1,434.04,99843.4,0.15,14976.51,84866.89,58161.36,26705.53,31.47,Bank Transfer,3
+ORD-10315,2025-08-29,United Kingdom,Furniture,Bookshelves,Online,High,144,23.45,16.77,3376.8,0.0,0.0,3376.8,2414.88,961.92,28.49,Bank Transfer,4
+ORD-10051,2025-08-30,United States,Furniture,Office Chairs,Online,High,77,103.51,57.84,7970.27,0.0,0.0,7970.27,4453.68,3516.59,44.12,Bank Transfer,4
+ORD-10246,2025-09-02,Australia,Groceries,Snacks,Online,Medium,69,920.11,617.91,63487.59,0.1,6348.76,57138.83,42635.79,14503.04,25.38,Crypto,5
+ORD-10444,2025-09-03,France,Beauty & Personal Care,Fragrance,Direct Sales,Medium,145,568.59,422.54,82445.55,0.0,0.0,82445.55,61268.3,21177.25,25.69,Bank Transfer,3
+ORD-10613,2025-09-03,United States,Toys & Games,Puzzles,Direct Sales,High,92,160.49,118.28,14765.08,0.0,0.0,14765.08,10881.76,3883.32,26.3,Invoice,2
+ORD-10411,2025-09-04,United Kingdom,Furniture,Sofas,In-Store,Medium,92,752.85,550.9,69262.2,0.0,0.0,69262.2,50682.8,18579.4,26.82,Credit Card,5
+ORD-10280,2025-09-04,Brazil,Toys & Games,Board Games,In-Store,Medium,99,1127.29,854.03,111601.71,0.0,0.0,111601.71,84548.97,27052.74,24.24,PayPal,5
+ORD-10442,2025-09-04,Brazil,Groceries,Organic Foods,Wholesale,Medium,124,438.07,269.18,54320.68,0.1,5432.07,48888.61,33378.32,15510.29,31.73,PayPal,4
+ORD-10204,2025-09-04,Canada,Clothing,Men's Apparel,Direct Sales,Medium,71,452.35,251.95,32116.85,0.1,3211.68,28905.17,17888.45,11016.72,38.11,PayPal,2
+ORD-10515,2025-09-05,Japan,Automotive,Oils & Fluids,Online,Critical,69,69.33,31.89,4783.77,0.05,239.19,4544.58,2200.41,2344.17,51.58,Credit Card,3
+ORD-10666,2025-09-05,France,Groceries,Organic Foods,Online,High,30,333.33,161.7,9999.9,0.05,500.0,9499.9,4851.0,4648.9,48.94,Credit Card,5
+ORD-10304,2025-09-06,Australia,Groceries,Pantry Staples,Wholesale,Medium,63,1126.79,748.99,70987.77,0.0,0.0,70987.77,47186.37,23801.4,33.53,PayPal,3
+ORD-10482,2025-09-06,Brazil,Sports & Outdoors,Camping Gear,Online,High,72,892.6,598.12,64267.2,0.0,0.0,64267.2,43064.64,21202.56,32.99,Invoice,3
+ORD-10541,2025-09-07,Germany,Clothing,Outerwear,Wholesale,Medium,7,802.34,390.1,5616.38,0.0,0.0,5616.38,2730.7,2885.68,51.38,PayPal,4
+ORD-10701,2025-09-07,United Kingdom,Clothing,Women's Apparel,Direct Sales,High,128,281.88,210.44,36080.64,0.0,0.0,36080.64,26936.32,9144.32,25.34,Crypto,1
+ORD-10806,2025-09-07,Germany,Automotive,Oils & Fluids,In-Store,Medium,106,1126.65,862.63,119424.9,0.05,5971.24,113453.66,91438.78,22014.88,19.4,Invoice,4
+ORD-10976,2025-09-08,Japan,Furniture,Sofas,Online,Medium,43,1172.01,891.59,50396.43,0.0,0.0,50396.43,38338.37,12058.06,23.93,Invoice,3
+ORD-10816,2025-09-09,Japan,Sports & Outdoors,Athletic Wear,Online,High,120,768.56,477.56,92227.2,0.0,0.0,92227.2,57307.2,34920.0,37.86,Invoice,4
+ORD-10460,2025-09-09,Australia,Automotive,Interior Accessories,In-Store,Medium,45,890.1,431.15,40054.5,0.1,4005.45,36049.05,19401.75,16647.3,46.18,Bank Transfer,4
+ORD-10587,2025-09-10,Germany,Furniture,Desks,Online,Medium,52,280.38,157.73,14579.76,0.15,2186.96,12392.8,8201.96,4190.84,33.82,Credit Card,5
+ORD-10912,2025-09-10,India,Furniture,Bookshelves,Wholesale,Medium,98,1199.41,880.48,117542.18,0.15,17631.33,99910.85,86287.04,13623.81,13.64,Invoice,4
+ORD-10848,2025-09-12,Canada,Electronics,Tablets,Direct Sales,Critical,69,1052.1,758.11,72594.9,0.15,10889.23,61705.67,52309.59,9396.08,15.23,Invoice,1
+ORD-10826,2025-09-12,United States,Electronics,Tablets,Wholesale,High,114,899.81,518.69,102578.34,0.1,10257.83,92320.51,59130.66,33189.85,35.95,Credit Card,4
+ORD-10281,2025-09-12,France,Toys & Games,Building Blocks,Online,Low,31,269.67,202.15,8359.77,0.0,0.0,8359.77,6266.65,2093.12,25.04,Invoice,1
+ORD-10988,2025-09-13,Japan,Beauty & Personal Care,Haircare,In-Store,Critical,14,975.22,732.79,13653.08,0.0,0.0,13653.08,10259.06,3394.02,24.86,Invoice,4
+ORD-10895,2025-09-14,United States,Groceries,Beverages,Online,Critical,59,184.81,145.69,10903.79,0.15,1635.57,9268.22,8595.71,672.51,7.26,Bank Transfer,4
+ORD-10432,2025-09-15,France,Automotive,Interior Accessories,In-Store,Medium,16,51.91,36.26,830.56,0.1,83.06,747.5,580.16,167.34,22.39,Crypto,4
+ORD-10682,2025-09-15,Brazil,Furniture,Dining Tables,Wholesale,Low,77,976.17,705.94,75165.09,0.0,0.0,75165.09,54357.38,20807.71,27.68,Crypto,4
+ORD-10714,2025-09-16,Germany,Clothing,Accessories,Online,Critical,41,880.73,602.13,36109.93,0.0,0.0,36109.93,24687.33,11422.6,31.63,Crypto,5
+ORD-10527,2025-09-16,Germany,Toys & Games,Board Games,Wholesale,Medium,45,892.97,375.86,40183.65,0.15,6027.55,34156.1,16913.7,17242.4,50.48,Bank Transfer,5
+ORD-10777,2025-09-16,United Kingdom,Beauty & Personal Care,Makeup,In-Store,Medium,45,890.97,549.85,40093.65,0.05,2004.68,38088.97,24743.25,13345.72,35.04,Credit Card,4
+ORD-10478,2025-09-16,Germany,Automotive,Oils & Fluids,Direct Sales,Critical,149,1044.53,725.67,155634.97,0.05,7781.75,147853.22,108124.83,39728.39,26.87,PayPal,2
+ORD-10539,2025-09-18,United States,Electronics,Laptops,In-Store,Medium,63,454.29,209.23,28620.27,0.1,2862.03,25758.24,13181.49,12576.75,48.83,Invoice,5
+ORD-10721,2025-09-20,United States,Electronics,Laptops,In-Store,High,33,129.9,88.72,4286.7,0.0,0.0,4286.7,2927.76,1358.94,31.7,Invoice,2
+ORD-10053,2025-09-21,Brazil,Furniture,Sofas,In-Store,High,111,979.64,423.25,108740.04,0.15,16311.01,92429.03,46980.75,45448.28,49.17,Invoice,4
+ORD-10612,2025-09-21,Germany,Clothing,Accessories,Direct Sales,High,78,653.51,438.45,50973.78,0.1,5097.38,45876.4,34199.1,11677.3,25.45,PayPal,4
+ORD-10899,2025-09-22,Germany,Toys & Games,Building Blocks,Online,Critical,5,503.54,388.8,2517.7,0.1,251.77,2265.93,1944.0,321.93,14.21,Invoice,4
+ORD-10091,2025-09-23,India,Furniture,Office Chairs,Online,High,95,589.6,378.82,56012.0,0.1,5601.2,50410.8,35987.9,14422.9,28.61,Crypto,3
+ORD-10154,2025-09-25,United States,Sports & Outdoors,Camping Gear,Wholesale,Critical,8,1036.83,415.6,8294.64,0.1,829.46,7465.18,3324.8,4140.38,55.46,Credit Card,4
+ORD-10736,2025-09-25,United States,Groceries,Beverages,Online,Medium,124,444.13,332.81,55072.12,0.0,0.0,55072.12,41268.44,13803.68,25.06,Crypto,2
+ORD-10017,2025-09-25,India,Sports & Outdoors,Camping Gear,Online,High,122,512.22,277.39,62490.84,0.2,12498.17,49992.67,33841.58,16151.09,32.31,Credit Card,2
+ORD-10679,2025-09-25,India,Clothing,Footwear,Online,Medium,50,453.72,207.91,22686.0,0.05,1134.3,21551.7,10395.5,11156.2,51.76,Crypto,5
+ORD-10255,2025-09-26,Japan,Groceries,Organic Foods,Online,Medium,130,515.57,393.45,67024.1,0.05,3351.21,63672.89,51148.5,12524.39,19.67,Credit Card,4
+ORD-10584,2025-09-27,Germany,Sports & Outdoors,Bicycles,Direct Sales,High,55,1031.91,674.37,56755.05,0.0,0.0,56755.05,37090.35,19664.7,34.65,Bank Transfer,1
+ORD-10780,2025-09-28,France,Sports & Outdoors,Fitness Equipment,Direct Sales,Low,3,1019.62,416.17,3058.86,0.05,152.94,2905.92,1248.51,1657.41,57.04,Crypto,3
+ORD-10420,2025-09-28,United Kingdom,Sports & Outdoors,Fitness Equipment,In-Store,Low,149,1005.47,685.46,149815.03,0.15,22472.25,127342.78,102133.54,25209.24,19.8,Crypto,4
+ORD-10231,2025-09-28,Germany,Sports & Outdoors,Bicycles,Online,Medium,147,711.45,459.11,104583.15,0.05,5229.16,99353.99,67489.17,31864.82,32.07,Bank Transfer,4
+ORD-10902,2025-09-29,United Kingdom,Sports & Outdoors,Athletic Wear,Wholesale,Medium,16,443.62,179.6,7097.92,0.0,0.0,7097.92,2873.6,4224.32,59.51,Invoice,3
+ORD-10851,2025-09-29,Canada,Sports & Outdoors,Camping Gear,Wholesale,Low,81,1173.07,865.06,95018.67,0.0,0.0,95018.67,70069.86,24948.81,26.26,Credit Card,4
+ORD-10635,2025-09-30,Germany,Beauty & Personal Care,Personal Hygiene,Online,Medium,74,578.82,340.66,42832.68,0.0,0.0,42832.68,25208.84,17623.84,41.15,Credit Card,4
+ORD-10836,2025-09-30,France,Beauty & Personal Care,Makeup,Online,Medium,51,1122.24,452.74,57234.24,0.0,0.0,57234.24,23089.74,34144.5,59.66,Credit Card,4
+ORD-10412,2025-09-30,United States,Beauty & Personal Care,Skincare,Direct Sales,Medium,107,957.6,702.09,102463.2,0.2,20492.64,81970.56,75123.63,6846.93,8.35,Invoice,5
+ORD-10862,2025-10-03,Canada,Sports & Outdoors,Camping Gear,Direct Sales,Low,57,797.37,637.74,45450.09,0.0,0.0,45450.09,36351.18,9098.91,20.02,Crypto,4
+ORD-10601,2025-10-03,Germany,Sports & Outdoors,Camping Gear,Online,High,98,111.64,85.27,10940.72,0.0,0.0,10940.72,8356.46,2584.26,23.62,Bank Transfer,3
+ORD-10888,2025-10-03,United Kingdom,Furniture,Desks,In-Store,Medium,131,21.98,11.21,2879.38,0.0,0.0,2879.38,1468.51,1410.87,49.0,PayPal,4
+ORD-10934,2025-10-04,Canada,Automotive,Oils & Fluids,In-Store,Medium,72,651.14,327.56,46882.08,0.0,0.0,46882.08,23584.32,23297.76,49.69,PayPal,5
+ORD-10595,2025-10-04,United States,Automotive,Tools & Equipment,Direct Sales,High,138,936.22,726.96,129198.36,0.15,19379.75,109818.61,100320.48,9498.13,8.65,Credit Card,4
+ORD-10349,2025-10-05,Canada,Beauty & Personal Care,Fragrance,In-Store,Medium,90,339.71,263.73,30573.9,0.0,0.0,30573.9,23735.7,6838.2,22.37,Bank Transfer,5
+ORD-10165,2025-10-05,Germany,Sports & Outdoors,Outdoor Accessories,Online,Medium,109,916.66,672.33,99915.94,0.05,4995.8,94920.14,73283.97,21636.17,22.79,Bank Transfer,5
+ORD-10430,2025-10-06,Japan,Groceries,Beverages,Direct Sales,Critical,53,144.83,67.89,7675.99,0.05,383.8,7292.19,3598.17,3694.02,50.66,Bank Transfer,4
+ORD-10914,2025-10-07,Germany,Sports & Outdoors,Athletic Wear,Wholesale,Medium,68,331.06,200.15,22512.08,0.05,1125.6,21386.48,13610.2,7776.28,36.36,Bank Transfer,4
+ORD-10082,2025-10-07,United Kingdom,Beauty & Personal Care,Haircare,In-Store,Medium,109,104.51,45.38,11391.59,0.15,1708.74,9682.85,4946.42,4736.43,48.92,PayPal,4
+ORD-10384,2025-10-10,United States,Clothing,Outerwear,Wholesale,Low,75,815.21,533.49,61140.75,0.05,3057.04,58083.71,40011.75,18071.96,31.11,Crypto,4
+ORD-10624,2025-10-10,Germany,Clothing,Men's Apparel,Direct Sales,Medium,68,1167.82,570.57,79411.76,0.1,7941.18,71470.58,38798.76,32671.82,45.71,Invoice,4
+ORD-10436,2025-10-11,Brazil,Clothing,Accessories,In-Store,Critical,77,539.88,321.36,41570.76,0.1,4157.08,37413.68,24744.72,12668.96,33.86,PayPal,5
+ORD-10852,2025-10-12,India,Sports & Outdoors,Outdoor Accessories,Online,High,117,712.38,483.07,83348.46,0.0,0.0,83348.46,56519.19,26829.27,32.19,Crypto,5
+ORD-10809,2025-10-12,Brazil,Beauty & Personal Care,Skincare,In-Store,Critical,2,242.89,99.86,485.78,0.1,48.58,437.2,199.72,237.48,54.32,Credit Card,4
+ORD-10008,2025-10-13,Brazil,Clothing,Women's Apparel,Online,High,113,486.91,303.76,55020.83,0.0,0.0,55020.83,34324.88,20695.95,37.61,Credit Card,3
+ORD-10062,2025-10-14,Germany,Clothing,Women's Apparel,Online,Medium,94,183.45,106.36,17244.3,0.05,862.22,16382.08,9997.84,6384.24,38.97,Invoice,4
+ORD-10801,2025-10-15,Japan,Groceries,Beverages,Online,Medium,76,789.94,318.59,60035.44,0.1,6003.54,54031.9,24212.84,29819.06,55.19,Crypto,1
+ORD-10644,2025-10-15,Canada,Groceries,Snacks,Direct Sales,Low,81,368.73,161.44,29867.13,0.1,2986.71,26880.42,13076.64,13803.78,51.35,Credit Card,4
+ORD-10037,2025-10-16,Japan,Groceries,Organic Foods,Direct Sales,High,97,197.24,91.55,19132.28,0.0,0.0,19132.28,8880.35,10251.93,53.58,Crypto,4
+ORD-10139,2025-10-16,Germany,Sports & Outdoors,Camping Gear,In-Store,Medium,47,218.11,161.9,10251.17,0.0,0.0,10251.17,7609.3,2641.87,25.77,PayPal,4
+ORD-10925,2025-10-17,Germany,Sports & Outdoors,Camping Gear,Wholesale,Medium,89,876.04,392.98,77967.56,0.05,3898.38,74069.18,34975.22,39093.96,52.78,PayPal,2
+ORD-10335,2025-10-18,France,Electronics,Tablets,In-Store,High,95,462.18,297.11,43907.1,0.0,0.0,43907.1,28225.45,15681.65,35.72,Credit Card,4
+ORD-10250,2025-10-19,Germany,Electronics,Smartphones,Online,Medium,77,966.54,554.2,74423.58,0.2,14884.72,59538.86,42673.4,16865.46,28.33,PayPal,1
+ORD-10018,2025-10-19,United Kingdom,Furniture,Dining Tables,Online,High,11,433.25,297.91,4765.75,0.0,0.0,4765.75,3277.01,1488.74,31.24,PayPal,5
+ORD-10079,2025-10-20,Germany,Furniture,Bookshelves,Direct Sales,Medium,89,123.69,80.34,11008.41,0.05,550.42,10457.99,7150.26,3307.73,31.63,Bank Transfer,3
+ORD-10850,2025-10-20,Japan,Groceries,Organic Foods,Online,Medium,63,450.17,296.85,28360.71,0.1,2836.07,25524.64,18701.55,6823.09,26.73,Bank Transfer,4
+ORD-10566,2025-10-20,Germany,Groceries,Beverages,Wholesale,Medium,93,249.4,107.75,23194.2,0.05,1159.71,22034.49,10020.75,12013.74,54.52,PayPal,1
+ORD-10364,2025-10-21,Australia,Beauty & Personal Care,Fragrance,Direct Sales,High,46,23.18,16.04,1066.28,0.05,53.31,1012.97,737.84,275.13,27.16,Bank Transfer,5
+ORD-10870,2025-10-21,Australia,Toys & Games,Action Figures,Online,Medium,101,83.35,65.3,8418.35,0.0,0.0,8418.35,6595.3,1823.05,21.66,Bank Transfer,4
+ORD-10628,2025-10-22,France,Automotive,Tires & Wheels,In-Store,High,52,947.34,496.8,49261.68,0.0,0.0,49261.68,25833.6,23428.08,47.56,Bank Transfer,4
+ORD-10233,2025-10-23,Canada,Clothing,Women's Apparel,Online,High,82,452.92,241.5,37139.44,0.15,5570.92,31568.52,19803.0,11765.52,37.27,PayPal,4
+ORD-10267,2025-10-23,Japan,Beauty & Personal Care,Makeup,Direct Sales,Medium,94,1059.12,671.27,99557.28,0.1,9955.73,89601.55,63099.38,26502.17,29.58,Bank Transfer,5
+ORD-10493,2025-10-24,United Kingdom,Clothing,Accessories,In-Store,Medium,140,592.19,288.46,82906.6,0.0,0.0,82906.6,40384.4,42522.2,51.29,Crypto,5
+ORD-10734,2025-10-24,United States,Automotive,Tires & Wheels,In-Store,Medium,65,981.08,707.38,63770.2,0.05,3188.51,60581.69,45979.7,14601.99,24.1,Invoice,5
+ORD-10605,2025-10-24,Canada,Toys & Games,Action Figures,Direct Sales,Low,74,392.81,230.26,29067.94,0.15,4360.19,24707.75,17039.24,7668.51,31.04,PayPal,5
+ORD-10702,2025-10-25,India,Automotive,Tools & Equipment,Direct Sales,Medium,112,495.38,329.22,55482.56,0.15,8322.38,47160.18,36872.64,10287.54,21.81,Bank Transfer,3
+ORD-10894,2025-10-25,Japan,Toys & Games,Educational Toys,Online,Critical,132,416.39,296.4,54963.48,0.05,2748.17,52215.31,39124.8,13090.51,25.07,Invoice,3
+ORD-10077,2025-10-25,Brazil,Beauty & Personal Care,Fragrance,Direct Sales,Low,54,664.77,277.45,35897.58,0.05,1794.88,34102.7,14982.3,19120.4,56.07,PayPal,1
+ORD-10322,2025-10-27,Canada,Sports & Outdoors,Camping Gear,Online,Low,135,149.56,69.94,20190.6,0.0,0.0,20190.6,9441.9,10748.7,53.24,PayPal,4
+ORD-10055,2025-10-28,United Kingdom,Furniture,Bookshelves,Wholesale,Medium,136,1047.48,600.69,142457.28,0.0,0.0,142457.28,81693.84,60763.44,42.65,Invoice,4
+ORD-10472,2025-10-28,Germany,Groceries,Confectionery,Wholesale,Medium,128,539.36,409.79,69038.08,0.0,0.0,69038.08,52453.12,16584.96,24.02,Crypto,5
+ORD-10866,2025-10-28,Germany,Sports & Outdoors,Outdoor Accessories,Online,Medium,22,872.86,391.39,19202.92,0.0,0.0,19202.92,8610.58,10592.34,55.16,Invoice,5
+ORD-10480,2025-10-29,Canada,Electronics,Tablets,Direct Sales,Medium,94,910.41,576.27,85578.54,0.0,0.0,85578.54,54169.38,31409.16,36.7,Invoice,3
+ORD-10198,2025-10-29,United Kingdom,Toys & Games,Educational Toys,Direct Sales,Medium,108,1013.94,803.52,109505.52,0.1,10950.55,98554.97,86780.16,11774.81,11.95,PayPal,4
+ORD-10542,2025-10-31,United Kingdom,Furniture,Office Chairs,Direct Sales,Low,25,866.93,376.64,21673.25,0.05,1083.66,20589.59,9416.0,11173.59,54.27,PayPal,1
+ORD-10522,2025-11-01,Canada,Automotive,Tools & Equipment,In-Store,Low,55,518.77,240.89,28532.35,0.1,2853.24,25679.11,13248.95,12430.16,48.41,Crypto,2
+ORD-10889,2025-11-02,France,Furniture,Bookshelves,Wholesale,Medium,51,643.07,465.33,32796.57,0.1,3279.66,29516.91,23731.83,5785.08,19.6,Crypto,4
+ORD-10642,2025-11-02,Japan,Clothing,Women's Apparel,Wholesale,Medium,56,62.22,42.82,3484.32,0.05,174.22,3310.1,2397.92,912.18,27.56,PayPal,3
+ORD-10490,2025-11-03,Japan,Groceries,Organic Foods,Online,Low,100,208.55,160.48,20855.0,0.1,2085.5,18769.5,16048.0,2721.5,14.5,Bank Transfer,2
+ORD-10910,2025-11-03,France,Furniture,Office Chairs,Direct Sales,Medium,57,10.29,4.81,586.53,0.0,0.0,586.53,274.17,312.36,53.26,Credit Card,2
+ORD-10768,2025-11-03,Japan,Groceries,Snacks,In-Store,Low,6,10.49,6.7,62.94,0.15,9.44,53.5,40.2,13.3,24.86,Crypto,5
+ORD-10664,2025-11-03,Japan,Automotive,Car Electronics,Online,High,80,33.85,21.43,2708.0,0.1,270.8,2437.2,1714.4,722.8,29.66,Invoice,4
+ORD-10755,2025-11-04,India,Automotive,Interior Accessories,Wholesale,Medium,98,213.2,104.62,20893.6,0.05,1044.68,19848.92,10252.76,9596.16,48.35,PayPal,4
+ORD-10286,2025-11-04,India,Toys & Games,Board Games,Direct Sales,Low,98,266.45,142.39,26112.1,0.05,1305.6,24806.5,13954.22,10852.28,43.75,Crypto,2
+ORD-10860,2025-11-05,Australia,Toys & Games,Building Blocks,Online,High,20,907.19,402.94,18143.8,0.05,907.19,17236.61,8058.8,9177.81,53.25,Crypto,4
+ORD-10004,2025-11-05,India,Furniture,Sofas,Online,Low,35,483.82,297.53,16933.7,0.15,2540.05,14393.65,10413.55,3980.1,27.65,Bank Transfer,4
+ORD-10362,2025-11-05,Germany,Toys & Games,Educational Toys,Direct Sales,Medium,51,890.22,574.11,45401.22,0.0,0.0,45401.22,29279.61,16121.61,35.51,PayPal,3
+ORD-10047,2025-11-05,Brazil,Automotive,Tires & Wheels,In-Store,Medium,131,958.19,496.02,125522.89,0.15,18828.43,106694.46,64978.62,41715.84,39.1,Bank Transfer,4
+ORD-10429,2025-11-05,Germany,Automotive,Tools & Equipment,Online,Critical,13,844.03,433.9,10972.39,0.05,548.62,10423.77,5640.7,4783.07,45.89,Crypto,3
+ORD-10158,2025-11-07,Germany,Sports & Outdoors,Outdoor Accessories,In-Store,Medium,23,981.9,419.23,22583.7,0.0,0.0,22583.7,9642.29,12941.41,57.3,PayPal,4
+ORD-10010,2025-11-09,Australia,Clothing,Footwear,Wholesale,Low,54,413.73,259.73,22341.42,0.15,3351.21,18990.21,14025.42,4964.79,26.14,Invoice,3
+ORD-10121,2025-11-09,Germany,Toys & Games,Board Games,In-Store,Medium,108,171.07,119.84,18475.56,0.1,1847.56,16628.0,12942.72,3685.28,22.16,Invoice,1
+ORD-10484,2025-11-10,Japan,Sports & Outdoors,Camping Gear,In-Store,High,87,972.94,651.03,84645.78,0.05,4232.29,80413.49,56639.61,23773.88,29.56,Invoice,4
+ORD-10598,2025-11-11,Canada,Sports & Outdoors,Fitness Equipment,Wholesale,High,130,165.75,81.92,21547.5,0.15,3232.12,18315.38,10649.6,7665.78,41.85,Credit Card,4
+ORD-10950,2025-11-13,India,Furniture,Bookshelves,Direct Sales,Low,13,378.28,299.06,4917.64,0.0,0.0,4917.64,3887.78,1029.86,20.94,Crypto,3
+ORD-10596,2025-11-13,Germany,Toys & Games,Building Blocks,Online,Low,133,566.19,291.15,75303.27,0.2,15060.65,60242.62,38722.95,21519.67,35.72,Crypto,2
+ORD-10234,2025-11-15,Brazil,Toys & Games,Puzzles,In-Store,Medium,120,1185.31,612.33,142237.2,0.1,14223.72,128013.48,73479.6,54533.88,42.6,Credit Card,5
+ORD-10116,2025-11-15,United Kingdom,Toys & Games,Educational Toys,Direct Sales,High,117,948.45,575.62,110968.65,0.05,5548.43,105420.22,67347.54,38072.68,36.12,Invoice,2
+ORD-10173,2025-11-16,France,Groceries,Pantry Staples,In-Store,Medium,35,260.74,204.15,9125.9,0.0,0.0,9125.9,7145.25,1980.65,21.7,PayPal,3
+ORD-10565,2025-11-16,United Kingdom,Automotive,Interior Accessories,Direct Sales,Medium,39,204.77,104.59,7986.03,0.0,0.0,7986.03,4079.01,3907.02,48.92,Credit Card,4
+ORD-10399,2025-11-17,United Kingdom,Electronics,Headphones,Online,High,123,1026.19,415.91,126221.37,0.05,6311.07,119910.3,51156.93,68753.37,57.34,Credit Card,5
+ORD-10983,2025-11-17,Canada,Sports & Outdoors,Fitness Equipment,Direct Sales,Medium,122,265.21,113.95,32355.62,0.15,4853.34,27502.28,13901.9,13600.38,49.45,PayPal,4
+ORD-10251,2025-11-19,United Kingdom,Clothing,Footwear,Wholesale,Medium,60,870.06,576.58,52203.6,0.1,5220.36,46983.24,34594.8,12388.44,26.37,PayPal,4
+ORD-10723,2025-11-20,Germany,Beauty & Personal Care,Makeup,Online,Critical,105,21.72,10.76,2280.6,0.1,228.06,2052.54,1129.8,922.74,44.96,Invoice,4
+ORD-10758,2025-11-21,France,Toys & Games,Action Figures,Wholesale,Medium,14,550.83,266.44,7711.62,0.0,0.0,7711.62,3730.16,3981.46,51.63,Crypto,2
+ORD-10726,2025-11-22,Germany,Groceries,Pantry Staples,In-Store,High,116,707.18,558.98,82032.88,0.05,4101.64,77931.24,64841.68,13089.56,16.8,Crypto,5
+ORD-10897,2025-11-23,Canada,Groceries,Pantry Staples,Online,Medium,100,444.64,247.72,44464.0,0.1,4446.4,40017.6,24772.0,15245.6,38.1,Crypto,2
+ORD-10590,2025-11-24,United States,Furniture,Sofas,Direct Sales,Medium,132,800.7,547.29,105692.4,0.0,0.0,105692.4,72242.28,33450.12,31.65,Crypto,3
+ORD-10283,2025-11-24,Canada,Clothing,Accessories,Wholesale,Medium,8,1110.18,793.03,8881.44,0.05,444.07,8437.37,6344.24,2093.13,24.81,Crypto,4
+ORD-10618,2025-11-25,Germany,Electronics,Laptops,In-Store,High,144,297.21,128.22,42798.24,0.0,0.0,42798.24,18463.68,24334.56,56.86,Invoice,3
+ORD-10452,2025-11-25,United States,Clothing,Women's Apparel,Wholesale,High,19,882.46,704.35,16766.74,0.0,0.0,16766.74,13382.65,3384.09,20.18,PayPal,3
+ORD-10998,2025-11-25,France,Groceries,Organic Foods,Online,Low,65,809.04,405.31,52587.6,0.0,0.0,52587.6,26345.15,26242.45,49.9,Crypto,2
+ORD-10873,2025-11-25,India,Automotive,Tires & Wheels,Online,Low,119,945.99,438.71,112572.81,0.0,0.0,112572.81,52206.49,60366.32,53.62,Crypto,2
+ORD-10779,2025-11-26,Germany,Electronics,Tablets,Online,Critical,58,1084.42,604.88,62896.36,0.2,12579.27,50317.09,35083.04,15234.05,30.28,Bank Transfer,2
+ORD-10245,2025-11-26,Brazil,Automotive,Interior Accessories,Online,Medium,98,500.23,374.28,49022.54,0.05,2451.13,46571.41,36679.44,9891.97,21.24,Crypto,4
+ORD-10519,2025-11-28,France,Furniture,Dining Tables,Online,High,131,750.54,580.74,98320.74,0.0,0.0,98320.74,76076.94,22243.8,22.62,Credit Card,2
+ORD-10316,2025-11-29,Germany,Automotive,Interior Accessories,In-Store,Medium,27,683.63,478.94,18458.01,0.0,0.0,18458.01,12931.38,5526.63,29.94,Invoice,4
+ORD-10511,2025-11-29,India,Furniture,Dining Tables,Online,Medium,24,473.37,328.07,11360.88,0.1,1136.09,10224.79,7873.68,2351.11,22.99,Crypto,3
+ORD-10561,2025-11-30,Australia,Sports & Outdoors,Camping Gear,In-Store,Critical,104,522.88,269.42,54379.52,0.05,2718.98,51660.54,28019.68,23640.86,45.76,Bank Transfer,5
+ORD-10060,2025-11-30,Canada,Automotive,Oils & Fluids,Online,Low,41,304.2,227.63,12472.2,0.05,623.61,11848.59,9332.83,2515.76,21.23,Credit Card,4
+ORD-10357,2025-11-30,France,Electronics,Laptops,Online,Critical,113,778.23,325.48,87939.99,0.15,13191.0,74748.99,36779.24,37969.75,50.8,Credit Card,2
+ORD-10064,2025-11-30,Canada,Electronics,Tablets,Direct Sales,Low,1,155.31,90.22,155.31,0.15,23.3,132.01,90.22,41.79,31.66,Crypto,2
+ORD-10145,2025-11-30,India,Beauty & Personal Care,Makeup,Direct Sales,High,2,804.69,512.82,1609.38,0.15,241.41,1367.97,1025.64,342.33,25.02,Crypto,5
+ORD-10690,2025-12-02,Japan,Sports & Outdoors,Outdoor Accessories,In-Store,Medium,28,700.0,325.5,19600.0,0.1,1960.0,17640.0,9114.0,8526.0,48.33,Bank Transfer,5
+ORD-10974,2025-12-05,Australia,Automotive,Tools & Equipment,Wholesale,Medium,100,616.77,272.57,61677.0,0.15,9251.55,52425.45,27257.0,25168.45,48.01,Invoice,4
+ORD-10219,2025-12-05,France,Electronics,Tablets,Wholesale,Medium,13,1154.2,791.51,15004.6,0.2,3000.92,12003.68,10289.63,1714.05,14.28,PayPal,5
+ORD-10258,2025-12-06,United States,Beauty & Personal Care,Skincare,Online,Medium,70,504.14,380.82,35289.8,0.1,3528.98,31760.82,26657.4,5103.42,16.07,Invoice,1
+ORD-10007,2025-12-08,Brazil,Electronics,Smartphones,Direct Sales,Low,123,961.74,519.1,118294.02,0.05,5914.7,112379.32,63849.3,48530.02,43.18,Credit Card,1
+ORD-10428,2025-12-09,Australia,Groceries,Beverages,Online,Medium,84,544.4,343.54,45729.6,0.05,2286.48,43443.12,28857.36,14585.76,33.57,Crypto,5
+ORD-10049,2025-12-10,Brazil,Clothing,Accessories,Online,Low,18,819.74,457.59,14755.32,0.2,2951.06,11804.26,8236.62,3567.64,30.22,PayPal,4
+ORD-10030,2025-12-10,Germany,Beauty & Personal Care,Makeup,In-Store,High,124,506.92,381.03,62858.08,0.15,9428.71,53429.37,47247.72,6181.65,11.57,PayPal,5
+ORD-10094,2025-12-11,Canada,Toys & Games,Puzzles,In-Store,Low,56,363.85,208.17,20375.6,0.0,0.0,20375.6,11657.52,8718.08,42.79,Crypto,2
+ORD-10068,2025-12-11,Germany,Electronics,Smartphones,Wholesale,Critical,142,478.7,316.18,67975.4,0.0,0.0,67975.4,44897.56,23077.84,33.95,Invoice,3
+ORD-10985,2025-12-12,Germany,Furniture,Office Chairs,Online,Medium,112,710.84,323.91,79614.08,0.0,0.0,79614.08,36277.92,43336.16,54.43,Credit Card,4
+ORD-10625,2025-12-12,United States,Automotive,Tools & Equipment,Wholesale,Medium,124,49.21,31.3,6102.04,0.05,305.1,5796.94,3881.2,1915.74,33.05,Bank Transfer,2
+ORD-10001,2025-12-12,Germany,Sports & Outdoors,Camping Gear,Online,Medium,104,1047.83,809.81,108974.32,0.05,5448.72,103525.6,84220.24,19305.36,18.65,Invoice,5
+ORD-10367,2025-12-13,India,Sports & Outdoors,Outdoor Accessories,Online,High,90,620.68,280.67,55861.2,0.05,2793.06,53068.14,25260.3,27807.84,52.4,Invoice,3
+ORD-10149,2025-12-14,Germany,Toys & Games,Building Blocks,Online,Critical,91,894.88,539.17,81434.08,0.05,4071.7,77362.38,49064.47,28297.91,36.58,Credit Card,1
+ORD-10120,2025-12-15,France,Beauty & Personal Care,Skincare,Online,Medium,5,850.16,554.7,4250.8,0.0,0.0,4250.8,2773.5,1477.3,34.75,Bank Transfer,5
+ORD-10388,2025-12-15,Canada,Furniture,Dining Tables,Wholesale,Medium,38,85.12,47.56,3234.56,0.05,161.73,3072.83,1807.28,1265.55,41.19,Crypto,4
+ORD-10813,2025-12-17,Germany,Beauty & Personal Care,Skincare,Direct Sales,Medium,87,16.34,10.23,1421.58,0.0,0.0,1421.58,890.01,531.57,37.39,Invoice,1
+ORD-10631,2025-12-17,Germany,Furniture,Office Chairs,Wholesale,High,96,270.68,156.24,25985.28,0.05,1299.26,24686.02,14999.04,9686.98,39.24,Invoice,4
+ORD-10500,2025-12-18,Canada,Sports & Outdoors,Outdoor Accessories,In-Store,Low,74,880.93,413.67,65188.82,0.0,0.0,65188.82,30611.58,34577.24,53.04,Crypto,4
+ORD-10427,2025-12-18,Germany,Clothing,Women's Apparel,In-Store,High,32,1177.61,690.67,37683.52,0.1,3768.35,33915.17,22101.44,11813.73,34.83,Credit Card,2
+ORD-10083,2025-12-19,Japan,Electronics,Smartwatches,Online,Medium,130,806.83,345.3,104887.9,0.05,5244.4,99643.5,44889.0,54754.5,54.95,Bank Transfer,4
+ORD-10917,2025-12-20,United Kingdom,Furniture,Dining Tables,In-Store,Critical,19,431.15,276.51,8191.85,0.0,0.0,8191.85,5253.69,2938.16,35.87,Credit Card,5
+ORD-10724,2025-12-20,Canada,Electronics,Laptops,In-Store,High,87,346.17,215.34,30116.79,0.1,3011.68,27105.11,18734.58,8370.53,30.88,Bank Transfer,4
+ORD-10946,2025-12-21,France,Electronics,Laptops,In-Store,Medium,94,467.19,267.67,43915.86,0.2,8783.17,35132.69,25160.98,9971.71,28.38,Crypto,4
+ORD-10710,2025-12-22,France,Automotive,Oils & Fluids,Direct Sales,Medium,134,539.68,240.29,72317.12,0.0,0.0,72317.12,32198.86,40118.26,55.48,Crypto,4
+ORD-10262,2025-12-22,Australia,Automotive,Tires & Wheels,In-Store,Medium,85,488.78,271.88,41546.3,0.0,0.0,41546.3,23109.8,18436.5,44.38,Crypto,5
+ORD-10641,2025-12-22,Canada,Groceries,Organic Foods,Online,Low,91,581.33,357.02,52901.03,0.0,0.0,52901.03,32488.82,20412.21,38.59,Invoice,5
+ORD-10847,2025-12-23,India,Groceries,Snacks,Online,High,4,986.15,553.87,3944.6,0.0,0.0,3944.6,2215.48,1729.12,43.84,Crypto,5
+ORD-10881,2025-12-23,Japan,Furniture,Office Chairs,Direct Sales,Low,21,341.72,201.06,7176.12,0.15,1076.42,6099.7,4222.26,1877.44,30.78,Crypto,4
+ORD-10034,2025-12-23,Canada,Clothing,Men's Apparel,Direct Sales,Medium,29,1067.61,835.15,30960.69,0.15,4644.1,26316.59,24219.35,2097.24,7.97,Credit Card,3
+ORD-10570,2025-12-25,Canada,Clothing,Outerwear,In-Store,Critical,57,1161.12,589.2,66183.84,0.05,3309.19,62874.65,33584.4,29290.25,46.59,Credit Card,4
+ORD-10205,2025-12-25,Germany,Toys & Games,Board Games,In-Store,Critical,93,681.25,370.21,63356.25,0.1,6335.62,57020.63,34429.53,22591.1,39.62,Bank Transfer,5
+ORD-10637,2025-12-25,Germany,Toys & Games,Board Games,Online,Medium,5,310.79,174.87,1553.95,0.0,0.0,1553.95,874.35,679.6,43.73,Bank Transfer,5
+ORD-10160,2025-12-26,Germany,Clothing,Men's Apparel,In-Store,High,34,208.56,119.34,7091.04,0.0,0.0,7091.04,4057.56,3033.48,42.78,Credit Card,3
+ORD-10293,2025-12-26,Germany,Clothing,Footwear,Direct Sales,High,27,76.17,30.68,2056.59,0.0,0.0,2056.59,828.36,1228.23,59.72,Crypto,3
+ORD-10387,2025-12-27,Canada,Groceries,Confectionery,Direct Sales,Critical,116,657.67,519.76,76289.72,0.0,0.0,76289.72,60292.16,15997.56,20.97,Invoice,4
+ORD-10088,2025-12-27,France,Furniture,Bookshelves,Online,Medium,75,992.09,507.83,74406.75,0.15,11161.01,63245.74,38087.25,25158.49,39.78,Bank Transfer,4
+ORD-10039,2025-12-29,France,Toys & Games,Action Figures,Direct Sales,Medium,77,613.89,247.12,47269.53,0.0,0.0,47269.53,19028.24,28241.29,59.75,PayPal,5
+ORD-10654,2025-12-30,Brazil,Clothing,Women's Apparel,Online,Low,141,710.68,309.64,100205.88,0.05,5010.29,95195.59,43659.24,51536.35,54.14,Bank Transfer,5
+ORD-10137,2025-12-30,India,Sports & Outdoors,Camping Gear,In-Store,High,30,216.78,148.45,6503.4,0.1,650.34,5853.06,4453.5,1399.56,23.91,Credit Card,3
+ORD-10531,2025-12-30,Canada,Beauty & Personal Care,Fragrance,Direct Sales,High,23,1020.86,625.93,23479.78,0.05,1173.99,22305.79,14396.39,7909.4,35.46,Bank Transfer,2
+ORD-10026,2025-12-30,Australia,Automotive,Car Electronics,Direct Sales,High,141,754.81,569.42,106428.21,0.05,5321.41,101106.8,80288.22,20818.58,20.59,Bank Transfer,1
+ORD-10740,2025-12-31,United Kingdom,Automotive,Car Electronics,In-Store,Medium,59,159.7,101.53,9422.3,0.05,471.12,8951.18,5990.27,2960.91,33.08,Crypto,4
+ORD-10020,2025-12-31,Canada,Electronics,Laptops,In-Store,Low,40,876.54,524.34,35061.6,0.1,3506.16,31555.44,20973.6,10581.84,33.53,Bank Transfer,4
+ORD-10879,2026-01-01,Germany,Sports & Outdoors,Camping Gear,Direct Sales,Low,76,32.82,23.27,2494.32,0.0,0.0,2494.32,1768.52,725.8,29.1,Bank Transfer,4
+ORD-10134,2026-01-01,Japan,Clothing,Men's Apparel,Direct Sales,High,119,1160.88,658.34,138144.72,0.2,27628.94,110515.78,78342.46,32173.32,29.11,Crypto,4
+ORD-10361,2026-01-02,Canada,Furniture,Desks,Wholesale,Low,63,940.14,540.41,59228.82,0.05,2961.44,56267.38,34045.83,22221.55,39.49,PayPal,5
+ORD-10253,2026-01-03,Australia,Groceries,Snacks,Direct Sales,Low,44,893.28,418.01,39304.32,0.0,0.0,39304.32,18392.44,20911.88,53.21,Invoice,4
+ORD-10104,2026-01-03,United States,Automotive,Car Electronics,Online,Medium,49,313.94,158.32,15383.06,0.0,0.0,15383.06,7757.68,7625.38,49.57,Credit Card,4
+ORD-10994,2026-01-03,India,Sports & Outdoors,Fitness Equipment,Direct Sales,Medium,145,779.38,368.69,113010.1,0.1,11301.01,101709.09,53460.05,48249.04,47.44,Crypto,1
+ORD-10341,2026-01-04,Germany,Beauty & Personal Care,Skincare,Wholesale,High,52,878.96,479.85,45705.92,0.05,2285.3,43420.62,24952.2,18468.42,42.53,Crypto,5
+ORD-10597,2026-01-04,Canada,Sports & Outdoors,Bicycles,Direct Sales,Medium,99,647.14,462.94,64066.86,0.1,6406.69,57660.17,45831.06,11829.11,20.52,Credit Card,4
+ORD-10334,2026-01-07,Australia,Groceries,Organic Foods,In-Store,Low,97,26.22,13.87,2543.34,0.05,127.17,2416.17,1345.39,1070.78,44.32,Crypto,5
+ORD-10075,2026-01-08,Germany,Toys & Games,Puzzles,Online,High,35,701.31,305.67,24545.85,0.1,2454.58,22091.27,10698.45,11392.82,51.57,Bank Transfer,3
+ORD-10863,2026-01-09,Japan,Groceries,Snacks,Wholesale,Medium,23,1166.88,473.42,26838.24,0.05,1341.91,25496.33,10888.66,14607.67,57.29,Bank Transfer,2
+ORD-10967,2026-01-09,United Kingdom,Clothing,Outerwear,Online,Medium,7,925.69,460.92,6479.83,0.0,0.0,6479.83,3226.44,3253.39,50.21,PayPal,2
+ORD-10799,2026-01-09,Brazil,Groceries,Pantry Staples,In-Store,Medium,40,194.86,129.9,7794.4,0.05,389.72,7404.68,5196.0,2208.68,29.83,PayPal,1
+ORD-10733,2026-01-11,United Kingdom,Beauty & Personal Care,Makeup,In-Store,High,70,488.73,348.62,34211.1,0.2,6842.22,27368.88,24403.4,2965.48,10.84,Bank Transfer,4
+ORD-10890,2026-01-11,Japan,Groceries,Pantry Staples,Online,High,61,177.68,86.56,10838.48,0.05,541.92,10296.56,5280.16,5016.4,48.72,Bank Transfer,4
+ORD-10963,2026-01-11,Brazil,Clothing,Women's Apparel,Wholesale,Low,144,1117.96,725.98,160986.24,0.0,0.0,160986.24,104541.12,56445.12,35.06,PayPal,3
+ORD-10698,2026-01-12,Australia,Electronics,Headphones,Direct Sales,Medium,56,441.39,280.13,24717.84,0.05,1235.89,23481.95,15687.28,7794.67,33.19,Crypto,2
+ORD-10892,2026-01-13,Brazil,Groceries,Beverages,In-Store,Low,60,554.51,281.31,33270.6,0.1,3327.06,29943.54,16878.6,13064.94,43.63,Crypto,4
+ORD-10295,2026-01-13,France,Electronics,Smartwatches,Online,High,116,352.65,210.58,40907.4,0.0,0.0,40907.4,24427.28,16480.12,40.29,Invoice,4
+ORD-10564,2026-01-14,India,Toys & Games,Action Figures,Direct Sales,Medium,104,638.53,287.82,66407.12,0.05,3320.36,63086.76,29933.28,33153.48,52.55,Bank Transfer,4
+ORD-10417,2026-01-15,Canada,Beauty & Personal Care,Fragrance,Wholesale,Critical,12,844.03,626.46,10128.36,0.05,506.42,9621.94,7517.52,2104.42,21.87,PayPal,3
+ORD-10130,2026-01-16,India,Groceries,Snacks,Direct Sales,High,66,87.59,51.29,5780.94,0.15,867.14,4913.8,3385.14,1528.66,31.11,Credit Card,4
+ORD-10327,2026-01-16,Germany,Beauty & Personal Care,Haircare,Direct Sales,Medium,105,786.16,393.42,82546.8,0.1,8254.68,74292.12,41309.1,32983.02,44.4,Crypto,4
+ORD-10674,2026-01-16,Brazil,Groceries,Beverages,In-Store,High,19,1142.16,741.18,21701.04,0.1,2170.1,19530.94,14082.42,5448.52,27.9,Invoice,4
+ORD-10084,2026-01-16,Germany,Clothing,Women's Apparel,Wholesale,Medium,102,673.76,466.42,68723.52,0.05,3436.18,65287.34,47574.84,17712.5,27.13,Invoice,2
+ORD-10373,2026-01-16,India,Automotive,Tools & Equipment,Wholesale,High,109,960.4,742.49,104683.6,0.0,0.0,104683.6,80931.41,23752.19,22.69,PayPal,4
+ORD-10703,2026-01-16,Brazil,Beauty & Personal Care,Skincare,In-Store,Medium,108,240.52,129.48,25976.16,0.0,0.0,25976.16,13983.84,11992.32,46.17,Bank Transfer,5
+ORD-10773,2026-01-17,United States,Sports & Outdoors,Camping Gear,Direct Sales,Medium,63,352.96,177.47,22236.48,0.1,2223.65,20012.83,11180.61,8832.22,44.13,Invoice,5
+ORD-10136,2026-01-17,France,Clothing,Accessories,Direct Sales,High,116,1102.67,489.92,127909.72,0.1,12790.97,115118.75,56830.72,58288.03,50.63,Credit Card,4
+ORD-10385,2026-01-18,United States,Clothing,Accessories,Direct Sales,High,116,1121.3,628.93,130070.8,0.05,6503.54,123567.26,72955.88,50611.38,40.96,Crypto,5
+ORD-10450,2026-01-19,United States,Electronics,Tablets,Wholesale,High,40,193.88,111.64,7755.2,0.05,387.76,7367.44,4465.6,2901.84,39.39,Invoice,3
+ORD-10643,2026-01-20,Japan,Toys & Games,Educational Toys,In-Store,High,37,237.87,131.9,8801.19,0.05,440.06,8361.13,4880.3,3480.83,41.63,Bank Transfer,3
+ORD-10623,2026-01-21,United States,Furniture,Desks,Online,Critical,90,347.66,199.78,31289.4,0.05,1564.47,29724.93,17980.2,11744.73,39.51,PayPal,4
+ORD-10133,2026-01-22,United Kingdom,Clothing,Women's Apparel,Wholesale,Critical,129,49.73,27.13,6415.17,0.1,641.52,5773.65,3499.77,2273.88,39.38,PayPal,3
+ORD-10586,2026-01-22,Germany,Furniture,Bookshelves,In-Store,Medium,42,965.82,603.4,40564.44,0.1,4056.44,36508.0,25342.8,11165.2,30.58,PayPal,4
+ORD-10670,2026-01-22,Canada,Electronics,Laptops,Direct Sales,High,130,318.74,138.29,41436.2,0.0,0.0,41436.2,17977.7,23458.5,56.61,PayPal,4
+ORD-10661,2026-01-23,United States,Toys & Games,Action Figures,Wholesale,Critical,131,1012.42,712.99,132627.02,0.0,0.0,132627.02,93401.69,39225.33,29.58,Crypto,2
+ORD-10477,2026-01-24,Germany,Sports & Outdoors,Outdoor Accessories,Online,High,26,385.65,173.58,10026.9,0.1,1002.69,9024.21,4513.08,4511.13,49.99,Credit Card,1
+ORD-10880,2026-01-24,Canada,Beauty & Personal Care,Makeup,Direct Sales,Medium,8,842.66,420.07,6741.28,0.15,1011.19,5730.09,3360.56,2369.53,41.35,PayPal,5
+ORD-10867,2026-01-24,Australia,Clothing,Men's Apparel,Online,Medium,122,143.57,74.15,17515.54,0.05,875.78,16639.76,9046.3,7593.46,45.63,Crypto,5
+ORD-10807,2026-01-25,India,Automotive,Tools & Equipment,Direct Sales,Low,95,1020.06,529.69,96905.7,0.05,4845.28,92060.42,50320.55,41739.87,45.34,Credit Card,2
+ORD-10235,2026-01-25,India,Automotive,Car Electronics,Direct Sales,Medium,37,803.09,574.17,29714.33,0.05,1485.72,28228.61,21244.29,6984.32,24.74,Crypto,5
+ORD-10578,2026-01-25,Canada,Toys & Games,Board Games,Direct Sales,Medium,79,607.02,418.96,47954.58,0.0,0.0,47954.58,33097.84,14856.74,30.98,Crypto,4
+ORD-10182,2026-01-25,France,Beauty & Personal Care,Skincare,Direct Sales,Medium,139,993.79,449.17,138136.81,0.05,6906.84,131229.97,62434.63,68795.34,52.42,Bank Transfer,3
+ORD-10129,2026-01-26,France,Beauty & Personal Care,Haircare,Wholesale,High,116,628.07,302.7,72856.12,0.15,10928.42,61927.7,35113.2,26814.5,43.3,Invoice,5
+ORD-10423,2026-01-27,United Kingdom,Clothing,Men's Apparel,Wholesale,Medium,2,639.1,341.14,1278.2,0.05,63.91,1214.29,682.28,532.01,43.81,Bank Transfer,5
+ORD-10804,2026-01-27,Australia,Sports & Outdoors,Bicycles,Wholesale,Medium,94,611.83,444.7,57512.02,0.15,8626.8,48885.22,41801.8,7083.42,14.49,Invoice,1
+ORD-10169,2026-01-30,Australia,Beauty & Personal Care,Personal Hygiene,Online,High,46,51.01,40.19,2346.46,0.15,351.97,1994.49,1848.74,145.75,7.31,Bank Transfer,5
+ORD-10606,2026-01-31,United States,Groceries,Organic Foods,In-Store,High,29,1116.71,618.02,32384.59,0.05,1619.23,30765.36,17922.58,12842.78,41.74,Bank Transfer,2
+ORD-10333,2026-01-31,United States,Sports & Outdoors,Outdoor Accessories,Wholesale,Low,15,122.36,89.64,1835.4,0.15,275.31,1560.09,1344.6,215.49,13.81,Bank Transfer,3
+ORD-10840,2026-02-01,United Kingdom,Clothing,Footwear,Direct Sales,Medium,35,1093.85,807.94,38284.75,0.0,0.0,38284.75,28277.9,10006.85,26.14,Bank Transfer,4
+ORD-10144,2026-02-02,Brazil,Toys & Games,Educational Toys,Online,Low,30,64.89,40.68,1946.7,0.0,0.0,1946.7,1220.4,726.3,37.31,PayPal,2
+ORD-10398,2026-02-02,Australia,Electronics,Headphones,Direct Sales,Medium,57,93.94,71.75,5354.58,0.0,0.0,5354.58,4089.75,1264.83,23.62,Invoice,5
+ORD-10276,2026-02-03,Germany,Automotive,Oils & Fluids,Online,High,40,452.05,216.11,18082.0,0.05,904.1,17177.9,8644.4,8533.5,49.68,Credit Card,4
+ORD-10103,2026-02-03,United Kingdom,Automotive,Tires & Wheels,Direct Sales,Medium,5,664.04,486.22,3320.2,0.0,0.0,3320.2,2431.1,889.1,26.78,Bank Transfer,1
+ORD-10025,2026-02-06,Germany,Automotive,Car Electronics,In-Store,Medium,108,153.47,66.11,16574.76,0.1,1657.48,14917.28,7139.88,7777.4,52.14,Bank Transfer,4
+ORD-10003,2026-02-09,Germany,Toys & Games,Building Blocks,In-Store,High,1,1045.18,634.98,1045.18,0.05,52.26,992.92,634.98,357.94,36.05,Crypto,4
+ORD-10208,2026-02-09,Germany,Automotive,Interior Accessories,Direct Sales,Medium,116,253.31,127.19,29383.96,0.0,0.0,29383.96,14754.04,14629.92,49.79,Invoice,4
+ORD-10514,2026-02-09,Germany,Clothing,Outerwear,Direct Sales,Low,17,1090.24,474.22,18534.08,0.15,2780.11,15753.97,8061.74,7692.23,48.83,Invoice,5
+ORD-10216,2026-02-11,Germany,Automotive,Oils & Fluids,In-Store,Medium,73,420.96,224.9,30730.08,0.2,6146.02,24584.06,16417.7,8166.36,33.22,PayPal,2
+ORD-10824,2026-02-11,Australia,Clothing,Accessories,Direct Sales,High,80,610.21,357.42,48816.8,0.0,0.0,48816.8,28593.6,20223.2,41.43,Crypto,5
+ORD-10122,2026-02-12,Germany,Toys & Games,Building Blocks,Wholesale,Medium,14,306.96,156.18,4297.44,0.1,429.74,3867.7,2186.52,1681.18,43.47,Bank Transfer,5
+ORD-10948,2026-02-13,United States,Electronics,Tablets,In-Store,Low,54,80.61,53.45,4352.94,0.15,652.94,3700.0,2886.3,813.7,21.99,Invoice,4
+ORD-10645,2026-02-14,United States,Sports & Outdoors,Fitness Equipment,In-Store,High,48,347.37,270.73,16673.76,0.1,1667.38,15006.38,12995.04,2011.34,13.4,Crypto,5
+ORD-10715,2026-02-15,Brazil,Groceries,Pantry Staples,Direct Sales,High,93,549.38,393.84,51092.34,0.1,5109.23,45983.11,36627.12,9355.99,20.35,Credit Card,4
+ORD-10909,2026-02-15,Canada,Groceries,Pantry Staples,Direct Sales,Critical,137,272.09,202.68,37276.33,0.1,3727.63,33548.7,27767.16,5781.54,17.23,Credit Card,4
+ORD-10632,2026-02-16,France,Toys & Games,Action Figures,Direct Sales,Medium,147,626.81,366.51,92141.07,0.0,0.0,92141.07,53876.97,38264.1,41.53,Crypto,4
+ORD-10533,2026-02-16,Australia,Electronics,Tablets,In-Store,High,48,1004.93,464.19,48236.64,0.0,0.0,48236.64,22281.12,25955.52,53.81,Bank Transfer,4
+ORD-10458,2026-02-16,Canada,Clothing,Outerwear,Online,Low,68,987.89,450.07,67176.52,0.1,6717.65,60458.87,30604.76,29854.11,49.38,Invoice,5
+ORD-10041,2026-02-16,France,Sports & Outdoors,Athletic Wear,Direct Sales,High,68,368.15,251.55,25034.2,0.0,0.0,25034.2,17105.4,7928.8,31.67,Bank Transfer,4
+ORD-10196,2026-02-16,United States,Electronics,Smartwatches,In-Store,Medium,57,1069.27,730.41,60948.39,0.0,0.0,60948.39,41633.37,19315.02,31.69,Credit Card,5
+ORD-10532,2026-02-17,France,Furniture,Desks,In-Store,Medium,137,1135.96,717.82,155626.52,0.05,7781.33,147845.19,98341.34,49503.85,33.48,Crypto,4
+ORD-10730,2026-02-18,Germany,Electronics,Tablets,Direct Sales,Medium,137,684.88,427.68,93828.56,0.05,4691.43,89137.13,58592.16,30544.97,34.27,Invoice,4
+ORD-10603,2026-02-18,India,Groceries,Organic Foods,Direct Sales,Medium,56,1091.72,854.93,61136.32,0.0,0.0,61136.32,47876.08,13260.24,21.69,Credit Card,3
+ORD-10227,2026-02-18,France,Furniture,Bookshelves,In-Store,Medium,10,546.32,365.39,5463.2,0.05,273.16,5190.04,3653.9,1536.14,29.6,PayPal,3
+ORD-10945,2026-02-18,Japan,Toys & Games,Puzzles,Wholesale,Low,100,372.05,225.38,37205.0,0.1,3720.5,33484.5,22538.0,10946.5,32.69,PayPal,5
+ORD-10581,2026-02-19,Japan,Clothing,Footwear,Wholesale,Medium,92,1076.55,725.9,99042.6,0.15,14856.39,84186.21,66782.8,17403.41,20.67,Bank Transfer,4
+ORD-10719,2026-02-20,Germany,Furniture,Dining Tables,Online,Medium,101,22.7,16.13,2292.7,0.1,229.27,2063.43,1629.13,434.3,21.05,PayPal,4
+ORD-10918,2026-02-20,Australia,Electronics,Headphones,In-Store,Critical,111,984.3,442.78,109257.3,0.15,16388.6,92868.7,49148.58,43720.12,47.08,Credit Card,5
+ORD-10461,2026-02-20,United Kingdom,Clothing,Women's Apparel,Wholesale,Low,76,585.42,285.71,44491.92,0.0,0.0,44491.92,21713.96,22777.96,51.2,Bank Transfer,2
+ORD-10849,2026-02-21,France,Clothing,Footwear,Direct Sales,Low,96,921.07,550.26,88422.72,0.15,13263.41,75159.31,52824.96,22334.35,29.72,PayPal,3
+ORD-10011,2026-02-22,United Kingdom,Groceries,Organic Foods,Direct Sales,Medium,142,358.85,272.2,50956.7,0.0,0.0,50956.7,38652.4,12304.3,24.15,Credit Card,3
+ORD-10218,2026-02-23,Brazil,Toys & Games,Action Figures,Online,Critical,132,675.19,405.41,89125.08,0.1,8912.51,80212.57,53514.12,26698.45,33.28,Credit Card,5
+ORD-10089,2026-02-23,Japan,Clothing,Outerwear,Online,Medium,12,1117.41,498.98,13408.92,0.1,1340.89,12068.03,5987.76,6080.27,50.38,PayPal,4
+ORD-10445,2026-02-24,Germany,Beauty & Personal Care,Fragrance,Wholesale,Medium,7,21.36,9.19,149.52,0.0,0.0,149.52,64.33,85.19,56.98,Bank Transfer,3
+ORD-10743,2026-02-24,United States,Groceries,Snacks,Direct Sales,Medium,135,740.31,531.11,99941.85,0.0,0.0,99941.85,71699.85,28242.0,28.26,PayPal,5
+ORD-10058,2026-02-24,Germany,Sports & Outdoors,Camping Gear,Direct Sales,High,79,1081.84,615.23,85465.36,0.0,0.0,85465.36,48603.17,36862.19,43.13,PayPal,3
+ORD-10673,2026-02-25,India,Electronics,Headphones,Online,Medium,128,974.62,676.59,124751.36,0.1,12475.14,112276.22,86603.52,25672.7,22.87,Credit Card,3
+ORD-10916,2026-02-26,France,Sports & Outdoors,Camping Gear,Wholesale,Low,69,410.78,257.61,28343.82,0.1,2834.38,25509.44,17775.09,7734.35,30.32,Credit Card,4
+ORD-10585,2026-02-26,United States,Electronics,Headphones,Wholesale,Low,29,836.02,339.8,24244.58,0.0,0.0,24244.58,9854.2,14390.38,59.36,Invoice,4
+ORD-10713,2026-02-27,Germany,Groceries,Confectionery,Direct Sales,Low,29,510.2,386.75,14795.8,0.2,2959.16,11836.64,11215.75,620.89,5.25,PayPal,3
+ORD-10288,2026-02-28,Australia,Groceries,Snacks,In-Store,Low,54,114.18,58.59,6165.72,0.05,308.29,5857.43,3163.86,2693.57,45.99,Credit Card,3
+ORD-10100,2026-03-01,United States,Furniture,Sofas,Direct Sales,Medium,10,1117.08,559.91,11170.8,0.1,1117.08,10053.72,5599.1,4454.62,44.31,Invoice,4
+ORD-10391,2026-03-02,India,Furniture,Office Chairs,Wholesale,Critical,64,344.86,251.37,22071.04,0.1,2207.1,19863.94,16087.68,3776.26,19.01,PayPal,2
+ORD-10143,2026-03-02,United Kingdom,Electronics,Smartwatches,Direct Sales,Critical,63,675.43,439.9,42552.09,0.05,2127.6,40424.49,27713.7,12710.79,31.44,PayPal,5
+ORD-10875,2026-03-02,Germany,Toys & Games,Action Figures,Online,High,58,1001.01,429.34,58058.58,0.1,5805.86,52252.72,24901.72,27351.0,52.34,Crypto,4
+ORD-10997,2026-03-02,Canada,Groceries,Confectionery,Wholesale,Medium,42,762.79,375.98,32037.18,0.15,4805.58,27231.6,15791.16,11440.44,42.01,Bank Transfer,3
+ORD-10277,2026-03-04,Japan,Clothing,Outerwear,Wholesale,Low,48,494.1,262.51,23716.8,0.05,1185.84,22530.96,12600.48,9930.48,44.07,Credit Card,4
+ORD-10066,2026-03-04,Japan,Beauty & Personal Care,Personal Hygiene,Direct Sales,High,124,811.38,639.34,100611.12,0.0,0.0,100611.12,79278.16,21332.96,21.2,Crypto,4
+ORD-10977,2026-03-04,Australia,Groceries,Beverages,In-Store,Medium,45,577.82,268.35,26001.9,0.0,0.0,26001.9,12075.75,13926.15,53.56,PayPal,5
+ORD-10249,2026-03-05,United Kingdom,Clothing,Accessories,In-Store,Medium,146,1083.11,521.4,158134.06,0.0,0.0,158134.06,76124.4,82009.66,51.86,Invoice,3
+ORD-10302,2026-03-05,Japan,Clothing,Accessories,Wholesale,High,27,939.99,479.68,25379.73,0.0,0.0,25379.73,12951.36,12428.37,48.97,Invoice,2
+ORD-10995,2026-03-06,Brazil,Sports & Outdoors,Outdoor Accessories,Online,High,147,320.02,210.67,47042.94,0.0,0.0,47042.94,30968.49,16074.45,34.17,Bank Transfer,3
+ORD-10982,2026-03-07,France,Groceries,Confectionery,In-Store,Medium,92,835.4,645.63,76856.8,0.1,7685.68,69171.12,59397.96,9773.16,14.13,Invoice,3
+ORD-10146,2026-03-08,United Kingdom,Clothing,Women's Apparel,Online,Medium,69,310.25,151.43,21407.25,0.05,1070.36,20336.89,10448.67,9888.22,48.62,Crypto,2
+ORD-10523,2026-03-09,United States,Electronics,Tablets,Online,Medium,142,639.83,405.5,90855.86,0.1,9085.59,81770.27,57581.0,24189.27,29.58,Crypto,5
+ORD-10401,2026-03-10,United States,Sports & Outdoors,Athletic Wear,In-Store,High,105,778.19,359.76,81709.95,0.05,4085.5,77624.45,37774.8,39849.65,51.34,PayPal,4
+ORD-10440,2026-03-10,Germany,Groceries,Pantry Staples,Direct Sales,Medium,1,209.94,113.77,209.94,0.0,0.0,209.94,113.77,96.17,45.81,PayPal,5
+ORD-10817,2026-03-11,Canada,Sports & Outdoors,Fitness Equipment,Wholesale,Medium,64,415.06,245.15,26563.84,0.0,0.0,26563.84,15689.6,10874.24,40.94,Invoice,5
+ORD-10415,2026-03-12,Germany,Sports & Outdoors,Camping Gear,Wholesale,High,108,575.37,436.81,62139.96,0.05,3107.0,59032.96,47175.48,11857.48,20.09,Crypto,4
+ORD-10547,2026-03-13,Japan,Beauty & Personal Care,Haircare,Online,Medium,46,31.08,21.17,1429.68,0.0,0.0,1429.68,973.82,455.86,31.89,PayPal,5
+ORD-10678,2026-03-13,India,Groceries,Organic Foods,Direct Sales,Medium,144,70.21,54.1,10110.24,0.2,2022.05,8088.19,7790.4,297.79,3.68,Crypto,5
+ORD-10868,2026-03-14,Australia,Automotive,Car Electronics,In-Store,Low,16,608.88,398.86,9742.08,0.0,0.0,9742.08,6381.76,3360.32,34.49,Crypto,3
+ORD-10927,2026-03-15,Australia,Beauty & Personal Care,Haircare,Wholesale,Medium,2,710.24,442.32,1420.48,0.1,142.05,1278.43,884.64,393.79,30.8,Credit Card,4
+ORD-11000,2026-03-15,United Kingdom,Automotive,Oils & Fluids,Online,Medium,20,803.1,364.52,16062.0,0.05,803.1,15258.9,7290.4,7968.5,52.22,Invoice,2
+ORD-10363,2026-03-15,United States,Clothing,Outerwear,Wholesale,Low,126,80.94,54.78,10198.44,0.0,0.0,10198.44,6902.28,3296.16,32.32,PayPal,4
+ORD-10162,2026-03-16,Japan,Electronics,Smartwatches,Online,Low,69,281.9,222.98,19451.1,0.05,972.56,18478.54,15385.62,3092.92,16.74,Crypto,4
+ORD-10951,2026-03-16,Brazil,Clothing,Women's Apparel,Direct Sales,Medium,33,237.06,147.25,7822.98,0.0,0.0,7822.98,4859.25,2963.73,37.88,Credit Card,5
+ORD-10045,2026-03-16,France,Automotive,Oils & Fluids,Wholesale,Critical,147,336.32,266.9,49439.04,0.05,2471.95,46967.09,39234.3,7732.79,16.46,Invoice,4
+ORD-10254,2026-03-18,United States,Groceries,Organic Foods,Online,High,36,1024.58,631.82,36884.88,0.1,3688.49,33196.39,22745.52,10450.87,31.48,Invoice,4
+ORD-10831,2026-03-19,Germany,Groceries,Pantry Staples,Online,Medium,133,830.63,557.93,110473.79,0.0,0.0,110473.79,74204.69,36269.1,32.83,Invoice,4
+ORD-10558,2026-03-20,Australia,Electronics,Smartphones,Wholesale,Medium,140,932.16,647.01,130502.4,0.1,13050.24,117452.16,90581.4,26870.76,22.88,Bank Transfer,5
+ORD-10952,2026-03-20,Australia,Furniture,Desks,Online,Medium,149,355.21,229.24,52926.29,0.0,0.0,52926.29,34156.76,18769.53,35.46,Bank Transfer,1
+ORD-10602,2026-03-21,Japan,Toys & Games,Building Blocks,In-Store,Medium,103,1091.01,777.36,112374.03,0.0,0.0,112374.03,80068.08,32305.95,28.75,Crypto,4
+ORD-10147,2026-03-21,India,Beauty & Personal Care,Makeup,Online,Low,65,39.92,27.06,2594.8,0.0,0.0,2594.8,1758.9,835.9,32.21,Invoice,4
+ORD-10524,2026-03-22,United States,Automotive,Interior Accessories,Online,Medium,17,1102.15,841.31,18736.55,0.05,936.83,17799.72,14302.27,3497.45,19.65,Bank Transfer,3
+ORD-10629,2026-03-23,Brazil,Beauty & Personal Care,Makeup,In-Store,Low,16,93.06,55.04,1488.96,0.0,0.0,1488.96,880.64,608.32,40.86,Bank Transfer,3
+ORD-10825,2026-03-23,Canada,Electronics,Headphones,Online,Medium,86,795.54,584.27,68416.44,0.1,6841.64,61574.8,50247.22,11327.58,18.4,Invoice,5
+ORD-10671,2026-03-24,France,Automotive,Tools & Equipment,Direct Sales,Medium,9,357.97,268.46,3221.73,0.1,322.17,2899.56,2416.14,483.42,16.67,Invoice,5
+ORD-10653,2026-03-25,Germany,Clothing,Accessories,In-Store,Medium,85,596.96,377.07,50741.6,0.0,0.0,50741.6,32050.95,18690.65,36.83,PayPal,4
+ORD-10486,2026-03-25,Brazil,Automotive,Interior Accessories,Wholesale,Critical,16,906.93,454.69,14510.88,0.15,2176.63,12334.25,7275.04,5059.21,41.02,Credit Card,4
+ORD-10223,2026-03-26,Australia,Beauty & Personal Care,Skincare,Online,High,135,762.42,365.65,102926.7,0.05,5146.34,97780.36,49362.75,48417.61,49.52,Crypto,2
+ORD-10289,2026-03-26,Brazil,Clothing,Outerwear,Wholesale,High,147,238.85,123.79,35110.95,0.05,1755.55,33355.4,18197.13,15158.27,45.44,Crypto,5
+ORD-10263,2026-03-26,Germany,Sports & Outdoors,Bicycles,Online,Medium,87,1114.54,860.04,96964.98,0.0,0.0,96964.98,74823.48,22141.5,22.83,Crypto,4
+ORD-10201,2026-03-26,Canada,Automotive,Oils & Fluids,In-Store,Medium,96,378.9,186.73,36374.4,0.05,1818.72,34555.68,17926.08,16629.6,48.12,Credit Card,3
+ORD-10085,2026-03-29,India,Automotive,Interior Accessories,In-Store,Medium,55,909.83,490.42,50040.65,0.1,5004.07,45036.58,26973.1,18063.48,40.11,Invoice,4
+ORD-10931,2026-03-30,France,Groceries,Pantry Staples,Wholesale,Critical,39,775.79,315.04,30255.81,0.15,4538.37,25717.44,12286.56,13430.88,52.22,Bank Transfer,5
+ORD-10820,2026-03-30,Japan,Electronics,Headphones,Wholesale,High,147,1047.14,622.0,153929.58,0.0,0.0,153929.58,91434.0,62495.58,40.6,Bank Transfer,5
+ORD-10501,2026-03-30,Japan,Automotive,Tires & Wheels,Online,Low,57,981.11,562.01,55923.27,0.1,5592.33,50330.94,32034.57,18296.37,36.35,Bank Transfer,5
+ORD-10508,2026-03-31,Brazil,Furniture,Office Chairs,Online,Medium,138,935.8,456.85,129140.4,0.0,0.0,129140.4,63045.3,66095.1,51.18,Bank Transfer,5
+ORD-10788,2026-03-31,Brazil,Beauty & Personal Care,Fragrance,Wholesale,Medium,10,756.73,540.13,7567.3,0.05,378.36,7188.94,5401.3,1787.64,24.87,Invoice,4
+ORD-10911,2026-04-01,United Kingdom,Toys & Games,Board Games,In-Store,Critical,22,1137.93,622.28,25034.46,0.15,3755.17,21279.29,13690.16,7589.13,35.66,Crypto,5
+ORD-10087,2026-04-01,Australia,Groceries,Beverages,Online,High,38,199.57,84.87,7583.66,0.0,0.0,7583.66,3225.06,4358.6,57.47,Bank Transfer,3
+ORD-10242,2026-04-02,France,Automotive,Oils & Fluids,Direct Sales,High,112,149.89,69.87,16787.68,0.0,0.0,16787.68,7825.44,8962.24,53.39,Bank Transfer,4
+ORD-10794,2026-04-03,United Kingdom,Beauty & Personal Care,Skincare,In-Store,Medium,47,145.14,104.85,6821.58,0.0,0.0,6821.58,4927.95,1893.63,27.76,Invoice,3
+ORD-10261,2026-04-04,France,Clothing,Footwear,In-Store,Medium,48,381.51,155.01,18312.48,0.0,0.0,18312.48,7440.48,10872.0,59.37,Bank Transfer,4
+ORD-10187,2026-04-04,Japan,Groceries,Beverages,Direct Sales,High,137,172.56,114.0,23640.72,0.1,2364.07,21276.65,15618.0,5658.65,26.6,Invoice,5
+ORD-10433,2026-04-04,Germany,Beauty & Personal Care,Personal Hygiene,Online,Low,143,250.14,190.99,35770.02,0.1,3577.0,32193.02,27311.57,4881.45,15.16,PayPal,3
+ORD-10090,2026-04-07,Japan,Clothing,Outerwear,In-Store,Low,149,37.24,17.19,5548.76,0.0,0.0,5548.76,2561.31,2987.45,53.84,Invoice,4
+ORD-10306,2026-04-08,Germany,Groceries,Organic Foods,Direct Sales,High,132,508.83,237.77,67165.56,0.15,10074.83,57090.73,31385.64,25705.09,45.02,PayPal,3
+ORD-10711,2026-04-09,Brazil,Automotive,Interior Accessories,In-Store,Critical,145,463.88,211.69,67262.6,0.05,3363.13,63899.47,30695.05,33204.42,51.96,Bank Transfer,5
+ORD-10822,2026-04-09,Japan,Electronics,Tablets,Direct Sales,Medium,8,521.39,297.16,4171.12,0.05,208.56,3962.56,2377.28,1585.28,40.01,Credit Card,1
+ORD-10737,2026-04-09,Brazil,Groceries,Confectionery,Online,High,80,88.41,42.13,7072.8,0.05,353.64,6719.16,3370.4,3348.76,49.84,Bank Transfer,2
+ORD-10656,2026-04-09,United Kingdom,Electronics,Headphones,In-Store,High,49,368.66,239.77,18064.34,0.0,0.0,18064.34,11748.73,6315.61,34.96,Crypto,4
+ORD-10752,2026-04-09,Australia,Furniture,Dining Tables,Online,High,47,880.15,659.05,41367.05,0.0,0.0,41367.05,30975.35,10391.7,25.12,Crypto,5
+ORD-10928,2026-04-10,Brazil,Automotive,Tools & Equipment,Direct Sales,Medium,27,995.22,550.49,26870.94,0.05,1343.55,25527.39,14863.23,10664.16,41.78,Credit Card,3
+ORD-10720,2026-04-11,United Kingdom,Furniture,Office Chairs,Online,High,21,127.77,64.98,2683.17,0.15,402.48,2280.69,1364.58,916.11,40.17,Bank Transfer,4
+ORD-10544,2026-04-11,Canada,Beauty & Personal Care,Makeup,Wholesale,Medium,123,426.51,328.99,52460.73,0.0,0.0,52460.73,40465.77,11994.96,22.86,Credit Card,5
+ORD-10344,2026-04-12,United States,Beauty & Personal Care,Makeup,In-Store,Medium,93,1048.46,608.98,97506.78,0.2,19501.36,78005.42,56635.14,21370.28,27.4,Bank Transfer,4
+ORD-10379,2026-04-12,Brazil,Electronics,Smartwatches,Wholesale,High,35,1016.89,481.12,35591.15,0.2,7118.23,28472.92,16839.2,11633.72,40.86,PayPal,5
+ORD-10583,2026-04-12,Canada,Sports & Outdoors,Athletic Wear,Online,High,88,96.69,74.75,8508.72,0.0,0.0,8508.72,6578.0,1930.72,22.69,Credit Card,2
+ORD-10328,2026-04-13,Canada,Clothing,Footwear,Online,Critical,89,1115.34,594.24,99265.26,0.05,4963.26,94302.0,52887.36,41414.64,43.92,Credit Card,4
+ORD-10114,2026-04-14,Japan,Groceries,Confectionery,In-Store,High,4,225.77,125.32,903.08,0.05,45.15,857.93,501.28,356.65,41.57,Invoice,4
+ORD-10284,2026-04-18,Australia,Furniture,Desks,Wholesale,Medium,103,1122.85,617.93,115653.55,0.1,11565.36,104088.19,63646.79,40441.4,38.85,Bank Transfer,3
+ORD-10964,2026-04-18,Brazil,Toys & Games,Board Games,Wholesale,Critical,146,724.22,371.98,105736.12,0.15,15860.42,89875.7,54309.08,35566.62,39.57,Bank Transfer,5
+ORD-10750,2026-04-18,Brazil,Groceries,Beverages,In-Store,High,117,992.12,446.83,116078.04,0.15,17411.71,98666.33,52279.11,46387.22,47.01,Invoice,5
+ORD-10465,2026-04-19,Japan,Automotive,Tires & Wheels,Wholesale,High,140,875.15,592.62,122521.0,0.2,24504.2,98016.8,82966.8,15050.0,15.35,Credit Card,2
+ORD-10209,2026-04-20,Germany,Furniture,Bookshelves,Online,Medium,111,974.95,715.94,108219.45,0.0,0.0,108219.45,79469.34,28750.11,26.57,Bank Transfer,5
+ORD-10005,2026-04-20,Canada,Clothing,Men's Apparel,Direct Sales,Medium,108,1096.17,547.31,118386.36,0.05,5919.32,112467.04,59109.48,53357.56,47.44,Invoice,4
+ORD-10572,2026-04-20,United States,Automotive,Oils & Fluids,Direct Sales,Critical,53,716.44,460.77,37971.32,0.05,1898.57,36072.75,24420.81,11651.94,32.3,Crypto,3
+ORD-10338,2026-04-20,Germany,Sports & Outdoors,Athletic Wear,Online,High,19,879.0,569.3,16701.0,0.0,0.0,16701.0,10816.7,5884.3,35.23,Invoice,5
+ORD-10339,2026-04-21,Germany,Automotive,Oils & Fluids,Online,High,42,633.04,324.69,26587.68,0.0,0.0,26587.68,13636.98,12950.7,48.71,Crypto,4
+ORD-10540,2026-04-21,France,Furniture,Sofas,In-Store,High,112,608.78,363.63,68183.36,0.0,0.0,68183.36,40726.56,27456.8,40.27,Invoice,3
+ORD-10692,2026-04-21,Japan,Electronics,Laptops,Online,High,89,1059.24,801.56,94272.36,0.0,0.0,94272.36,71338.84,22933.52,24.33,Crypto,4
+ORD-10028,2026-04-22,France,Beauty & Personal Care,Skincare,Direct Sales,High,121,924.25,524.15,111834.25,0.05,5591.71,106242.54,63422.15,42820.39,40.3,Crypto,4
+ORD-10978,2026-04-23,Japan,Beauty & Personal Care,Makeup,Online,Medium,134,31.27,16.69,4190.18,0.0,0.0,4190.18,2236.46,1953.72,46.63,Invoice,2
+ORD-10443,2026-04-23,Germany,Clothing,Men's Apparel,In-Store,High,124,91.82,56.92,11385.68,0.05,569.28,10816.4,7058.08,3758.32,34.75,Invoice,3
+ORD-10844,2026-04-24,United Kingdom,Furniture,Sofas,In-Store,Low,104,164.35,95.57,17092.4,0.05,854.62,16237.78,9939.28,6298.5,38.79,PayPal,3
+ORD-10810,2026-04-25,United States,Sports & Outdoors,Bicycles,Direct Sales,Medium,95,1008.64,666.91,95820.8,0.05,4791.04,91029.76,63356.45,27673.31,30.4,PayPal,4
+ORD-10709,2026-04-26,Australia,Beauty & Personal Care,Fragrance,Wholesale,Critical,36,763.82,337.85,27497.52,0.05,1374.88,26122.64,12162.6,13960.04,53.44,Credit Card,2
+ORD-10638,2026-04-27,India,Automotive,Oils & Fluids,Direct Sales,High,100,133.18,58.99,13318.0,0.0,0.0,13318.0,5899.0,7419.0,55.71,PayPal,4
+ORD-10092,2026-04-28,India,Toys & Games,Board Games,Online,Medium,136,579.1,348.87,78757.6,0.0,0.0,78757.6,47446.32,31311.28,39.76,Crypto,4
+ORD-10463,2026-04-28,United Kingdom,Beauty & Personal Care,Skincare,Online,Low,54,436.81,221.51,23587.74,0.05,1179.39,22408.35,11961.54,10446.81,46.62,Crypto,5
+ORD-10929,2026-04-29,United States,Furniture,Sofas,Wholesale,High,141,495.51,240.08,69866.91,0.05,3493.35,66373.56,33851.28,32522.28,49.0,Invoice,4
+ORD-10448,2026-04-29,Canada,Electronics,Tablets,In-Store,High,43,647.3,382.42,27833.9,0.0,0.0,27833.9,16444.06,11389.84,40.92,Credit Card,5
+ORD-10502,2026-04-29,Canada,Clothing,Women's Apparel,In-Store,Low,100,121.34,49.35,12134.0,0.15,1820.1,10313.9,4935.0,5378.9,52.15,PayPal,4
+ORD-10687,2026-04-30,Australia,Toys & Games,Building Blocks,Wholesale,Low,54,916.82,563.8,49508.28,0.1,4950.83,44557.45,30445.2,14112.25,31.67,Crypto,3
+ORD-10919,2026-04-30,Brazil,Automotive,Tools & Equipment,In-Store,Low,14,903.87,699.01,12654.18,0.0,0.0,12654.18,9786.14,2868.04,22.66,Credit Card,4
+ORD-10772,2026-05-01,Brazil,Clothing,Outerwear,In-Store,High,143,454.64,252.44,65013.52,0.0,0.0,65013.52,36098.92,28914.6,44.47,Crypto,2
+ORD-10352,2026-05-02,France,Beauty & Personal Care,Haircare,Wholesale,Low,108,67.55,49.19,7295.4,0.1,729.54,6565.86,5312.52,1253.34,19.09,Bank Transfer,3
+ORD-10278,2026-05-03,United States,Electronics,Tablets,In-Store,Medium,90,1044.83,586.26,94034.7,0.2,18806.94,75227.76,52763.4,22464.36,29.86,Credit Card,4
+ORD-10990,2026-05-03,Canada,Automotive,Tires & Wheels,Online,Critical,89,1167.29,484.45,103888.81,0.0,0.0,103888.81,43116.05,60772.76,58.5,Invoice,4
+ORD-10365,2026-05-04,United States,Toys & Games,Puzzles,Direct Sales,High,107,507.88,275.84,54343.16,0.05,2717.16,51626.0,29514.88,22111.12,42.83,Credit Card,4
+ORD-10672,2026-05-05,Japan,Electronics,Smartwatches,Online,Medium,94,728.46,322.06,68475.24,0.05,3423.76,65051.48,30273.64,34777.84,53.46,Invoice,5
+ORD-10313,2026-05-05,India,Toys & Games,Action Figures,In-Store,Low,25,797.45,511.15,19936.25,0.0,0.0,19936.25,12778.75,7157.5,35.9,PayPal,3
+ORD-10275,2026-05-05,India,Automotive,Interior Accessories,Online,Medium,9,236.96,127.68,2132.64,0.05,106.63,2026.01,1149.12,876.89,43.28,Invoice,5
+ORD-10704,2026-05-06,Australia,Electronics,Headphones,Online,Medium,110,28.38,16.3,3121.8,0.0,0.0,3121.8,1793.0,1328.8,42.57,Credit Card,1
+ORD-10503,2026-05-06,Brazil,Furniture,Office Chairs,Wholesale,Critical,20,863.67,574.98,17273.4,0.0,0.0,17273.4,11499.6,5773.8,33.43,PayPal,1
+ORD-10199,2026-05-07,Japan,Electronics,Smartwatches,Wholesale,Medium,64,1144.09,696.77,73221.76,0.0,0.0,73221.76,44593.28,28628.48,39.1,Crypto,4
+ORD-10759,2026-05-07,Japan,Clothing,Men's Apparel,Direct Sales,Critical,47,929.17,654.61,43670.99,0.2,8734.2,34936.79,30766.67,4170.12,11.94,Invoice,3
+ORD-10292,2026-05-07,India,Automotive,Tools & Equipment,Wholesale,Low,142,544.05,416.36,77255.1,0.0,0.0,77255.1,59123.12,18131.98,23.47,Bank Transfer,5
+ORD-10232,2026-05-08,Brazil,Automotive,Car Electronics,Online,High,47,45.11,24.47,2120.17,0.0,0.0,2120.17,1150.09,970.08,45.75,PayPal,3
+ORD-10466,2026-05-08,Brazil,Furniture,Office Chairs,Online,High,80,687.46,275.56,54996.8,0.0,0.0,54996.8,22044.8,32952.0,59.92,Bank Transfer,4
+ORD-10153,2026-05-09,United Kingdom,Clothing,Accessories,Wholesale,Medium,1,473.95,327.95,473.95,0.15,71.09,402.86,327.95,74.91,18.59,Crypto,4
+ORD-10070,2026-05-09,Germany,Toys & Games,Puzzles,In-Store,Critical,141,959.4,550.92,135275.4,0.1,13527.54,121747.86,77679.72,44068.14,36.2,Credit Card,3
+ORD-10965,2026-05-09,Japan,Sports & Outdoors,Fitness Equipment,Online,Medium,142,34.39,13.99,4883.38,0.05,244.17,4639.21,1986.58,2652.63,57.18,PayPal,4
+ORD-10186,2026-05-11,Canada,Groceries,Organic Foods,Direct Sales,Low,13,505.64,368.55,6573.32,0.15,986.0,5587.32,4791.15,796.17,14.25,Credit Card,4
+ORD-10346,2026-05-11,Canada,Toys & Games,Puzzles,Direct Sales,Medium,4,883.9,427.39,3535.6,0.0,0.0,3535.6,1709.56,1826.04,51.65,Credit Card,1
+ORD-10886,2026-05-12,Germany,Sports & Outdoors,Athletic Wear,Wholesale,Medium,93,697.51,422.71,64868.43,0.1,6486.84,58381.59,39312.03,19069.56,32.66,PayPal,3
+ORD-10954,2026-05-12,Canada,Groceries,Snacks,Direct Sales,Medium,66,642.32,308.63,42393.12,0.0,0.0,42393.12,20369.58,22023.54,51.95,Credit Card,4
+ORD-10521,2026-05-13,Australia,Groceries,Snacks,Online,Critical,15,288.09,188.9,4321.35,0.0,0.0,4321.35,2833.5,1487.85,34.43,Credit Card,5
+ORD-10973,2026-05-14,Canada,Electronics,Tablets,Direct Sales,Low,113,923.06,703.51,104305.78,0.05,5215.29,99090.49,79496.63,19593.86,19.77,Crypto,5
+ORD-10371,2026-05-14,India,Electronics,Laptops,Wholesale,Low,80,246.39,122.89,19711.2,0.0,0.0,19711.2,9831.2,9880.0,50.12,Crypto,4
+ORD-10669,2026-05-15,Germany,Beauty & Personal Care,Skincare,In-Store,High,115,868.18,575.7,99840.7,0.2,19968.14,79872.56,66205.5,13667.06,17.11,Bank Transfer,4
+ORD-10546,2026-05-15,United States,Toys & Games,Educational Toys,Online,Medium,57,111.32,58.02,6345.24,0.1,634.52,5710.72,3307.14,2403.58,42.09,Bank Transfer,5
+ORD-10962,2026-05-15,Australia,Furniture,Sofas,Online,Medium,123,108.68,71.37,13367.64,0.05,668.38,12699.26,8778.51,3920.75,30.87,Bank Transfer,4
+ORD-10660,2026-05-16,Germany,Automotive,Tires & Wheels,Direct Sales,High,67,260.74,128.03,17469.58,0.0,0.0,17469.58,8578.01,8891.57,50.9,Crypto,5
+ORD-10191,2026-05-17,France,Furniture,Bookshelves,Wholesale,High,134,528.25,281.47,70785.5,0.0,0.0,70785.5,37716.98,33068.52,46.72,Bank Transfer,3
+ORD-10878,2026-05-17,Brazil,Clothing,Outerwear,In-Store,High,109,617.15,278.42,67269.35,0.1,6726.94,60542.41,30347.78,30194.63,49.87,Credit Card,4
+ORD-10663,2026-05-17,United Kingdom,Toys & Games,Board Games,In-Store,Medium,123,448.27,246.27,55137.21,0.0,0.0,55137.21,30291.21,24846.0,45.06,Credit Card,5
+ORD-10802,2026-05-18,France,Groceries,Confectionery,Online,Medium,141,1025.82,509.6,144640.62,0.15,21696.09,122944.53,71853.6,51090.93,41.56,Invoice,4
+ORD-10688,2026-05-18,Japan,Furniture,Dining Tables,Wholesale,Medium,109,771.33,325.4,84074.97,0.05,4203.75,79871.22,35468.6,44402.62,55.59,Credit Card,1
+ORD-10329,2026-05-20,Canada,Groceries,Pantry Staples,Wholesale,High,65,810.69,559.13,52694.85,0.05,2634.74,50060.11,36343.45,13716.66,27.4,Bank Transfer,4
+ORD-10819,2026-05-20,Germany,Electronics,Headphones,Online,Medium,102,1113.73,649.65,113600.46,0.1,11360.05,102240.41,66264.3,35976.11,35.19,Credit Card,3
+ORD-10793,2026-05-20,Germany,Beauty & Personal Care,Makeup,Online,Low,83,735.55,352.03,61050.65,0.0,0.0,61050.65,29218.49,31832.16,52.14,Invoice,5
+ORD-10906,2026-05-20,United States,Groceries,Beverages,In-Store,High,126,876.78,576.48,110474.28,0.0,0.0,110474.28,72636.48,37837.8,34.25,Crypto,3
+ORD-10228,2026-05-23,Canada,Sports & Outdoors,Athletic Wear,Online,Low,10,738.59,358.39,7385.9,0.15,1107.88,6278.02,3583.9,2694.12,42.91,Crypto,3
+ORD-10348,2026-05-23,United Kingdom,Automotive,Tires & Wheels,Wholesale,Medium,17,633.16,334.09,10763.72,0.05,538.19,10225.53,5679.53,4546.0,44.46,Credit Card,5
+ORD-10418,2026-05-24,Japan,Sports & Outdoors,Athletic Wear,In-Store,Low,123,740.82,392.88,91120.86,0.0,0.0,91120.86,48324.24,42796.62,46.97,PayPal,3
+ORD-10457,2026-05-26,India,Clothing,Men's Apparel,In-Store,Low,35,664.92,402.66,23272.2,0.1,2327.22,20944.98,14093.1,6851.88,32.71,Invoice,3
+ORD-10563,2026-05-27,Canada,Sports & Outdoors,Athletic Wear,Wholesale,Low,59,1136.45,784.74,67050.55,0.0,0.0,67050.55,46299.66,20750.89,30.95,PayPal,4
+ORD-10668,2026-05-27,Germany,Electronics,Smartphones,Direct Sales,High,149,597.68,468.96,89054.32,0.1,8905.43,80148.89,69875.04,10273.85,12.82,Bank Transfer,5
+ORD-10407,2026-05-27,Germany,Electronics,Headphones,In-Store,High,117,470.3,203.28,55025.1,0.0,0.0,55025.1,23783.76,31241.34,56.78,Credit Card,2
+ORD-10115,2026-05-30,Brazil,Sports & Outdoors,Camping Gear,Wholesale,High,120,728.15,488.29,87378.0,0.1,8737.8,78640.2,58594.8,20045.4,25.49,Invoice,5
+ORD-10422,2026-05-31,Germany,Sports & Outdoors,Camping Gear,In-Store,High,121,1164.08,804.44,140853.68,0.15,21128.05,119725.63,97337.24,22388.39,18.7,Credit Card,4
+ORD-10067,2026-06-01,Japan,Automotive,Interior Accessories,Online,High,114,300.54,220.1,34261.56,0.15,5139.23,29122.33,25091.4,4030.93,13.84,Credit Card,1
+ORD-10933,2026-06-03,Germany,Sports & Outdoors,Outdoor Accessories,Direct Sales,Medium,20,937.98,669.31,18759.6,0.05,937.98,17821.62,13386.2,4435.42,24.89,Credit Card,5
+ORD-10269,2026-06-03,Brazil,Groceries,Organic Foods,Online,High,73,1196.71,493.06,87359.83,0.15,13103.97,74255.86,35993.38,38262.48,51.53,Credit Card,4
+ORD-10168,2026-06-04,France,Electronics,Tablets,Direct Sales,Critical,64,715.69,457.79,45804.16,0.0,0.0,45804.16,29298.56,16505.6,36.04,Invoice,1
+ORD-10356,2026-06-04,Australia,Furniture,Sofas,Wholesale,Medium,85,40.71,25.29,3460.35,0.05,173.02,3287.33,2149.65,1137.68,34.61,PayPal,5
+ORD-10896,2026-06-04,Australia,Groceries,Confectionery,Direct Sales,Medium,72,921.57,493.52,66353.04,0.0,0.0,66353.04,35533.44,30819.6,46.45,PayPal,4
+ORD-10766,2026-06-05,Brazil,Automotive,Tools & Equipment,Online,Low,101,118.86,71.98,12004.86,0.0,0.0,12004.86,7269.98,4734.88,39.44,Invoice,2
+ORD-10439,2026-06-05,France,Furniture,Bookshelves,Wholesale,Medium,121,398.2,279.73,48182.2,0.0,0.0,48182.2,33847.33,14334.87,29.75,Credit Card,2
+ORD-10396,2026-06-05,Germany,Clothing,Footwear,In-Store,Medium,72,376.3,186.82,27093.6,0.0,0.0,27093.6,13451.04,13642.56,50.35,PayPal,4
+ORD-10381,2026-06-06,Canada,Beauty & Personal Care,Skincare,In-Store,High,134,822.22,437.95,110177.48,0.05,5508.87,104668.61,58685.3,45983.31,43.93,PayPal,4
+ORD-10106,2026-06-06,United States,Groceries,Snacks,Wholesale,Low,59,664.61,369.17,39211.99,0.0,0.0,39211.99,21781.03,17430.96,44.45,Invoice,3
+ORD-10838,2026-06-06,India,Toys & Games,Puzzles,Direct Sales,High,67,611.65,345.75,40980.55,0.15,6147.08,34833.47,23165.25,11668.22,33.5,Invoice,4
+ORD-10271,2026-06-07,Canada,Furniture,Sofas,In-Store,Medium,20,75.71,58.82,1514.2,0.0,0.0,1514.2,1176.4,337.8,22.31,Crypto,4
+ORD-10864,2026-06-10,Germany,Electronics,Smartwatches,Direct Sales,High,16,234.83,174.66,3757.28,0.0,0.0,3757.28,2794.56,962.72,25.62,Credit Card,5
+ORD-10421,2026-06-10,Australia,Toys & Games,Action Figures,Direct Sales,Low,119,318.1,133.96,37853.9,0.1,3785.39,34068.51,15941.24,18127.27,53.21,Credit Card,5
+ORD-10805,2026-06-10,France,Automotive,Tires & Wheels,Direct Sales,High,87,768.5,527.61,66859.5,0.0,0.0,66859.5,45902.07,20957.43,31.35,Bank Transfer,1
+ORD-10148,2026-06-11,India,Clothing,Women's Apparel,Direct Sales,Medium,21,761.26,484.68,15986.46,0.1,1598.65,14387.81,10178.28,4209.53,29.26,Invoice,4
+ORD-10993,2026-06-13,France,Sports & Outdoors,Bicycles,Direct Sales,Low,96,636.7,369.68,61123.2,0.05,3056.16,58067.04,35489.28,22577.76,38.88,Invoice,5
+ORD-10392,2026-06-14,Australia,Electronics,Smartphones,Online,Low,4,298.19,127.98,1192.76,0.1,119.28,1073.48,511.92,561.56,52.31,Credit Card,4
+ORD-10893,2026-06-14,Australia,Clothing,Accessories,Online,Medium,126,924.17,526.85,116445.42,0.05,5822.27,110623.15,66383.1,44240.05,39.99,Credit Card,5
+ORD-10359,2026-06-14,Canada,Clothing,Outerwear,Wholesale,High,56,498.84,297.24,27935.04,0.05,1396.75,26538.29,16645.44,9892.85,37.28,Invoice,4
+ORD-10803,2026-06-15,Germany,Furniture,Office Chairs,Direct Sales,Low,37,635.44,380.41,23511.28,0.0,0.0,23511.28,14075.17,9436.11,40.13,Invoice,4
+ORD-10468,2026-06-16,India,Furniture,Desks,Direct Sales,Medium,39,1114.02,832.26,43446.78,0.1,4344.68,39102.1,32458.14,6643.96,16.99,PayPal,4
+ORD-10185,2026-06-17,Germany,Clothing,Footwear,Direct Sales,Critical,145,438.46,343.19,63576.7,0.05,3178.84,60397.86,49762.55,10635.31,17.61,Credit Card,4
+ORD-10958,2026-06-17,United Kingdom,Groceries,Confectionery,Online,Medium,5,601.6,435.4,3008.0,0.05,150.4,2857.6,2177.0,680.6,23.82,Invoice,2
+ORD-10658,2026-06-17,Germany,Furniture,Bookshelves,Direct Sales,Medium,113,112.23,76.95,12681.99,0.0,0.0,12681.99,8695.35,3986.64,31.44,Crypto,3
+ORD-10517,2026-06-17,Germany,Sports & Outdoors,Athletic Wear,Online,Critical,20,603.77,258.95,12075.4,0.1,1207.54,10867.86,5179.0,5688.86,52.35,Bank Transfer,5
+ORD-10491,2026-06-18,Canada,Sports & Outdoors,Athletic Wear,Direct Sales,Low,47,326.66,135.76,15353.02,0.05,767.65,14585.37,6380.72,8204.65,56.25,Invoice,4
+ORD-10210,2026-06-20,Germany,Beauty & Personal Care,Makeup,In-Store,High,116,516.02,214.16,59858.32,0.0,0.0,59858.32,24842.56,35015.76,58.5,Credit Card,1
+ORD-10190,2026-06-20,India,Beauty & Personal Care,Haircare,Direct Sales,Medium,65,381.12,270.44,24772.8,0.1,2477.28,22295.52,17578.6,4716.92,21.16,Invoice,5
+ORD-10035,2026-06-21,France,Clothing,Footwear,In-Store,Medium,38,319.11,219.98,12126.18,0.05,606.31,11519.87,8359.24,3160.63,27.44,Crypto,3
+ORD-10268,2026-06-22,Brazil,Beauty & Personal Care,Makeup,In-Store,High,29,513.77,222.89,14899.33,0.05,744.97,14154.36,6463.81,7690.55,54.33,Invoice,3
+ORD-10633,2026-06-22,Canada,Beauty & Personal Care,Personal Hygiene,Wholesale,Medium,123,752.79,340.87,92593.17,0.1,9259.32,83333.85,41927.01,41406.84,49.69,Bank Transfer,3
+ORD-10776,2026-06-22,Canada,Clothing,Footwear,Online,Low,49,967.52,440.37,47408.48,0.1,4740.85,42667.63,21578.13,21089.5,49.43,Credit Card,4
+ORD-10901,2026-06-23,Germany,Sports & Outdoors,Athletic Wear,Online,Medium,4,336.88,222.16,1347.52,0.1,134.75,1212.77,888.64,324.13,26.73,Crypto,4
+ORD-10157,2026-06-24,United Kingdom,Beauty & Personal Care,Makeup,Online,Critical,131,645.42,294.86,84550.02,0.0,0.0,84550.02,38626.66,45923.36,54.32,Invoice,3
+ORD-10961,2026-06-24,Germany,Automotive,Tools & Equipment,Wholesale,Medium,103,543.39,347.99,55969.17,0.0,0.0,55969.17,35842.97,20126.2,35.96,Credit Card,3
+ORD-10273,2026-06-24,United States,Beauty & Personal Care,Personal Hygiene,Online,Low,101,212.44,161.3,21456.44,0.1,2145.64,19310.8,16291.3,3019.5,15.64,Bank Transfer,5
+ORD-10785,2026-06-25,Australia,Automotive,Interior Accessories,In-Store,Low,26,171.76,102.89,4465.76,0.0,0.0,4465.76,2675.14,1790.62,40.1,Bank Transfer,4
+ORD-10797,2026-06-25,United Kingdom,Automotive,Oils & Fluids,In-Store,High,53,145.17,77.9,7694.01,0.2,1538.8,6155.21,4128.7,2026.51,32.92,Bank Transfer,4
+ORD-10513,2026-06-25,United Kingdom,Furniture,Office Chairs,Direct Sales,Low,67,763.37,579.86,51145.79,0.05,2557.29,48588.5,38850.62,9737.88,20.04,Crypto,5
+ORD-10109,2026-06-25,France,Automotive,Tools & Equipment,Wholesale,Critical,88,417.44,236.01,36734.72,0.1,3673.47,33061.25,20768.88,12292.37,37.18,Credit Card,4
+ORD-10086,2026-06-26,Australia,Beauty & Personal Care,Makeup,Direct Sales,Low,104,924.63,459.97,96161.52,0.1,9616.15,86545.37,47836.88,38708.49,44.73,Invoice,4
+ORD-10498,2026-06-26,Canada,Beauty & Personal Care,Personal Hygiene,Wholesale,Medium,30,120.11,67.23,3603.3,0.05,180.17,3423.13,2016.9,1406.23,41.08,Invoice,4
+ORD-10179,2026-06-28,Germany,Furniture,Sofas,Direct Sales,Medium,148,822.31,408.5,121701.88,0.1,12170.19,109531.69,60458.0,49073.69,44.8,Invoice,3
+ORD-10240,2026-06-28,Australia,Groceries,Confectionery,Direct Sales,High,106,333.08,164.11,35306.48,0.0,0.0,35306.48,17395.66,17910.82,50.73,Crypto,4
+ORD-10790,2026-06-29,France,Groceries,Beverages,Direct Sales,Medium,149,843.9,582.85,125741.1,0.15,18861.16,106879.94,86844.65,20035.29,18.75,Invoice,4
+ORD-10841,2026-06-29,Brazil,Beauty & Personal Care,Makeup,Wholesale,Medium,11,1069.46,592.03,11764.06,0.1,1176.41,10587.65,6512.33,4075.32,38.49,Bank Transfer,2
+ORD-10138,2026-06-30,India,Clothing,Women's Apparel,In-Store,High,23,748.9,405.12,17224.7,0.1,1722.47,15502.23,9317.76,6184.47,39.89,PayPal,5
+ORD-10099,2026-06-30,Germany,Groceries,Pantry Staples,In-Store,Medium,42,944.17,714.58,39655.14,0.2,7931.03,31724.11,30012.36,1711.75,5.4,Credit Card,4
+ORD-10404,2026-06-30,United States,Electronics,Smartphones,Wholesale,High,58,754.27,545.57,43747.66,0.0,0.0,43747.66,31643.06,12104.6,27.67,Credit Card,4
+ORD-10142,2026-07-01,United Kingdom,Toys & Games,Puzzles,Direct Sales,Low,88,42.34,33.3,3725.92,0.0,0.0,3725.92,2930.4,795.52,21.35,Credit Card,3
+ORD-10979,2026-07-02,Brazil,Sports & Outdoors,Camping Gear,In-Store,Critical,77,397.01,305.44,30569.77,0.05,1528.49,29041.28,23518.88,5522.4,19.02,Crypto,5
+ORD-10481,2026-07-03,Japan,Automotive,Car Electronics,Direct Sales,Low,102,68.32,42.98,6968.64,0.1,696.86,6271.78,4383.96,1887.82,30.1,Credit Card,4
+ORD-10164,2026-07-03,Germany,Beauty & Personal Care,Personal Hygiene,Wholesale,High,18,993.78,788.67,17888.04,0.0,0.0,17888.04,14196.06,3691.98,20.64,Invoice,1
+ORD-10556,2026-07-03,Australia,Furniture,Office Chairs,Direct Sales,High,81,1188.86,607.69,96297.66,0.05,4814.88,91482.78,49222.89,42259.89,46.19,Invoice,5
+ORD-10260,2026-07-04,Germany,Beauty & Personal Care,Makeup,Online,High,61,1031.05,823.86,62894.05,0.0,0.0,62894.05,50255.46,12638.59,20.1,Crypto,3
+ORD-10321,2026-07-04,Japan,Beauty & Personal Care,Skincare,Direct Sales,High,132,135.65,56.72,17905.8,0.1,1790.58,16115.22,7487.04,8628.18,53.54,PayPal,4
+ORD-10610,2026-07-05,Germany,Clothing,Footwear,Online,Medium,28,921.9,552.38,25813.2,0.0,0.0,25813.2,15466.64,10346.56,40.08,Bank Transfer,4
+ORD-10453,2026-07-05,Germany,Groceries,Confectionery,Direct Sales,Critical,29,280.44,173.18,8132.76,0.1,813.28,7319.48,5022.22,2297.26,31.39,Bank Transfer,2
+ORD-10764,2026-07-06,United States,Toys & Games,Puzzles,Online,Medium,127,629.02,325.82,79885.54,0.0,0.0,79885.54,41379.14,38506.4,48.2,Credit Card,1
+ORD-10504,2026-07-06,Germany,Clothing,Footwear,Direct Sales,Low,33,536.81,371.95,17714.73,0.0,0.0,17714.73,12274.35,5440.38,30.71,Bank Transfer,3
+ORD-10775,2026-07-07,Japan,Toys & Games,Building Blocks,Wholesale,Medium,149,328.93,174.83,49010.57,0.1,4901.06,44109.51,26049.67,18059.84,40.94,Credit Card,2
+ORD-10535,2026-07-09,Canada,Toys & Games,Puzzles,Direct Sales,Low,66,389.39,248.2,25699.74,0.0,0.0,25699.74,16381.2,9318.54,36.26,Invoice,4
+ORD-10771,2026-07-09,India,Sports & Outdoors,Fitness Equipment,In-Store,Medium,61,349.58,273.49,21324.38,0.1,2132.44,19191.94,16682.89,2509.05,13.07,Credit Card,4
+ORD-10317,2026-07-09,United States,Automotive,Oils & Fluids,Online,Medium,8,1117.17,489.48,8937.36,0.05,446.87,8490.49,3915.84,4574.65,53.88,Crypto,4
+ORD-10615,2026-07-12,India,Furniture,Office Chairs,Wholesale,High,61,570.14,263.95,34778.54,0.0,0.0,34778.54,16100.95,18677.59,53.7,Invoice,5
+ORD-10048,2026-07-12,India,Toys & Games,Board Games,In-Store,High,9,248.62,148.34,2237.58,0.0,0.0,2237.58,1335.06,902.52,40.33,Crypto,3
+ORD-10325,2026-07-13,France,Furniture,Desks,In-Store,High,108,82.6,42.55,8920.8,0.0,0.0,8920.8,4595.4,4325.4,48.49,PayPal,5
+ORD-10694,2026-07-14,France,Furniture,Bookshelves,Wholesale,High,101,965.93,733.06,97558.93,0.05,4877.95,92680.98,74039.06,18641.92,20.11,Bank Transfer,4
+ORD-10181,2026-07-15,India,Automotive,Car Electronics,In-Store,High,18,338.64,231.22,6095.52,0.0,0.0,6095.52,4161.96,1933.56,31.72,Bank Transfer,4
+ORD-10080,2026-07-15,United Kingdom,Beauty & Personal Care,Haircare,Online,Medium,37,773.95,497.52,28636.15,0.05,1431.81,27204.34,18408.24,8796.1,32.33,Bank Transfer,3
+ORD-10217,2026-07-15,Australia,Groceries,Beverages,Online,Medium,15,612.94,340.12,9194.1,0.15,1379.12,7814.98,5101.8,2713.18,34.72,Credit Card,1
+ORD-10264,2026-07-17,France,Beauty & Personal Care,Haircare,Direct Sales,High,14,73.48,42.76,1028.72,0.1,102.87,925.85,598.64,327.21,35.34,Bank Transfer,2
+ORD-10769,2026-07-17,Canada,Clothing,Women's Apparel,Wholesale,Medium,48,502.62,298.23,24125.76,0.0,0.0,24125.76,14315.04,9810.72,40.66,Crypto,3
+ORD-10300,2026-07-18,India,Beauty & Personal Care,Skincare,Wholesale,Medium,101,740.62,371.16,74802.62,0.05,3740.13,71062.49,37487.16,33575.33,47.25,Bank Transfer,5
+ORD-10473,2026-07-19,Germany,Groceries,Organic Foods,Online,Critical,125,213.02,122.42,26627.5,0.05,1331.38,25296.12,15302.5,9993.62,39.51,Crypto,5
+ORD-10949,2026-07-19,United Kingdom,Automotive,Tools & Equipment,Online,Medium,102,1016.3,776.95,103662.6,0.1,10366.26,93296.34,79248.9,14047.44,15.06,PayPal,4
+ORD-10588,2026-07-19,United Kingdom,Beauty & Personal Care,Fragrance,Direct Sales,Medium,137,286.17,195.61,39205.29,0.1,3920.53,35284.76,26798.57,8486.19,24.05,PayPal,1
+ORD-10681,2026-07-20,Germany,Electronics,Tablets,Direct Sales,Low,128,263.34,184.97,33707.52,0.05,1685.38,32022.14,23676.16,8345.98,26.06,Invoice,4
+ORD-10211,2026-07-20,Japan,Sports & Outdoors,Fitness Equipment,In-Store,Medium,103,372.0,194.03,38316.0,0.0,0.0,38316.0,19985.09,18330.91,47.84,PayPal,2
+ORD-10742,2026-07-20,France,Clothing,Accessories,Online,Medium,35,959.38,737.36,33578.3,0.2,6715.66,26862.64,25807.6,1055.04,3.93,Bank Transfer,3
+ORD-10970,2026-07-21,France,Groceries,Beverages,In-Store,Low,73,938.51,499.33,68511.23,0.0,0.0,68511.23,36451.09,32060.14,46.8,Credit Card,4
+ORD-10389,2026-07-22,Germany,Sports & Outdoors,Outdoor Accessories,Online,High,16,1025.36,686.4,16405.76,0.0,0.0,16405.76,10982.4,5423.36,33.06,Bank Transfer,1
+ORD-10303,2026-07-24,United States,Automotive,Car Electronics,In-Store,Low,5,381.04,190.49,1905.2,0.1,190.52,1714.68,952.45,762.23,44.45,Bank Transfer,5
+ORD-10033,2026-07-27,Germany,Clothing,Women's Apparel,In-Store,High,3,980.84,480.39,2942.52,0.0,0.0,2942.52,1441.17,1501.35,51.02,Credit Card,4
+ORD-10150,2026-07-27,Japan,Furniture,Bookshelves,Direct Sales,Medium,106,1166.12,621.0,123608.72,0.05,6180.44,117428.28,65826.0,51602.28,43.94,PayPal,4
+ORD-10767,2026-07-27,Brazil,Electronics,Tablets,Online,High,1,1173.81,936.37,1173.81,0.05,58.69,1115.12,936.37,178.75,16.03,Credit Card,3
+ORD-10751,2026-07-28,Japan,Sports & Outdoors,Outdoor Accessories,Online,Medium,4,1129.75,671.69,4519.0,0.05,225.95,4293.05,2686.76,1606.29,37.42,Credit Card,4
+ORD-10247,2026-07-28,United States,Clothing,Men's Apparel,Wholesale,Medium,29,757.83,511.88,21977.07,0.0,0.0,21977.07,14844.52,7132.55,32.45,Credit Card,4
+ORD-10770,2026-07-28,Australia,Sports & Outdoors,Outdoor Accessories,In-Store,Low,8,538.49,383.7,4307.92,0.1,430.79,3877.13,3069.6,807.53,20.83,Credit Card,5
+ORD-10621,2026-07-29,Germany,Electronics,Smartwatches,Online,Medium,64,31.41,24.28,2010.24,0.0,0.0,2010.24,1553.92,456.32,22.7,PayPal,4
+ORD-10069,2026-07-29,India,Electronics,Smartphones,Online,High,73,117.67,60.66,8589.91,0.0,0.0,8589.91,4428.18,4161.73,48.45,Bank Transfer,4
+ORD-10063,2026-07-30,Japan,Beauty & Personal Care,Fragrance,Online,High,49,1014.56,732.78,49713.44,0.05,2485.67,47227.77,35906.22,11321.55,23.97,Invoice,4
+ORD-10557,2026-07-30,Canada,Beauty & Personal Care,Skincare,Direct Sales,High,136,384.36,232.47,52272.96,0.15,7840.94,44432.02,31615.92,12816.1,28.84,Bank Transfer,3
+ORD-10434,2026-07-31,Germany,Clothing,Outerwear,In-Store,Critical,85,567.58,260.62,48244.3,0.2,9648.86,38595.44,22152.7,16442.74,42.6,Crypto,2
+ORD-10883,2026-08-02,France,Clothing,Accessories,In-Store,Medium,24,239.86,160.03,5756.64,0.0,0.0,5756.64,3840.72,1915.92,33.28,Bank Transfer,4
+ORD-10930,2026-08-02,Canada,Electronics,Smartphones,Online,Low,87,38.85,25.25,3379.95,0.0,0.0,3379.95,2196.75,1183.2,35.01,Credit Card,2
+ORD-10207,2026-08-03,France,Groceries,Organic Foods,Direct Sales,Medium,99,398.34,293.12,39435.66,0.0,0.0,39435.66,29018.88,10416.78,26.41,Bank Transfer,5
+ORD-10290,2026-08-03,Japan,Furniture,Office Chairs,Wholesale,Medium,13,22.24,15.27,289.12,0.1,28.91,260.21,198.51,61.7,23.71,Invoice,5
+ORD-10920,2026-08-03,India,Clothing,Outerwear,Online,Critical,11,753.27,426.9,8285.97,0.05,414.3,7871.67,4695.9,3175.77,40.34,Crypto,2
+ORD-10829,2026-08-04,India,Sports & Outdoors,Athletic Wear,Wholesale,High,12,652.63,381.41,7831.56,0.0,0.0,7831.56,4576.92,3254.64,41.56,Invoice,5
+ORD-10123,2026-08-05,India,Sports & Outdoors,Athletic Wear,Direct Sales,Low,82,1088.66,496.1,89270.12,0.05,4463.51,84806.61,40680.2,44126.41,52.03,Credit Card,5
+ORD-10170,2026-08-05,Australia,Furniture,Sofas,In-Store,Medium,143,730.85,560.92,104511.55,0.0,0.0,104511.55,80211.56,24299.99,23.25,Credit Card,5
+ORD-10992,2026-08-06,India,Groceries,Confectionery,In-Store,High,43,960.26,713.12,41291.18,0.05,2064.56,39226.62,30664.16,8562.46,21.83,PayPal,2
+ORD-10600,2026-08-07,Canada,Sports & Outdoors,Outdoor Accessories,Direct Sales,Critical,46,442.35,246.0,20348.1,0.0,0.0,20348.1,11316.0,9032.1,44.39,PayPal,3
+ORD-10626,2026-08-08,Germany,Groceries,Pantry Staples,Online,Low,138,715.05,525.01,98676.9,0.0,0.0,98676.9,72451.38,26225.52,26.58,Credit Card,5
+ORD-10189,2026-08-09,France,Toys & Games,Action Figures,In-Store,High,142,502.23,299.9,71316.66,0.05,3565.83,67750.83,42585.8,25165.03,37.14,Credit Card,5
+ORD-10226,2026-08-09,Japan,Toys & Games,Action Figures,Wholesale,Medium,20,363.78,158.91,7275.6,0.05,363.78,6911.82,3178.2,3733.62,54.02,Invoice,2
+ORD-10959,2026-08-09,United Kingdom,Electronics,Smartphones,Direct Sales,Medium,38,341.67,158.38,12983.46,0.0,0.0,12983.46,6018.44,6965.02,53.65,Bank Transfer,4
+ORD-10761,2026-08-12,United States,Sports & Outdoors,Bicycles,Online,Low,32,1154.18,575.59,36933.76,0.05,1846.69,35087.07,18418.88,16668.19,47.51,PayPal,4
+ORD-10872,2026-08-12,Canada,Sports & Outdoors,Fitness Equipment,Online,High,58,1120.76,611.1,65004.08,0.1,6500.41,58503.67,35443.8,23059.87,39.42,Credit Card,4
+ORD-10639,2026-08-14,Germany,Toys & Games,Building Blocks,Direct Sales,High,4,687.68,369.47,2750.72,0.05,137.54,2613.18,1477.88,1135.3,43.45,Credit Card,4
+ORD-10036,2026-08-16,Canada,Groceries,Confectionery,Direct Sales,Medium,115,991.37,534.47,114007.55,0.1,11400.76,102606.79,61464.05,41142.74,40.1,PayPal,5
+ORD-10865,2026-08-16,United States,Automotive,Interior Accessories,In-Store,High,36,885.41,526.65,31874.76,0.1,3187.48,28687.28,18959.4,9727.88,33.91,Credit Card,4
+ORD-10722,2026-08-18,India,Electronics,Smartwatches,Wholesale,High,1,436.45,206.56,436.45,0.05,21.82,414.63,206.56,208.07,50.18,Invoice,5
+ORD-10221,2026-08-18,United Kingdom,Furniture,Sofas,Direct Sales,Low,113,33.56,18.67,3792.28,0.0,0.0,3792.28,2109.71,1682.57,44.37,Invoice,4
+ORD-10197,2026-08-19,Germany,Electronics,Headphones,Direct Sales,Low,15,431.58,336.47,6473.7,0.2,1294.74,5178.96,5047.05,131.91,2.55,Bank Transfer,4
+ORD-10314,2026-08-20,France,Toys & Games,Educational Toys,Wholesale,Low,126,1043.41,804.04,131469.66,0.05,6573.48,124896.18,101309.04,23587.14,18.89,PayPal,1
+ORD-10594,2026-08-20,Germany,Toys & Games,Building Blocks,Direct Sales,High,101,549.57,437.3,55506.57,0.0,0.0,55506.57,44167.3,11339.27,20.43,Bank Transfer,4
+ORD-10814,2026-08-21,France,Groceries,Snacks,In-Store,High,15,628.21,364.5,9423.15,0.0,0.0,9423.15,5467.5,3955.65,41.98,Credit Card,5
+ORD-10808,2026-08-22,France,Automotive,Tools & Equipment,Online,Low,126,938.82,659.22,118291.32,0.05,5914.57,112376.75,83061.72,29315.03,26.09,PayPal,5
+ORD-10202,2026-08-23,Canada,Toys & Games,Educational Toys,In-Store,High,74,943.46,519.65,69816.04,0.05,3490.8,66325.24,38454.1,27871.14,42.02,PayPal,1
+ORD-10646,2026-08-24,United States,Electronics,Smartphones,Direct Sales,Medium,131,198.64,118.19,26021.84,0.0,0.0,26021.84,15482.89,10538.95,40.5,Bank Transfer,5
+ORD-10194,2026-08-25,Brazil,Electronics,Tablets,Direct Sales,Critical,75,1155.69,497.23,86676.75,0.0,0.0,86676.75,37292.25,49384.5,56.98,PayPal,4
+ORD-10630,2026-08-25,Brazil,Toys & Games,Action Figures,Wholesale,High,9,1181.1,820.28,10629.9,0.1,1062.99,9566.91,7382.52,2184.39,22.83,PayPal,2
+ORD-10299,2026-08-25,Brazil,Automotive,Oils & Fluids,Online,High,122,954.35,393.87,116430.7,0.1,11643.07,104787.63,48052.14,56735.49,54.14,Bank Transfer,2
+ORD-10789,2026-08-26,Japan,Toys & Games,Puzzles,Direct Sales,High,108,354.5,235.97,38286.0,0.05,1914.3,36371.7,25484.76,10886.94,29.93,Bank Transfer,5
+ORD-10876,2026-08-26,Germany,Electronics,Laptops,In-Store,High,15,488.57,215.44,7328.55,0.0,0.0,7328.55,3231.6,4096.95,55.9,Invoice,4
+ORD-10915,2026-08-27,Brazil,Beauty & Personal Care,Makeup,In-Store,High,41,288.49,183.26,11828.09,0.05,591.4,11236.69,7513.66,3723.03,33.13,Bank Transfer,4
+ORD-10538,2026-08-28,Germany,Beauty & Personal Care,Makeup,In-Store,Medium,24,821.32,620.51,19711.68,0.1,1971.17,17740.51,14892.24,2848.27,16.06,Invoice,4
+ORD-10741,2026-08-28,France,Clothing,Accessories,In-Store,High,18,16.32,8.67,293.76,0.1,29.38,264.38,156.06,108.32,40.97,Bank Transfer,4
+ORD-10285,2026-08-29,France,Groceries,Beverages,Direct Sales,Medium,143,1093.62,660.48,156387.66,0.05,7819.38,148568.28,94448.64,54119.64,36.43,Invoice,3
+ORD-10921,2026-08-29,Germany,Furniture,Bookshelves,Direct Sales,Critical,72,24.35,10.07,1753.2,0.1,175.32,1577.88,725.04,852.84,54.05,Crypto,5
+ORD-10576,2026-08-29,United Kingdom,Groceries,Pantry Staples,Direct Sales,High,145,541.16,335.67,78468.2,0.15,11770.23,66697.97,48672.15,18025.82,27.03,PayPal,4
+ORD-10270,2026-08-30,France,Toys & Games,Building Blocks,Direct Sales,Low,119,481.19,321.3,57261.61,0.15,8589.24,48672.37,38234.7,10437.67,21.44,Crypto,2
+ORD-10833,2026-08-30,India,Sports & Outdoors,Outdoor Accessories,In-Store,Medium,113,230.57,150.73,26054.41,0.1,2605.44,23448.97,17032.49,6416.48,27.36,Invoice,3
+ORD-10707,2026-09-01,United Kingdom,Clothing,Accessories,Wholesale,Low,93,165.12,118.63,15356.16,0.0,0.0,15356.16,11032.59,4323.57,28.16,PayPal,4
+ORD-10923,2026-09-01,Germany,Toys & Games,Educational Toys,Direct Sales,Medium,81,177.52,86.98,14379.12,0.05,718.96,13660.16,7045.38,6614.78,48.42,PayPal,4
+ORD-10416,2026-09-02,Germany,Sports & Outdoors,Athletic Wear,Direct Sales,Low,66,36.28,19.71,2394.48,0.0,0.0,2394.48,1300.86,1093.62,45.67,Credit Card,5
+ORD-10229,2026-09-02,India,Sports & Outdoors,Athletic Wear,Online,Low,68,1124.16,693.38,76442.88,0.15,11466.43,64976.45,47149.84,17826.61,27.44,Bank Transfer,4
+ORD-10935,2026-09-03,Germany,Sports & Outdoors,Camping Gear,Direct Sales,Medium,22,1099.42,495.01,24187.24,0.05,1209.36,22977.88,10890.22,12087.66,52.61,Credit Card,4
+ORD-10397,2026-09-03,Japan,Clothing,Outerwear,In-Store,Medium,42,137.09,107.12,5757.78,0.0,0.0,5757.78,4499.04,1258.74,21.86,Bank Transfer,3
+ORD-10159,2026-09-03,Australia,Electronics,Tablets,In-Store,High,108,960.07,699.86,103687.56,0.15,15553.13,88134.43,75584.88,12549.55,14.24,Credit Card,4
+ORD-10680,2026-09-04,United States,Groceries,Snacks,In-Store,Critical,142,1060.51,815.34,150592.42,0.0,0.0,150592.42,115778.28,34814.14,23.12,Crypto,2
+ORD-10619,2026-09-04,United States,Furniture,Bookshelves,Online,High,55,597.08,248.4,32839.4,0.2,6567.88,26271.52,13662.0,12609.52,48.0,Credit Card,1
+ORD-10183,2026-09-04,Canada,Automotive,Tires & Wheels,Online,Medium,112,1124.22,753.29,125912.64,0.0,0.0,125912.64,84368.48,41544.16,32.99,Bank Transfer,4
+ORD-10318,2026-09-05,Australia,Groceries,Snacks,Wholesale,Low,124,913.31,631.11,113250.44,0.05,5662.52,107587.92,78257.64,29330.28,27.26,Invoice,3
+ORD-10238,2026-09-06,Japan,Sports & Outdoors,Outdoor Accessories,Online,High,92,800.42,602.46,73638.64,0.1,7363.86,66274.78,55426.32,10848.46,16.37,Invoice,4
+ORD-10510,2026-09-07,India,Beauty & Personal Care,Fragrance,Online,Critical,121,863.9,614.0,104531.9,0.1,10453.19,94078.71,74294.0,19784.71,21.03,Crypto,5
+ORD-10366,2026-09-07,Australia,Clothing,Accessories,Direct Sales,Medium,115,994.72,499.17,114392.8,0.05,5719.64,108673.16,57404.55,51268.61,47.18,Invoice,4
+ORD-10266,2026-09-08,Japan,Toys & Games,Action Figures,Wholesale,Medium,142,82.12,55.36,11661.04,0.0,0.0,11661.04,7861.12,3799.92,32.59,PayPal,4
+ORD-10592,2026-09-09,Germany,Toys & Games,Board Games,Wholesale,Low,25,218.94,103.13,5473.5,0.15,821.02,4652.48,2578.25,2074.23,44.58,Credit Card,3
+ORD-10582,2026-09-09,Brazil,Furniture,Sofas,In-Store,Medium,71,391.48,177.73,27795.08,0.0,0.0,27795.08,12618.83,15176.25,54.6,Bank Transfer,4
+ORD-10903,2026-09-10,Japan,Sports & Outdoors,Athletic Wear,In-Store,Low,144,301.49,208.59,43414.56,0.1,4341.46,39073.1,30036.96,9036.14,23.13,PayPal,5
+ORD-10152,2026-09-10,Japan,Toys & Games,Board Games,Online,High,49,744.31,331.62,36471.19,0.0,0.0,36471.19,16249.38,20221.81,55.45,Credit Card,1
+ORD-10319,2026-09-10,France,Groceries,Confectionery,Wholesale,Critical,29,187.61,95.17,5440.69,0.0,0.0,5440.69,2759.93,2680.76,49.27,Bank Transfer,2
+ORD-10119,2026-09-11,United States,Toys & Games,Educational Toys,In-Store,Medium,109,941.27,397.64,102598.43,0.15,15389.76,87208.67,43342.76,43865.91,50.3,Bank Transfer,5
+ORD-10953,2026-09-12,India,Furniture,Sofas,Direct Sales,Medium,30,160.59,100.57,4817.7,0.0,0.0,4817.7,3017.1,1800.6,37.37,Bank Transfer,5
+ORD-10309,2026-09-12,Germany,Sports & Outdoors,Camping Gear,In-Store,Medium,122,621.77,325.43,75855.94,0.05,3792.8,72063.14,39702.46,32360.68,44.91,PayPal,4
+ORD-10459,2026-09-12,Canada,Furniture,Sofas,Direct Sales,Medium,74,631.77,414.7,46750.98,0.1,4675.1,42075.88,30687.8,11388.08,27.07,Credit Card,4
+ORD-10957,2026-09-12,United Kingdom,Clothing,Footwear,In-Store,Low,132,978.68,695.59,129185.76,0.1,12918.58,116267.18,91817.88,24449.3,21.03,Bank Transfer,3
+ORD-10243,2026-09-12,Canada,Toys & Games,Board Games,In-Store,Low,122,431.58,190.82,52652.76,0.0,0.0,52652.76,23280.04,29372.72,55.79,Credit Card,3
+ORD-10818,2026-09-13,United States,Groceries,Confectionery,Direct Sales,Critical,79,308.45,208.48,24367.55,0.15,3655.13,20712.42,16469.92,4242.5,20.48,Credit Card,4
+ORD-10072,2026-09-14,Germany,Furniture,Office Chairs,Wholesale,Medium,72,627.71,371.4,45195.12,0.0,0.0,45195.12,26740.8,18454.32,40.83,Bank Transfer,2
+ORD-10839,2026-09-16,United Kingdom,Electronics,Tablets,In-Store,Medium,126,1112.9,612.26,140225.4,0.0,0.0,140225.4,77144.76,63080.64,44.99,Bank Transfer,5
+ORD-10617,2026-09-17,France,Automotive,Tires & Wheels,Online,Medium,15,644.93,258.03,9673.95,0.0,0.0,9673.95,3870.45,5803.5,59.99,Invoice,3
+ORD-10652,2026-09-17,United Kingdom,Beauty & Personal Care,Personal Hygiene,In-Store,Low,147,1182.07,920.02,173764.29,0.0,0.0,173764.29,135242.94,38521.35,22.17,Bank Transfer,3
+ORD-10496,2026-09-18,Germany,Groceries,Confectionery,In-Store,Critical,20,985.42,788.08,19708.4,0.0,0.0,19708.4,15761.6,3946.8,20.03,Invoice,4
+ORD-10939,2026-09-19,Canada,Clothing,Footwear,Wholesale,Medium,51,392.54,182.08,20019.54,0.0,0.0,20019.54,9286.08,10733.46,53.61,PayPal,4
+ORD-10937,2026-09-19,Australia,Furniture,Sofas,Online,Medium,39,598.81,442.91,23353.59,0.15,3503.04,19850.55,17273.49,2577.06,12.98,Credit Card,2
+ORD-10368,2026-09-21,United States,Beauty & Personal Care,Skincare,In-Store,Medium,41,600.52,308.82,24621.32,0.1,2462.13,22159.19,12661.62,9497.57,42.86,Crypto,3
+ORD-10110,2026-09-22,United Kingdom,Automotive,Oils & Fluids,In-Store,High,111,1053.79,604.37,116970.69,0.0,0.0,116970.69,67085.07,49885.62,42.65,Bank Transfer,1
+ORD-10184,2026-09-24,Australia,Furniture,Dining Tables,Online,High,101,1159.6,816.84,117119.6,0.2,23423.92,93695.68,82500.84,11194.84,11.95,Credit Card,3
+ORD-10560,2026-09-25,France,Beauty & Personal Care,Makeup,Direct Sales,Medium,137,1145.76,858.94,156969.12,0.1,15696.91,141272.21,117674.78,23597.43,16.7,PayPal,4
+ORD-10528,2026-09-26,Brazil,Clothing,Accessories,In-Store,Medium,142,596.71,258.24,84732.82,0.0,0.0,84732.82,36670.08,48062.74,56.72,Crypto,4
+ORD-10378,2026-09-26,Australia,Beauty & Personal Care,Haircare,Wholesale,Medium,99,518.69,341.34,51350.31,0.1,5135.03,46215.28,33792.66,12422.62,26.88,PayPal,4
+ORD-10569,2026-09-28,United Kingdom,Automotive,Oils & Fluids,Online,Medium,61,272.32,209.72,16611.52,0.15,2491.73,14119.79,12792.92,1326.87,9.4,PayPal,5
+ORD-10667,2026-09-29,Brazil,Automotive,Tools & Equipment,Direct Sales,High,121,164.44,102.4,19897.24,0.15,2984.59,16912.65,12390.4,4522.25,26.74,Invoice,3
+ORD-10834,2026-09-29,Germany,Automotive,Oils & Fluids,Online,High,37,672.74,298.22,24891.38,0.15,3733.71,21157.67,11034.14,10123.53,47.85,Credit Card,5
+ORD-10167,2026-09-29,United Kingdom,Sports & Outdoors,Camping Gear,Wholesale,Medium,17,884.15,459.93,15030.55,0.0,0.0,15030.55,7818.81,7211.74,47.98,Bank Transfer,4
+ORD-10059,2026-09-29,United Kingdom,Sports & Outdoors,Camping Gear,Direct Sales,High,99,933.44,524.71,92410.56,0.05,4620.53,87790.03,51946.29,35843.74,40.83,Bank Transfer,3
+ORD-10675,2026-09-29,Germany,Electronics,Headphones,Online,High,9,152.99,93.91,1376.91,0.1,137.69,1239.22,845.19,394.03,31.8,Bank Transfer,5
+ORD-10192,2026-09-30,France,Beauty & Personal Care,Personal Hygiene,Wholesale,High,51,38.08,28.92,1942.08,0.1,194.21,1747.87,1474.92,272.95,15.62,Credit Card,3
+ORD-10272,2026-09-30,India,Groceries,Pantry Staples,Direct Sales,Low,139,398.24,206.99,55355.36,0.0,0.0,55355.36,28771.61,26583.75,48.02,Invoice,5
+ORD-10282,2026-10-01,Germany,Furniture,Office Chairs,Direct Sales,Medium,81,190.94,111.38,15466.14,0.0,0.0,15466.14,9021.78,6444.36,41.67,Credit Card,3
+ORD-10620,2026-10-02,India,Furniture,Sofas,Direct Sales,High,109,540.42,396.91,58905.78,0.0,0.0,58905.78,43263.19,15642.59,26.56,Invoice,3
+ORD-10336,2026-10-03,Germany,Beauty & Personal Care,Makeup,Wholesale,Critical,88,491.62,213.88,43262.56,0.0,0.0,43262.56,18821.44,24441.12,56.49,Invoice,4
+ORD-10735,2026-10-03,Brazil,Electronics,Headphones,Wholesale,Low,25,1043.27,540.29,26081.75,0.0,0.0,26081.75,13507.25,12574.5,48.21,Crypto,5
+ORD-10955,2026-10-05,France,Toys & Games,Action Figures,Direct Sales,Low,7,1057.36,798.41,7401.52,0.2,1480.3,5921.22,5588.87,332.35,5.61,Credit Card,1
+ORD-10076,2026-10-06,Germany,Electronics,Headphones,Wholesale,High,74,961.74,455.71,71168.76,0.0,0.0,71168.76,33722.54,37446.22,52.62,Credit Card,4
+ORD-10097,2026-10-07,Australia,Furniture,Bookshelves,Online,Low,79,702.76,472.53,55518.04,0.0,0.0,55518.04,37329.87,18188.17,32.76,Crypto,3
+ORD-10589,2026-10-08,United Kingdom,Groceries,Confectionery,Direct Sales,High,37,1067.74,745.6,39506.38,0.0,0.0,39506.38,27587.2,11919.18,30.17,Bank Transfer,5
+ORD-10987,2026-10-09,Japan,Electronics,Smartphones,Wholesale,Medium,86,1110.31,490.32,95486.66,0.0,0.0,95486.66,42167.52,53319.14,55.84,Credit Card,5
+ORD-10830,2026-10-10,Australia,Beauty & Personal Care,Haircare,Online,Medium,113,1057.5,829.46,119497.5,0.15,17924.62,101572.88,93728.98,7843.9,7.72,PayPal,4
+ORD-10717,2026-10-13,United States,Furniture,Office Chairs,Wholesale,Medium,48,987.08,431.29,47379.84,0.1,4737.98,42641.86,20701.92,21939.94,51.45,Bank Transfer,5
+ORD-10783,2026-10-14,France,Clothing,Outerwear,Wholesale,Critical,44,704.79,386.64,31010.76,0.05,1550.54,29460.22,17012.16,12448.06,42.25,Invoice,3
+ORD-10342,2026-10-14,United Kingdom,Sports & Outdoors,Outdoor Accessories,In-Store,High,121,1170.46,858.28,141625.66,0.0,0.0,141625.66,103851.88,37773.78,26.67,Invoice,4
+ORD-10151,2026-10-15,Japan,Electronics,Smartphones,In-Store,High,148,138.55,74.2,20505.4,0.1,2050.54,18454.86,10981.6,7473.26,40.49,Credit Card,3
+ORD-10926,2026-10-15,Japan,Beauty & Personal Care,Personal Hygiene,Direct Sales,Medium,47,983.9,783.33,46243.3,0.0,0.0,46243.3,36816.51,9426.79,20.39,Invoice,5
+ORD-10749,2026-10-15,Germany,Furniture,Bookshelves,In-Store,Critical,131,1041.66,727.81,136457.46,0.15,20468.62,115988.84,95343.11,20645.73,17.8,PayPal,2
+ORD-10608,2026-10-16,United Kingdom,Electronics,Tablets,Direct Sales,Critical,139,1113.13,733.98,154725.07,0.0,0.0,154725.07,102023.22,52701.85,34.06,Invoice,4
+ORD-10782,2026-10-17,Germany,Clothing,Accessories,Direct Sales,Medium,13,668.65,400.23,8692.45,0.0,0.0,8692.45,5202.99,3489.46,40.14,Credit Card,4
+ORD-10512,2026-10-17,Germany,Electronics,Headphones,Direct Sales,High,64,366.35,185.94,23446.4,0.2,4689.28,18757.12,11900.16,6856.96,36.56,PayPal,4
+ORD-10156,2026-10-17,India,Automotive,Interior Accessories,Wholesale,High,51,716.46,289.49,36539.46,0.05,1826.97,34712.49,14763.99,19948.5,57.47,Credit Card,4
+ORD-10784,2026-10-18,Germany,Sports & Outdoors,Camping Gear,Wholesale,Critical,19,52.38,31.39,995.22,0.05,49.76,945.46,596.41,349.05,36.92,Bank Transfer,1
+ORD-10155,2026-10-20,Canada,Beauty & Personal Care,Skincare,Wholesale,High,147,719.62,446.04,105784.14,0.15,15867.62,89916.52,65567.88,24348.64,27.08,Invoice,2
+ORD-10712,2026-10-21,Australia,Furniture,Bookshelves,In-Store,Medium,95,999.57,459.93,94959.15,0.0,0.0,94959.15,43693.35,51265.8,53.99,Invoice,3
+ORD-10118,2026-10-22,Japan,Automotive,Tools & Equipment,Wholesale,High,90,709.45,336.13,63850.5,0.0,0.0,63850.5,30251.7,33598.8,52.62,Bank Transfer,3
+ORD-10716,2026-10-23,Canada,Furniture,Office Chairs,In-Store,Medium,80,318.87,164.84,25509.6,0.1,2550.96,22958.64,13187.2,9771.44,42.56,Credit Card,4
+ORD-10409,2026-10-23,Canada,Automotive,Oils & Fluids,Direct Sales,Low,145,242.6,113.17,35177.0,0.15,5276.55,29900.45,16409.65,13490.8,45.12,Bank Transfer,3
+ORD-10616,2026-10-24,United Kingdom,Toys & Games,Building Blocks,In-Store,Medium,82,1094.78,589.26,89771.96,0.05,4488.6,85283.36,48319.32,36964.04,43.34,PayPal,4
+ORD-10056,2026-10-24,France,Groceries,Beverages,Wholesale,High,35,272.47,154.59,9536.45,0.0,0.0,9536.45,5410.65,4125.8,43.26,Invoice,3
+ORD-10575,2026-10-24,United States,Clothing,Accessories,Online,Medium,77,950.71,552.92,73204.67,0.0,0.0,73204.67,42574.84,30629.83,41.84,PayPal,5
+ORD-10877,2026-10-24,Germany,Furniture,Office Chairs,In-Store,Low,62,336.37,208.23,20854.94,0.0,0.0,20854.94,12910.26,7944.68,38.09,Crypto,3
+ORD-10795,2026-10-24,France,Electronics,Tablets,Online,Medium,137,212.48,106.64,29109.76,0.0,0.0,29109.76,14609.68,14500.08,49.81,Invoice,4
+ORD-10859,2026-10-25,United Kingdom,Furniture,Bookshelves,Wholesale,High,81,381.43,154.49,30895.83,0.0,0.0,30895.83,12513.69,18382.14,59.5,Credit Card,4
+ORD-10297,2026-10-25,United Kingdom,Groceries,Snacks,In-Store,Medium,61,938.19,412.33,57229.59,0.0,0.0,57229.59,25152.13,32077.46,56.05,Crypto,2
