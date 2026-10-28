@@ -1,7 +1,7 @@
 import React from 'react'
 import { AbsoluteFill, interpolate, useCurrentFrame, useRemotionEnvironment, delayRender, continueRender } from 'remotion'
 import { lerpKeyframes, effectiveTiming } from '../sceneGraph.js'
-import { webFontFamilies, fontCssUrl, addMirrorLinks, cleanFamily, customFontFaces, injectCustomFont } from '../fonts.js'
+import { webFontFamilies, fontCssUrl, addMirrorLinks, cleanFamily, customFontFaces, injectCustomFont, fontStack } from '../fonts.js'
 import { MAP_W, MAP_H, project } from '../geo.js'
 
 // Headless renders use a fresh browser profile with no cached webfonts, and
@@ -299,7 +299,7 @@ const CHART_PALETTE = ['#4da3ff', '#3ddc84', '#ffcf40', '#b388ff', '#ff9f43', '#
 const showT = (layer) => layer.showTitle !== false && String(layer.name || '').trim() !== ''
 const showL = (layer) => layer.showLegend !== false
 // Chart titles follow the layer's picked font (charts share the picker).
-const titleFont = (layer) => ({ fontFamily: layer.fontFamily || 'Inter, system-ui, sans-serif' })
+const titleFont = (layer) => ({ fontFamily: fontStack(cleanFamily(layer.fontFamily) || 'Inter') })
 const eoa = (t) => (t >= 1 ? 1 : 1 - Math.pow(2, -10 * t))
 function segProgress(frame, start, delay, dur = 24) {
   return interpolate(frame, [start + delay, start + delay + dur], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })
@@ -712,7 +712,7 @@ function LayerView({ layer, frame, onSelect, selected, preview, onDragPreview, o
         {/* Shrink-fit + wrap-anywhere: the box hugs the text and long titles
           wrap (even unbroken strings) instead of overflowing a narrow
           canvas. pre-wrap honors Enter line breaks from the content box. */}
-        <div style={{ display: 'inline-block', maxWidth: '100%', overflowWrap: 'anywhere', whiteSpace: 'pre-wrap', fontSize: Math.round(props.fontSize ?? layer.fontSize ?? 84), fontWeight: 800, letterSpacing: 1, lineHeight: 1.15, fontFamily: layer.fontFamily || 'Inter, system-ui, sans-serif', color: layer.color || '#fff' }}>{layer.text || layer.name}</div>
+        <div style={{ display: 'inline-block', maxWidth: '100%', overflowWrap: 'anywhere', whiteSpace: 'pre-wrap', fontSize: Math.round(props.fontSize ?? layer.fontSize ?? 84), fontWeight: 800, letterSpacing: 1, lineHeight: 1.15, fontFamily: fontStack(cleanFamily(layer.fontFamily) || 'Inter'), color: layer.color || '#fff' }}>{layer.text || layer.name}</div>
       </div>
     )
   }
@@ -753,12 +753,16 @@ export function SceneComposition({ scene, selectedId, onSelect, preview, onDragP
     <AbsoluteFill style={{ backgroundColor: scene?.background || '#10141d' }} onClick={() => onSelect?.(null)}>
       <FontGate scene={scene} />
       {!!scene?.backgroundImage && <img src={scene.backgroundImage} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: scene.backgroundImageOpacity ?? 1 }} />}
-      <div data-vs-canvas style={{ position: 'absolute', left: (W - 1280 * s) / 2, top: (H - 720 * s) / 2, width: 1280, height: 720, transform: `scale(${s})`, transformOrigin: 'top left' }}>
+      {/* Explicit base text color: the preview inherits near-white from the
+        app page CSS, which the headless export bundle doesn't include —
+        without this, titles/labels/legends fall back to browser-default
+        dark text and vanish on the dark stage in the MP4. */}
+      <div data-vs-canvas style={{ position: 'absolute', left: (W - 1280 * s) / 2, top: (H - 720 * s) / 2, width: 1280, height: 720, transform: `scale(${s})`, transformOrigin: 'top left', color: '#e6e9f0' }}>
         {(scene?.layers || []).map((l) => (
           <LayerView key={l.id} layer={l} frame={frame} selected={l.id === selectedId} onSelect={onSelect} preview={pv} onDragPreview={onDragPreview} onDragCommit={onDragCommit} />
         ))}
       </div>
-      <div style={{ position: 'absolute', bottom: 12, right: 16, fontSize: 16, opacity: 0.6 }}>frame {frame} / {scene?.durationInFrames}</div>
+      <div style={{ position: 'absolute', bottom: 12, right: 16, fontSize: 16, opacity: 0.6, color: '#e6e9f0' }}>frame {frame} / {scene?.durationInFrames}</div>
     </AbsoluteFill>
   )
 }

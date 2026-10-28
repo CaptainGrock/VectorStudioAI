@@ -174,7 +174,7 @@ function FontPicker({ layer }) {
     },
     onMouseLeave: () => setHover(null),
   })
-  const applyFont = (name, stack) => { updateLayer(layer.id, (o) => ({ ...o, fontFamily: stack })); setOpen(false); setHover(null) }
+  const applyFont = (name) => { updateLayer(layer.id, (o) => ({ ...o, fontFamily: cleanFamily(name) || 'Inter' })); setOpen(false); setHover(null) }
   async function loadCustom(explicit) {
     const name = String(explicit ?? custom).trim()
     if (!name || customBusy) return
@@ -183,7 +183,7 @@ function FontPicker({ layer }) {
     const r = await fetchGoogleFont(name)
     setCustomBusy(false)
     if (r.ok) {
-      updateLayer(layer.id, (o) => ({ ...o, fontFamily: fontStack(r.name) }))
+      updateLayer(layer.id, (o) => ({ ...o, fontFamily: cleanFamily(r.name) || r.name }))
       setCustom('')
       setCustomMsg({ ok: true, text: `Loaded “${r.name}” — applied.` })
       setWeb(fontCdnStatus() || true)
@@ -201,7 +201,7 @@ function FontPicker({ layer }) {
     const r = await fetchCustomFontFromUrl(u)
     setFontBusy(false)
     if (r.ok) {
-      updateLayer(layer.id, (o) => ({ ...o, fontFamily: fontStack(r.name), fontUrl: r.dataUrl }))
+      updateLayer(layer.id, (o) => ({ ...o, fontFamily: cleanFamily(r.name) || r.name, fontUrl: r.dataUrl }))
       setFontUrl('')
       setFontMsg({ ok: true, text: `Loaded “${r.name}” — applied.` })
     } else {
@@ -218,7 +218,7 @@ function FontPicker({ layer }) {
       const dataUrl = String(rd.result || '')
       const fam = cleanFamily(f.name.replace(/\.(ttf|otf|woff2?|ttc)$/i, '')) || 'Custom Font'
       if (!registerCustomFont(fam, dataUrl)) { setFontMsg({ ok: false, text: 'The browser refused that file — is it a valid font?' }); return }
-      updateLayer(layer.id, (o) => ({ ...o, fontFamily: fontStack(fam), fontUrl: dataUrl }))
+      updateLayer(layer.id, (o) => ({ ...o, fontFamily: fam, fontUrl: dataUrl }))
       setFontMsg({ ok: true, text: `Loaded “${fam}” — applied.` })
     }
     rd.onerror = () => setFontMsg({ ok: false, text: 'Could not read that file.' })
@@ -237,7 +237,7 @@ function FontPicker({ layer }) {
           <div style={{ maxHeight: 190, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
             {!!sysHits.length && <div style={{ fontSize: 10, opacity: 0.55, marginTop: 2 }}>System — always available, works offline</div>}
             {sysHits.map((f) => (
-              <button key={`sys-${f.name}`} onClick={() => applyFont(f.name, f.stack)} {...previewFor(f.name, f.stack)} title="System font — no download needed" style={{ textAlign: 'left', background: f.name === current ? '#1d3a6e' : 'transparent', color: '#fff', border: 'none', borderRadius: 4, padding: '5px 6px', cursor: 'pointer' }}>
+              <button key={`sys-${f.name}`} onClick={() => applyFont(f.name)} {...previewFor(f.name, f.stack)} title="System font — no download needed" style={{ textAlign: 'left', background: f.name === current ? '#1d3a6e' : 'transparent', color: '#fff', border: 'none', borderRadius: 4, padding: '5px 6px', cursor: 'pointer' }}>
                 <span style={{ fontFamily: f.stack, fontSize: 15 }}>{f.name}</span>
                 <div style={{ fontFamily: f.stack, fontSize: 11, opacity: 0.7 }}>Ag Sales 123</div>
               </button>
@@ -245,7 +245,7 @@ function FontPicker({ layer }) {
             {web === false && <div style={{ fontSize: 11, opacity: 0.7, padding: 4 }}>No connection to Google Fonts or its mirror — System fonts below work fully offline.</div>}
             {web !== false && !!sysHits.length && !!hits.length && <div style={{ fontSize: 10, opacity: 0.55, marginTop: 4 }}>Google Fonts — open-licensed, needs internet once</div>}
             {web !== false && hits.map((f) => (
-              <button key={f.name} onClick={() => applyFont(f.name, fontStack(f.name))} {...previewFor(f.name, fontStack(f.name))} title={f.cats.join(', ')} style={{ textAlign: 'left', background: f.name === current ? '#1d3a6e' : 'transparent', color: '#fff', border: 'none', borderRadius: 4, padding: '5px 6px', cursor: 'pointer' }}>
+              <button key={f.name} onClick={() => applyFont(f.name)} {...previewFor(f.name, fontStack(f.name))} title={f.cats.join(', ')} style={{ textAlign: 'left', background: f.name === current ? '#1d3a6e' : 'transparent', color: '#fff', border: 'none', borderRadius: 4, padding: '5px 6px', cursor: 'pointer' }}>
                 <span style={{ fontFamily: fontStack(f.name), fontSize: 15 }}>{f.name}</span>
                 <span style={{ opacity: 0.55, fontSize: 10 }}> · {f.cats.join(' ')}</span>
                 <div style={{ fontFamily: fontStack(f.name), fontSize: 11, opacity: 0.7 }}>Ag Sales 123</div>

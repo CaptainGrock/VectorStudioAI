@@ -13,3 +13,6 @@ out/
 .env.*
 *.log
 scene.json
+
+.vs-render-entry.jsx
+test-frame*.png
