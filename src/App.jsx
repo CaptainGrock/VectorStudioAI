@@ -10,6 +10,7 @@ import { parseAttachedFile, parseCSV, parseMarkdownTable, parseDelimitedTable } 
 import { isImageFile, processImageFile } from './images.js'
 import EngineSettings from './EngineSettings.jsx'
 import LlmSettings from './LlmSettings.jsx'
+import TtsSettings, { loadTts } from './TtsSettings.jsx'
 import { loadSettings } from './llmSettings.js'
 
 function Playhead({ getFrame, duration }) {
@@ -58,10 +59,10 @@ function StatusBar({ status, busy }) {
   return (
     <>
       <style>{`@keyframes vs-spin { to { transform: rotate(360deg); } }`}</style>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px', borderBottom: '1px solid #222a3a', fontSize: 13, background: '#0d1322' }}>
-        {busy && <span style={{ width: 12, height: 12, borderRadius: '50%', border: '2px solid #4da3ff', borderTopColor: 'transparent', display: 'inline-block', animation: 'vs-spin 0.8s linear infinite' }} />}
-        <span style={{ color }}>{status.text}</span>
-      </div>
+      <span title={status.text} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, minWidth: 0, maxWidth: 340, overflow: 'hidden', whiteSpace: 'nowrap' }}>
+        {busy && <span style={{ width: 11, height: 11, borderRadius: '50%', border: '2px solid #4da3ff', borderTopColor: 'transparent', display: 'inline-block', flexShrink: 0, animation: 'vs-spin 0.8s linear infinite' }} />}
+        <span style={{ color, overflow: 'hidden', textOverflow: 'ellipsis' }}>{status.text}</span>
+      </span>
     </>
   )
 }
@@ -431,6 +432,172 @@ function easeToOpt(easing) {
   return 'out'
 }
 
+// Seconds of audio in a data: URL (browser decodes the header only).
+function wavSeconds(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const el = new Audio()
+    el.preload = 'metadata'
+    el.onloadedmetadata = () => (Number.isFinite(el.duration) ? resolve(el.duration) : reject(new Error('no duration')))
+    el.onerror = () => reject(new Error('unreadable audio'))
+    el.src = dataUrl
+  })
+}
+
+function AudioSection({ layer, v, push, fps }) {
+  const updateLayer = useStudio(s => s.updateLayer)
+  const updateSceneField = useStudio(s => s.updateSceneField)
+  const setStatus = useStudio(s => s.setStatus)
+  const audios = useStudio(s => s.audios)
+  const fpsSafe = fps || 30
+  const isTts = layer.type === 'audio_tts'
+  // Source length (when the file exposes metadata) drives the Play-from
+  // range: a 3-minute song under a 4-second clip gets a real selector.
+  const [audioDur, setAudioDur] = React.useState(null)
+  React.useEffect(() => {
+    setAudioDur(null)
+    if (!layer.assetUrl) return undefined
+    let live = true
+    const el = new Audio()
+    el.preload = 'metadata'
+    el.onloadedmetadata = () => { if (live && Number.isFinite(el.duration) && el.duration > 0) setAudioDur(el.duration) }
+    el.onerror = () => {}
+    el.src = layer.assetUrl
+    return () => { live = false; el.removeAttribute('src'); try { el.load() } catch {} }
+  }, [layer.assetUrl])
+  const clipLen = Math.max(0.5, (layer.endFrame - layer.startFrame) / fpsSafe)
+  const offFrames = Math.max(0, Math.round(Number(layer.data?.offsetFrames) || 0))
+  const offSec = offFrames / fpsSafe
+  const maxOff = audioDur != null ? Math.max(0, audioDur - clipLen) : null
+  const setOffSec = (s) => {      const clamped = Math.min(maxOff ?? (Number(s) || 0), Math.max(0, Number(s) || 0))
+    updateLayer(layer.id, (o) => ({ ...o, data: { ...o.data, offsetFrames: Math.round(clamped * fpsSafe) } }))
+  }
+  const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
+  // Background synthesis job: { running, id, elapsedSec, logTail } or { error }.
+  const [synthJob, setSynthJob] = React.useState(null)
+  const ttsCfg = loadTts()
+  const voice = (ttsCfg.voices || []).find((x) => x.name === layer.data?.voice) || ttsCfg.voices[0]
+  const setData = (patch) => updateLayer(layer.id, (o) => ({ ...o, data: { ...o.data, ...patch } }))
+  const volPct = Math.round((v.volume ?? 1) * 100)
+  const setVol = (pct) => push({ volume: Math.min(2, Math.max(0, Number(pct) / 100)) })
+  async function onSynth() {
+    const text = String(layer.data?.text || '').trim()
+    if (!text) { setStatus('Type the narration text first.', 'error'); return }
+    if (synthJob?.running) return
+    setSynthJob({ running: true, id: null, elapsedSec: 0, logTail: ['Starting…'] })
+    setStatus('Synthesizing speech… (first run loads the 3B model — allow minutes)')
+    try {
+      const r = await fetch('/api/tts/synth', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ text, refAudioDataUrl: voice?.refAudio || '', refText: voice?.refText || '', instruction: ttsCfg.instruction || '', modelPath: ttsCfg.modelPath || '', seed: layer.data?.seed ?? 42 }),
+      })
+      if (r.status === 404) throw new Error('local server is outdated — restart start.bat so it picks up TTS support, then try again.')
+      const out = await r.json().catch(() => ({}))
+      if (!r.ok || !out.ok || !out.id) throw new Error(out.error || `HTTP ${r.status}`)
+      for (let i = 0; i < 300; i++) {
+        await new Promise((res) => setTimeout(res, 2000))
+        const p = await fetch(`/api/tts/synth/${out.id}`).then((x) => x.json())
+        if (p.state === 'done') {
+          updateLayer(layer.id, (o) => ({ ...o, assetUrl: p.dataUrl }))
+          // TTS (never music) grows the timeline: a 250-frame narration
+          // over a 200-frame scene extends the scene to the new max.
+          let note = ''
+          if (isTts && p.dataUrl) {
+            try {
+              const durSec = await wavSeconds(p.dataUrl)
+              const need = Math.min(3600, Math.max(1, Math.ceil(durSec * fpsSafe)))
+              if (need > layer.endFrame) {
+                updateLayer(layer.id, (o) => ({ ...o, endFrame: need }))
+                const sceneDur = useStudio.getState().scene.durationInFrames
+                if (need > sceneDur) updateSceneField('durationInFrames', need)
+                note = ` Timeline extended to ${need}f to fit the ${durSec.toFixed(1)}s narration.`
+              }
+            } catch { /* keep the audio even if measuring failed */ }
+          }
+          setStatus(`Narration ready (${Math.round((p.bytes || 0) / 1024)} KB) — press play to hear it with the video.${note}`, 'done')
+          setSynthJob(null)
+          return
+        }
+        if (p.state === 'error' || p.ok === false) throw new Error(p.error || 'synthesis failed')
+        setSynthJob({ running: true, id: out.id, elapsedSec: p.elapsedSec || 0, logTail: p.logTail || [] })
+        if (i === 299) throw new Error('synthesis timed out after ~10 minutes — try shorter text')
+      }
+    } catch (e) { setSynthJob({ error: e.message }); setStatus(`TTS failed: ${e.message}`, 'error') }
+  }
+  async function onCancelSynth() {
+    if (synthJob?.id) await fetch(`/api/tts/synth/${synthJob.id}/cancel`, { method: 'POST' }).catch(() => {})
+    setSynthJob(null)
+    setStatus('Synthesis cancelled.', 'info')
+  }
+  return (
+    <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ fontSize: 11, opacity: 0.65 }}>{isTts ? 'Narration track' : 'Music track'} — {layer.assetUrl ? 'audio ready ✓' : isTts ? 'no audio yet — generate it below' : 'no file picked yet'}</div>
+      {isTts && (
+        <>
+          <div style={{ fontSize: 11, opacity: 0.65 }}>Script — sent to the voice model</div>
+          <textarea value={layer.data?.text || ''} onChange={(e) => setData({ text: e.target.value })} placeholder="Type what the voice should say…" rows={3} style={{ width: '100%', background: '#0b0e14', color: '#e8edf5', border: '1px solid #2a3a5c', borderRadius: 6, padding: 6, resize: 'vertical' }} />
+          <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>Voice
+            <select value={layer.data?.voice || voice?.name || ''} onChange={(e) => setData({ voice: e.target.value })} style={{ flex: 1, minWidth: 0 }} title="Voices + reference clips live in ⚙ → Text-to-Speech">
+              {(ttsCfg.voices || []).map((vv) => <option key={vv.id} value={vv.name}>{vv.name}{vv.refAudio ? '' : ' (generic)'}</option>)}
+            </select>
+          </label>
+          <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>Seed
+            <input type="number" value={layer.data?.seed ?? 42} onChange={(e) => { const n = Math.round(Number(e.target.value)); if (Number.isFinite(n)) setData({ seed: n }) }} style={{ width: 72 }} title="Same text + same seed = the same take. Change it (or roll the dice) for a different read" />
+            <button onClick={() => setData({ seed: Math.floor(Math.random() * 100000) })} title="Random seed for a different take">🎲</button>
+          </label>
+          <button onClick={onSynth} disabled={!!synthJob?.running} title="Synthesize with the local BreezeTTS-2 checkpoint">🎙 Generate speech</button>
+          {synthJob?.running && (
+            <div style={{ background: '#101828', borderRadius: 6, padding: 6 }}>
+              <style>{`@keyframes vs-slide { 0% { margin-left: -40%; } 100% { margin-left: 100%; } }`}</style>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ flex: 1 }}>🎙 Synthesizing… {synthJob.elapsedSec || 0}s elapsed</span>
+                <button onClick={onCancelSynth} title="Stop this synthesis run">Cancel</button>
+              </div>
+              <div style={{ height: 8, background: '#1a2233', borderRadius: 4, overflow: 'hidden', marginTop: 4 }}>
+                <div style={{ height: '100%', width: '40%', background: '#4da3ff', animation: 'vs-slide 1.2s linear infinite' }} />
+              </div>
+              {!!synthJob.logTail?.length && (
+                <div style={{ marginTop: 4, opacity: 0.7, maxHeight: 90, overflowY: 'auto' }}>
+                  {synthJob.logTail.map((l, i) => <div key={i}>{l}</div>)}
+                </div>
+              )}
+            </div>
+          )}
+          {synthJob?.error && <div style={{ fontSize: 11, color: '#ff8080' }}>{synthJob.error}</div>}
+          <div style={{ fontSize: 11, opacity: 0.55 }}>Voices + reference clips live in ⚙ → Text-to-Speech.</div>
+        </>
+      )}
+      {!!layer.assetUrl && (
+        <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>Play from {fmt(offSec)}{audioDur != null && ` of ${fmt(audioDur)}`}
+          {maxOff != null && maxOff > 0 ? (
+            <input type="range" min={0} max={Math.round(maxOff * 10) / 10} step={0.1} value={Math.min(maxOff, offSec)} onChange={(e) => setOffSec(Number(e.target.value))} style={{ flex: 1 }} title="Where in the source file this track starts — the track plays its full length from there" />
+          ) : (
+            <input type="number" min={0} step={0.5} value={Math.round(offSec * 10) / 10} onChange={(e) => setOffSec(Number(e.target.value))} style={{ width: 64 }} title="Seconds into the source file where this track starts" />
+          )}
+        </label>
+      )}
+      <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>File
+        <select value={audios.find((a) => a.dataUrl === layer.assetUrl)?.id || ''} onChange={(e) => { const a = audios.find((x) => x.id === e.target.value); updateLayer(layer.id, (o) => ({ ...o, assetUrl: a ? a.dataUrl : '' })) }} style={{ flex: 1, minWidth: 0 }} title="Use an attached audio file instead of generated speech">
+          <option value="">{isTts ? 'Generated audio (or pick a file)…' : 'Pick attached audio…'}</option>
+          {audios.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+        </select>
+      </label>
+      <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>Volume {volPct}%
+        <input type="number" min={0} max={200} step={1} value={volPct} onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setVol(n) }} style={{ width: 56 }} />
+        <input type="range" min={0} max={200} step={1} value={Math.min(200, Math.max(0, volPct))} onChange={(e) => setVol(Number(e.target.value))} style={{ flex: 1 }} title="Volume — Set keyframe to fade or duck it" />
+      </label>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}>Start
+          <input type="number" value={layer.startFrame} onChange={(e) => updateLayer(layer.id, (o) => ({ ...o, startFrame: Math.max(0, Math.round(Number(e.target.value) || 0)) }))} style={{ width: 60 }} title="First frame the audio plays" />
+        </label>
+        <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}>Stop
+          <input type="number" value={layer.endFrame} onChange={(e) => updateLayer(layer.id, (o) => ({ ...o, endFrame: Math.max(0, Math.round(Number(e.target.value) || 0)) }))} style={{ width: 60 }} title="Last frame the audio plays" />
+        </label>
+      </div>
+      <div style={{ fontSize: 11, opacity: 0.55 }}>Start/stop are the track bounds — volume keyframes fade or duck between them.</div>
+    </div>
+  )
+}
+
 function LayerInspector({ layer, getFrame, onJump, onClose, onPreview, clearPreview, fps }) {
   const updateLayer = useStudio(s => s.updateLayer)
   const deleteKeyframe = useStudio(s => s.deleteKeyframe)
@@ -458,11 +625,11 @@ function LayerInspector({ layer, getFrame, onJump, onClose, onPreview, clearPrev
   // (via onPreview) so you see the transform before committing a keyframe.
   const [live, setLive] = React.useState(null)
   React.useEffect(() => { setLive(null); clearPreview?.() }, [layer.id])
-  const v = live || { x: cur.x ?? 0, y: cur.y ?? 0, scale: cur.scale ?? 1, opacity: cur.opacity ?? 1, fontSize: cur.fontSize ?? layer.fontSize ?? 84 }
+  const v = live || { x: cur.x ?? 0, y: cur.y ?? 0, scale: cur.scale ?? 1, opacity: cur.opacity ?? 1, fontSize: cur.fontSize ?? layer.fontSize ?? 84, volume: cur.volume ?? layer.data?.volume ?? 1 }
   const push = (patch) => {
     const next = { ...v, ...patch }
     setLive(next)
-    onPreview?.({ x: next.x, y: next.y, scale: next.scale, opacity: next.opacity, fontSize: next.fontSize })
+    onPreview?.({ x: next.x, y: next.y, scale: next.scale, opacity: next.opacity, fontSize: next.fontSize, volume: next.volume })
   }
   const dropPreview = () => { setLive(null); clearPreview?.() }
   const kfAt = layer.keyframes.find((k) => k.frame === frame)
@@ -471,7 +638,10 @@ function LayerInspector({ layer, getFrame, onJump, onClose, onPreview, clearPrev
   const easeOpt = easePick ?? easeToOpt(kfAt?.easing)
   function apply() {
     const ease = EASE_OPTS.find((o) => o.id === easeOpt)?.ease || 'linear'
-    const props = { x: v.x, y: v.y, scale: v.scale, opacity: v.opacity, ...(layer.type === 'text' ? { fontSize: Math.round(v.fontSize) } : {}) }
+    const isAudio = layer.type === 'audio_tts' || layer.type === 'audio_music'
+    const props = isAudio
+      ? { volume: v.volume ?? 1 }
+      : { x: v.x, y: v.y, scale: v.scale, opacity: v.opacity, ...(layer.type === 'text' ? { fontSize: Math.round(v.fontSize) } : {}) }
     const existed = !!kfAt
     // One history entry: properties and motion feel land together.
     updateLayer(layer.id, (o) => {
@@ -490,6 +660,7 @@ function LayerInspector({ layer, getFrame, onJump, onClose, onPreview, clearPrev
   const hasKf = layer.keyframes.some((k) => k.frame === frame)
   const hasChart = !!(layer.data?.values || layer.data?.series || layer.data?.bubbles)
   const hasFonts = layer.type === 'text' || hasChart
+  const isAudio = layer.type === 'audio_tts' || layer.type === 'audio_music'
   const field = (label, key, step, min, max, fmt = (x) => Math.round(x * 100) / 100) => (
     <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}> {label}
       <input type="number" step={step} value={fmt(v[key])} onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) push({ [key]: Math.min(max, Math.max(min, key === 'opacity' ? n / 100 : n)) }) }} style={{ width: 56 }} />
@@ -504,7 +675,7 @@ function LayerInspector({ layer, getFrame, onJump, onClose, onPreview, clearPrev
         <button onClick={onClose} title="Deselect">✕</button>
       </div>
       <div style={{ fontSize: 11, opacity: 0.65, marginBottom: 8 }}>{layer.type} · frame <strong>{frame}</strong> <button onClick={() => setFrame(Math.round(getFrame?.() ?? 0))} title="Read current playhead frame">↻</button>{live && <span style={{ color: '#ffcf40' }}> · previewing — Set keyframe to keep</span>}</div>
-      <Section title="Transform" defaultOpen>
+      {!isAudio && (<Section title="Transform" defaultOpen>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {field('X', 'x', 1, -1500, 1500)}{field('Y', 'y', 1, -1000, 1000)}{field('Scale', 'scale', 0.05, 0, 3)}{field('Opacity %', 'opacity', 1, 0, 1, () => Math.round(v.opacity * 100))}
           {layer.type === 'text' && (
@@ -513,7 +684,8 @@ function LayerInspector({ layer, getFrame, onJump, onClose, onPreview, clearPrev
             </label>
           )}
         </div>
-      </Section>
+      </Section>)}
+      {isAudio && <AudioSection layer={layer} v={v} push={push} fps={fps} />}
       {layer.type === 'text' && <TextStyle layer={layer} />}
       {hasChart && <ShowToggles layer={layer} />}
       {hasChart && <ChartColors layer={layer} />}
@@ -557,6 +729,117 @@ function LayerInspector({ layer, getFrame, onJump, onClose, onPreview, clearPrev
   )
 }
 
+function AssetsStage({ onAddImage, onAddTts, onAddMusic }) {
+  const scene = useStudio(s => s.scene)
+  const updateSceneField = useStudio(s => s.updateSceneField)
+  const images = useStudio(s => s.images)
+  const attachImage = useStudio(s => s.attachImage)
+  const removeImage = useStudio(s => s.removeImage)
+  const audios = useStudio(s => s.audios)
+  const attachAudio = useStudio(s => s.attachAudio)
+  const removeAudio = useStudio(s => s.removeAudio)
+  const setStatus = useStudio(s => s.setStatus)
+  const bgFileRef = React.useRef(null)
+  const imgFileRef = React.useRef(null)
+  const audioFileRef = React.useRef(null)
+  const [audioChoice, setAudioChoice] = React.useState('')
+  const bg = /^#[0-9a-fA-F]{6}$/.test(scene.background || '') ? scene.background : '#10141d'
+  async function onBgUpload(e) {
+    const f = e.target.files?.[0]
+    e.target.value = ''
+    if (!f) return
+    try {
+      const img = await processImageFile(f)
+      attachImage(img)
+      updateSceneField('backgroundImage', img.dataUrl)
+      setStatus(`Background set to ${img.name}.`, 'done')
+    } catch { setStatus('Could not read that image file.', 'error') }
+  }
+  async function onImgUpload(e) {
+    const files = [...(e.target.files || [])]
+    e.target.value = ''
+    for (const f of files) {
+      try { attachImage(await processImageFile(f)) }
+      catch { setStatus(`Could not read ${f.name} — try PNG, JPG, GIF, WebP or SVG.`, 'error') }
+    }
+  }
+  async function onAudioUpload(e) {
+    const files = [...(e.target.files || [])]
+    e.target.value = ''
+    for (const f of files) {
+      if (f.size > 25 * 1024 * 1024) { setStatus(`${f.name} is over 25 MB — trim it first.`, 'error'); continue }
+      const rd = new FileReader()
+      await new Promise((res) => { rd.onload = res; rd.onerror = res; rd.readAsDataURL(f) })
+      if (typeof rd.result === 'string' && rd.result.startsWith('data:audio')) {
+        attachAudio({ id: `aud_${Date.now().toString(36)}`, name: f.name, dataUrl: rd.result })
+      } else setStatus(`${f.name} is not an audio file — try WAV, MP3 or OGG.`, 'error')
+    }
+  }
+  const box = { background: '#101828', border: '1px solid #2a3a5c', borderRadius: 6, padding: 6, display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }
+  return (
+    <div>
+      <div style={box}>
+        <div style={{ fontSize: 11, opacity: 0.65 }}>Background</div>
+        <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>Color
+          <input type="color" value={bg} onChange={(e) => updateSceneField('background', e.target.value)} title="Video background color" />
+        </label>
+        <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>Image
+          <select value={images.find((m) => m.dataUrl === scene.backgroundImage)?.name || ''} onChange={(e) => { const m = images.find((x) => x.name === e.target.value); updateSceneField('backgroundImage', m ? m.dataUrl : '') }} title="Background image (transparent PNGs work too)" style={{ flex: 1, minWidth: 0 }}>
+            <option value="">None</option>
+            {images.map((m) => <option key={m.id} value={m.name}>{m.name}</option>)}
+          </select>
+          <button onClick={() => bgFileRef.current?.click()} title="Upload a new background image (stored with the scene)">＋ Upload</button>
+          <input ref={bgFileRef} type="file" accept=".png,.jpg,.jpeg,.webp,.gif,.svg" style={{ display: 'none' }} onChange={onBgUpload} />
+        </label>
+        {!!scene.backgroundImage && (
+          <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }} title="Background image opacity">Opacity {Math.round((scene.backgroundImageOpacity ?? 1) * 100)}%
+            <input type="range" min={5} max={100} step={1} value={Math.round((scene.backgroundImageOpacity ?? 1) * 100)} onChange={(e) => updateSceneField('backgroundImageOpacity', Number(e.target.value) / 100)} style={{ flex: 1 }} />
+          </label>
+        )}
+      </div>
+      <div style={box}>
+        <div style={{ fontSize: 11, opacity: 0.65 }}>Images — reference by name in prompts, or add as layers</div>
+        {images.map((m) => (
+          <div key={m.id} style={{ fontSize: 12, display: 'flex', gap: 6, background: '#0b0e14', borderRadius: 6, padding: '4px 8px', alignItems: 'center' }}>
+            <img src={m.dataUrl} alt="" style={{ width: 28, height: 28, objectFit: 'cover', borderRadius: 4 }} />
+            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`${m.width}x${m.height}`}>{m.name}</span>
+            <button onClick={() => onAddImage(m)} title="Add as a layer you can move, scale, fade and keyframe">Layer</button>
+            <button onClick={() => removeImage(m.id)} title="Remove from assets">✕</button>
+          </div>
+        ))}
+        {!images.length && <div style={{ fontSize: 11, opacity: 0.6 }}>No images yet.</div>}
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button onClick={() => imgFileRef.current?.click()} title="Attach PNG/JPG (transparency kept)">Attach images</button>
+          <input ref={imgFileRef} type="file" accept=".png,.jpg,.jpeg,.webp,.gif,.svg" multiple style={{ display: 'none' }} onChange={onImgUpload} />
+        </div>
+      </div>
+      <div style={box}>
+        <div style={{ fontSize: 11, opacity: 0.65 }}>Audio — narration (TTS) & music tracks</div>
+        {audios.map((a) => (
+          <div key={a.id} style={{ fontSize: 12, display: 'flex', gap: 6, background: '#0b0e14', borderRadius: 6, padding: '4px 8px', alignItems: 'center' }}>
+            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={a.name}>🎵 {a.name}</span>
+            <button onClick={() => onAddMusic(a.id)} title="Add as a music track">Music</button>
+            <button onClick={() => removeAudio(a.id)} title="Remove from assets">✕</button>
+          </div>
+        ))}
+        {!audios.length && <div style={{ fontSize: 11, opacity: 0.6 }}>No audio yet — attach music, or add a narration track and generate it.</div>}
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <button onClick={() => audioFileRef.current?.click()} title="Attach WAV/MP3/OGG (kept with the session)">Attach audio</button>
+          <input ref={audioFileRef} type="file" accept=".wav,.mp3,.ogg,.m4a,audio/*" multiple style={{ display: 'none' }} onChange={onAudioUpload} />
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <select value={audioChoice} onChange={(e) => setAudioChoice(e.target.value)} title="Attached audio for the new track" style={{ flex: 1, minWidth: 0 }}>
+            <option value="">Track audio…</option>
+            {audios.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+          <button onClick={() => onAddTts(audioChoice || undefined)} title="Add a narration track — type the script on the right, pick a voice, Generate speech">＋ TTS</button>
+          <button onClick={() => onAddMusic(audioChoice || undefined)} title="Add the selected attached audio as a music track">＋ Music</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function summarizePatch(patch, layers) {
   const named = (i) => layers?.[Number(i)]?.name || `layer ${i}`
   const bits = (patch || []).slice(0, 4).map((op) => {
@@ -573,7 +856,7 @@ function summarizePatch(patch, layers) {
   return bits.join('; ') + (patch.length > 4 ? ` (+${patch.length - 4} more)` : '')
 }
 
-function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onImageFile, onSeek }) {
+function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onSeek }) {
   const scrubbing = React.useRef(false)
   // Fit-to-page time scale: every track shares one scale pinned to the
   // longest content (scene duration, layer ends, keyframes), so extending
@@ -586,15 +869,16 @@ function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onIma
   const frameFromEvent = (e) => {
     const bar = e.currentTarget.getBoundingClientRect()
     if (!bar || !bar.width) return 0
+    // Forgiving edges: the first/last 8px snap to 0/timeMax, so the very
+    // start/end are clickable even with a keyframe diamond sitting on them.
+    if (e.clientX <= bar.left + 8) return 0
+    if (e.clientX >= bar.right - 8) return timeMax
     return Math.round(Math.min(1, Math.max(0, (e.clientX - bar.left) / bar.width)) * timeMax)
   }
   const [menu, setMenu] = React.useState(null)
   const renameLayer = useStudio(s => s.renameLayer)
   const deleteLayer = useStudio(s => s.deleteLayer)
-  const images = useStudio(s => s.images)
-  const attachImage = useStudio(s => s.attachImage)
   const updateLayer = useStudio(s => s.updateLayer)
-  const updateSceneField = useStudio(s => s.updateSceneField)
   const moveKeyframe = useStudio(s => s.moveKeyframe)
   const commitKeyframes = useStudio(s => s.commitKeyframes)
   const setScene = useStudio(s => s.setScene)
@@ -623,46 +907,19 @@ function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onIma
       ? `Trimmed scene to ${maxEnd}f; ${pulled} stray keyframe${pulled === 1 ? '' : 's'} pulled in.`
       : `Trimmed scene to ${maxEnd}f.`, 'done')
   }
-  const bgImgRef = React.useRef(null)
-  const layerImgRef = React.useRef(null)
   const [collapsed, setCollapsed] = React.useState(() => new Set())
   const toggleTrack = (id) => setCollapsed((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
-  const bg = /^#[0-9a-fA-F]{6}$/.test(scene.background || '') ? scene.background : '#10141d'
-  async function onBgUpload(e) {
-    const f = e.target.files?.[0]
-    e.target.value = ''
-    if (!f) return
-    try {
-      const img = await processImageFile(f)
-      attachImage(img)
-      updateSceneField('backgroundImage', img.dataUrl)
-    } catch (err) { /* unreadable file: ignore */ }
-  }
   return (
     <div style={{ borderTop: '1px solid #222a3a', padding: 12, overflowX: 'auto', overflowY: 'auto', minHeight: 96, maxHeight: 360, background: '#0a0e18' }}>
-      <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, opacity: 0.8, display: 'flex', alignItems: 'center', gap: 8 }}>Timeline · {scene.layers.length} track{scene.layers.length === 1 ? '' : 's'} · {scene.durationInFrames} frames<span style={{ flex: 1 }} /><div style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 400 }} title="Timeline zoom — 100% fits the whole scene, zooming in scrolls"><button onClick={() => setZoom((z) => Math.max(1, Math.round((z - 0.25) * 100) / 100))} disabled={zoom <= 1} title="Zoom out">−</button><span style={{ fontSize: 11, minWidth: 38, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span><button onClick={() => setZoom((z) => Math.min(3, Math.round((z + 0.25) * 100) / 100))} title="Zoom in">+</button><button onClick={() => setZoom(1)} disabled={zoom === 1} title="Fit the whole scene">Fit</button><button onClick={trimToContent} disabled={!scene.layers.length} title="Snap scene length to the longest layer (stray keyframes pulled in too)">Trim</button></div>{scene.layers.length > 1 && (<><button onClick={() => setCollapsed(new Set(scene.layers.map((l) => l.id)))} title="Collapse all tracks">Collapse all</button><button onClick={() => setCollapsed(new Set())} title="Expand all tracks">Expand all</button></>)}<label style={{ fontWeight: 400, display: 'flex', alignItems: 'center', gap: 6 }}>Background <input type="color" value={bg} onChange={(e) => updateSceneField('background', e.target.value)} title="Video background color" />        </label><label style={{ fontWeight: 400, display: 'flex', alignItems: 'center', gap: 6 }}>BG img
-          <select value={images.find((m) => m.dataUrl === scene.backgroundImage)?.name || ''} onChange={(e) => { const m = images.find((x) => x.name === e.target.value); updateSceneField('backgroundImage', m ? m.dataUrl : '') }} title="Background image (transparent PNGs work too)">
-            <option value="">None</option>
-            {images.map((m) => <option key={m.id} value={m.name}>{m.name}</option>)}
-          </select>
-          <button onClick={() => bgImgRef.current?.click()} title="Upload a new background image (stored with the scene)">＋ Upload</button>
-          <input ref={bgImgRef} type="file" accept=".png,.jpg,.jpeg,.webp,.gif,.svg" style={{ display: 'none' }} onChange={onBgUpload} />
-          <button onClick={() => layerImgRef.current?.click()} title="Choose an image file and upload it as an animatable layer (drag it on the video, keyframe it, prompt it by name)">＋ Layer</button>
-          <input ref={layerImgRef} type="file" accept=".png,.jpg,.jpeg,.webp,.gif,.svg" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onImageFile?.(f) }} />
-          {!!scene.backgroundImage && (
-            <label style={{ fontWeight: 400, display: 'flex', alignItems: 'center', gap: 6 }} title="Background image opacity">BG opacity {Math.round((scene.backgroundImageOpacity ?? 1) * 100)}%
-              <input type="range" min={5} max={100} step={1} value={Math.round((scene.backgroundImageOpacity ?? 1) * 100)} onChange={(e) => updateSceneField('backgroundImageOpacity', Number(e.target.value) / 100)} style={{ width: 90 }} />
-            </label>
-          )}
-        </label></div>
+      <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, opacity: 0.8, display: 'flex', alignItems: 'center', gap: 8 }}>Timeline · {scene.layers.length} track{scene.layers.length === 1 ? '' : 's'} · {scene.durationInFrames} frames<span style={{ flex: 1 }} /><div style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 400 }} title="Timeline zoom — 100% fits the whole scene, zooming in scrolls"><button onClick={() => setZoom((z) => Math.max(1, Math.round((z - 0.25) * 100) / 100))} disabled={zoom <= 1} title="Zoom out">−</button><span style={{ fontSize: 11, minWidth: 38, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span><button onClick={() => setZoom((z) => Math.min(3, Math.round((z + 0.25) * 100) / 100))} title="Zoom in">+</button><button onClick={() => setZoom(1)} disabled={zoom === 1} title="Fit the whole scene">Fit</button><button onClick={trimToContent} disabled={!scene.layers.length} title="Snap scene length to the longest layer (stray keyframes pulled in too)">Trim</button></div>{scene.layers.length > 1 && (<><button onClick={() => setCollapsed(new Set(scene.layers.map((l) => l.id)))} title="Collapse all tracks">Collapse all</button><button onClick={() => setCollapsed(new Set())} title="Expand all tracks">Expand all</button></>)}<span style={{ fontWeight: 400, opacity: 0.55 }} title="Backgrounds, images and audio live in Stage 3 · Assets (left rail)">BG + media → Stage 3</span></div>
       {!scene.layers.length && (
         <div style={{ fontSize: 13, opacity: 0.65, padding: '8px 0' }}>No tracks yet — generate a scene and its layers, clips and keyframe diamonds will appear here.</div>
       )}
       {scene.layers.map((l, li) => (
         <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: collapsed.has(l.id) ? 4 : 10 }}>
-          <div onClick={() => onSelectTrack?.(l.id)} title="Select layer — right-click to rename / delete" onContextMenu={(e) => { e.preventDefault(); setMenu({ id: l.id, x: e.clientX, y: e.clientY }) }} style={{ width: 180, fontSize: 13, cursor: 'pointer', color: '#fff', background: selectedId === l.id ? '#1d3a6e' : '#141b2c', border: selectedId === l.id ? '1px solid #4da3ff' : '1px solid #2a3a5c', borderRadius: 4, padding: '3px 6px', display: 'flex', alignItems: 'center', gap: 4 }}><button onClick={(e) => { e.stopPropagation(); toggleTrack(l.id) }} title={collapsed.has(l.id) ? 'Expand track' : 'Collapse track'} style={{ background: 'none', border: 'none', color: '#9fb3d8', cursor: 'pointer', padding: 0, fontSize: 12 }}>{collapsed.has(l.id) ? '▸' : '▾'}</button><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(l.name || '').trim() ? l.name : <i style={{ opacity: 0.6 }}>Untitled</i>} <span style={{ color: '#9fb3d8' }}>({l.type})</span></span></div>
+          <div onClick={() => onSelectTrack?.(l.id)} title="Select layer — right-click to rename / delete" onContextMenu={(e) => { e.preventDefault(); setMenu({ id: l.id, x: e.clientX, y: e.clientY }) }} style={{ width: 180, fontSize: 13, cursor: 'pointer', color: '#fff', background: selectedId === l.id ? '#1d3a6e' : '#141b2c', border: selectedId === l.id ? '1px solid #4da3ff' : '1px solid #2a3a5c', borderRadius: 4, padding: '3px 6px', display: 'flex', alignItems: 'center', gap: 4 }}><button onClick={(e) => { e.stopPropagation(); toggleTrack(l.id) }} title={collapsed.has(l.id) ? 'Expand track' : 'Collapse track'} style={{ background: 'none', border: 'none', color: '#9fb3d8', cursor: 'pointer', padding: 0, fontSize: 12 }}>{collapsed.has(l.id) ? '▸' : '▾'}</button><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(l.name || '').trim() ? l.name : <i style={{ opacity: 0.6 }}>Untitled</i>} <span style={{ color: '#9fb3d8' }}>({l.type === 'audio_tts' ? 'voice' : l.type === 'audio_music' ? 'music' : l.type})</span></span></div>
           {!collapsed.has(l.id) && (<>
-          <div style={{ position: 'relative', flex: zoom === 1 ? 1 : 'none', width: zoom === 1 ? undefined : `${Math.round(zoom * 100)}%`, height: 34, background: '#151b29', borderRadius: 6, cursor: 'ew-resize', touchAction: 'none' }} title="Click or drag to scrub the playhead"
+          <div style={{ position: 'relative', flex: zoom === 1 ? 1 : 'none', width: zoom === 1 ? undefined : `${Math.round(zoom * 100)}%`, height: 34, background: '#151b29', borderRadius: 6, cursor: 'ew-resize', touchAction: 'none' }} title="Click or drag to scrub the playhead (edges snap; Home/End jump to start/end)"
             onPointerDown={(e) => { scrubbing.current = true; e.currentTarget.setPointerCapture(e.pointerId); onSeek?.(frameFromEvent(e)) }}
             onPointerMove={(e) => { if (scrubbing.current) onSeek?.(frameFromEvent(e)) }}
             onPointerUp={() => { scrubbing.current = false }}
@@ -741,16 +998,22 @@ export default function App() {
   }
   const images = useStudio(s => s.images)
   const attachImage = useStudio(s => s.attachImage)
-  const removeImage = useStudio(s => s.removeImage)
   const [busy, setBusy] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [settingsTab, setSettingsTab] = useState('models')
+  const [exportOpen, setExportOpen] = useState(false)
   const [ctxMenu, setCtxMenu] = useState(null)
-  const [imgChoice, setImgChoice] = useState('')
+  const pastLen = useStudio(s => s.past.length)
+  const futureLen = useStudio(s => s.future.length)
   // Collapsible Generate stage + conversational revision thread. Generating
   // (or loading history) collapses stage 1 so the revision chat gets room;
   // every revision and its outcome lands in the thread, and a miss becomes
   // a clarifying question instead of a dead-end error.
   const [genCollapsed, setGenCollapsed] = useState(conversations.length > 0)
+  // Stages 2 + 3 start collapsed to save room; a finished Generate pops
+  // Stage 2 open, Stage 3 stays manual.
+  const [revCollapsed, setRevCollapsed] = useState(true)
+  const [assetsCollapsed, setAssetsCollapsed] = useState(true)
   const [revThread, setRevThread] = useState([])
   const threadBoxRef = React.useRef(null)
   const pushRev = React.useCallback((role, text) => {
@@ -767,6 +1030,32 @@ export default function App() {
   // control or a button (so typing spaces and button activation keep working).
   React.useEffect(() => {
     function onKey(e) {
+      const mod = e.ctrlKey || e.metaKey
+      // Ctrl/Cmd-Z undo, Ctrl/Cmd-Shift-Z or Ctrl-Y redo — but never steal
+      // native undo while typing in a field.
+      if (mod && !showSettings && (e.key === 'z' || e.key === 'Z' || e.key === 'y' || e.key === 'Y')) {
+        const t = e.target
+        const tag = t?.tagName
+        if (t?.isContentEditable || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+        e.preventDefault()
+        const st = useStudio.getState()
+        if (e.key.toLowerCase() === 'z' && !e.shiftKey) st.undo()
+        else st.redo()
+        return
+      }
+      // Home/End jump the playhead to the scene start/end — same field
+      // guard as undo/redo so text editing keeps native behavior.
+      if ((e.key === 'Home' || e.key === 'End') && !showSettings) {
+        const t = e.target
+        const tag = t?.tagName
+        if (t?.isContentEditable || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+        e.preventDefault()
+        try {
+          if (e.key === 'Home') playerRef.current?.seekTo?.(0)
+          else playerRef.current?.seekTo?.(useStudio.getState().scene.durationInFrames)
+        } catch { /* player not mounted yet */ }
+        return
+      }
       if (e.code !== 'Space' || showSettings) return
       const t = e.target
       const tag = t?.tagName
@@ -881,6 +1170,7 @@ export default function App() {
       pushLog(`Generated ${n} layer(s) via ${getLastSource()}.`)
       setGenCollapsed(true)
       pushRev('assistant', `Created ${n} layer${n === 1 ? '' : 's'} via ${getLastSource()}. Describe revisions below — e.g. "convert it to a pie chart" or "use the other dataset".`)
+      setRevCollapsed(false)
     } catch (e) { setStatus(`Generate failed: ${e.message}`, 'error'); pushLog(`Generate failed: ${e.message}`); pushRev('assistant', `Generate failed: ${e.message}`) }
     setBusy(false)
   }
@@ -903,20 +1193,34 @@ export default function App() {
     setStatus('Text layer added at frame 0 — click it in the preview to style it.', 'done')
   }
 
-  // Upload a file straight into an animatable layer (Timeline shortcut):
-  // attach it, then build the layer from the fresh object (not state).
-  async function onUploadImageLayer(file) {
-    if (!file) return
-    try {
-      const img = await processImageFile(file)
-      attachImage(img)
-      onAddImage(img)
-    } catch (e) { setStatus('Could not read that image file — try a PNG, JPG, GIF, WebP or SVG.', 'error') }
+  // Narration + music live on audio tracks: volume rides keyframes (fade
+  // in/out, ducking), start/stop are the layer bounds on the timeline, and
+  // the TTS text + voice live on the layer's data for regeneration.
+  function onAddAudioLayer(kind, audioId) {
+    const dur = scene.durationInFrames
+    const a = useStudio.getState().audios.find((x) => x.id === audioId)
+    const isTts = kind === 'audio_tts'
+    const vol = isTts ? 1 : 0.8
+    addLayer({
+      id: `layer_${kind}_${Date.now().toString(36)}`,
+      name: a ? a.name.replace(/\.[a-z0-9]+$/i, '') : (isTts ? 'Narration' : 'Music'),
+      type: kind,
+      ...(a?.dataUrl ? { assetUrl: a.dataUrl } : {}),
+      data: isTts ? { text: '', voice: loadTts().voices[0]?.name || 'Narrator' } : { volume: vol },
+      startFrame: 0, endFrame: dur,
+      keyframes: [
+        { frame: 0, properties: { volume: vol } },
+        { frame: dur, properties: { volume: vol } },
+      ],
+    })
+    setPreview(null)
+    jumpTo(0)
+    setStatus(isTts ? 'Narration track added — select it, type the script, pick a voice, then Generate speech.' : 'Music track added — pick an attached file on the right, volume rides keyframes.', 'done')
   }
 
   function onAddImage(imgOverride) {
-    const img = imgOverride || images.find((m) => m.name === imgChoice) || images[images.length - 1]
-    if (!img) { setStatus('Attach an image first — “Attach files” accepts PNG/JPG (transparency kept), then ＋ Add image.', 'error'); return }
+    const img = imgOverride || images[images.length - 1]
+    if (!img) { setStatus('Attach an image first in Stage 3 · Assets, then add it as a layer.', 'error'); return }
     const dur = scene.durationInFrames
     const w = Math.min(760, img.width || 480)
     const h = Math.round((w * (img.height || 1)) / Math.max(1, img.width || 1))
@@ -1031,20 +1335,28 @@ export default function App() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <div style={{ padding: '10px 16px', borderBottom: '1px solid #222a3a', display: 'flex', gap: 12, alignItems: 'center' }}>
+      <div style={{ padding: '10px 16px', borderBottom: '1px solid #222a3a', display: 'flex', gap: 10, alignItems: 'center' }}>
         <strong>VectorStudio AI</strong>
+        <StatusBar status={status} busy={busy} />
         <span style={{ flex: 1 }} />
-        <button onClick={undo}>Undo</button>
-        <button onClick={redo}>Redo</button>
-        <button onClick={onExport}>Export JSON</button>
-        <button onClick={onExportMp4} disabled={rendering || busy} title="Render the current scene to MP4 on the local server, then download it (first render fetches a headless browser and takes a few minutes)" style={{ fontWeight: 700 }}>{rendering ? 'Rendering…' : 'Export MP4'}</button>
+        <button onClick={undo} disabled={!pastLen} title="Undo (Ctrl+Z)" style={{ fontSize: 15, padding: '2px 8px' }}>↶</button>
+        <button onClick={redo} disabled={!futureLen} title="Redo (Ctrl+Y / Ctrl+Shift+Z)" style={{ fontSize: 15, padding: '2px 8px' }}>↷</button>
+        <div style={{ position: 'relative' }}>
+          <button onClick={() => setExportOpen((o) => !o)} disabled={rendering || busy} title="Download the video or the scene file" style={{ fontWeight: 700 }}>Export ▾</button>
+          {exportOpen && (
+            <>
+              <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={() => setExportOpen(false)} />
+              <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 4px)', background: '#0d1322', border: '1px solid #2a3a5c', borderRadius: 8, padding: 4, minWidth: 190, zIndex: 61, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
+                <button onClick={() => { setExportOpen(false); onExportMp4() }} disabled={rendering || busy} title="Render the current scene to MP4 on the local server, then download it (first render fetches a headless browser and takes a few minutes)" style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: '#dbe4f3' }}>{rendering ? 'Rendering MP4…' : '🎬 Export MP4'}</button>
+                <button onClick={() => { setExportOpen(false); onExport() }} title="Download scene.json (re-importable project file)" style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: '#dbe4f3' }}>📄 Export JSON</button>
+              </div>
+            </>
+          )}
+        </div>
+        <button onClick={() => { setSettingsTab('models'); setShowSettings(true) }} title="Settings — models, text-to-speech, engine" style={{ fontSize: 15, padding: '2px 8px' }}>⚙</button>
       </div>
-      <StatusBar status={status} busy={busy} />
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
         <div style={{ width: 340, borderRight: '1px solid #222a3a', padding: 12, overflowY: 'auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <button onClick={() => setShowSettings(true)} title="Local engine, models, downloads, prompts">⚙ Model settings</button>
-          </div>
           <h3 style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}><button onClick={() => setGenCollapsed((c) => !c)} title={genCollapsed ? 'Expand the Generate section' : 'Collapse to give the revision chat more room'} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0 }}>{genCollapsed ? '▸' : '▾'}</button><span>1 · Generate</span></h3>
           {genCollapsed && (<div style={{ fontSize: 11, opacity: 0.6, marginBottom: 6 }}>{scene.layers.length} layer{scene.layers.length === 1 ? '' : 's'} ready — expand to start over, or revise below.</div>)}
           {!genCollapsed && (<>
@@ -1066,25 +1378,13 @@ export default function App() {
               <button onClick={() => removeDataset(d.id)}>✕</button>
             </div>
           ))}
-          {images.map((m) => (
-            <div key={m.id} style={{ fontSize: 12, display: 'flex', gap: 6, marginTop: 4, background: '#101828', borderRadius: 6, padding: '4px 8px', alignItems: 'center' }}>
-              <img src={m.dataUrl} alt="" style={{ width: 28, height: 28, objectFit: 'cover', borderRadius: 4 }} />
-              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`${m.width}x${m.height} — reference by name in prompts; use as background via Timeline BG img`}>🖼 {m.name}</span>
-              <button onClick={() => removeImage(m.id)}>✕</button>
-            </div>
-          ))}
           <button disabled={busy} onClick={onGenerate} style={{ marginTop: 8, width: '100%' }}>{busy ? 'Working…' : 'Generate scene'}</button>
           <CanvasSize />
           </>)}
           <button onClick={onAddText} style={{ marginTop: 6, width: '100%' }} title="Add an animatable text layer (font, size, color, keyframes)">＋ Add text layer</button>
-          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-            <select value={images.some((m) => m.name === imgChoice) ? imgChoice : (images[images.length - 1]?.name || '')} onChange={(e) => setImgChoice(e.target.value)} title="Attached image to turn into an animatable layer" style={{ flex: 1, minWidth: 0 }}>
-              {!images.length && <option value="">No images attached</option>}
-              {images.map((m) => <option key={m.id} value={m.name}>{m.name}</option>)}
-            </select>
-            <button onClick={onAddImage} title="Add the selected attached image as a layer you can move, scale, fade and fly in from off-screen (Attach files accepts transparent PNGs)">＋ Add image</button>
-          </div>
-          <h3 style={{ marginTop: 16 }}>2 · Revise chart</h3>
+          <h3 style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 6 }}><button onClick={() => setRevCollapsed((c) => !c)} title={revCollapsed ? 'Expand the Revise section' : 'Collapse the Revise section'} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0 }}>{revCollapsed ? '▸' : '▾'}</button><span>2 · Revise chart</span></h3>
+          {revCollapsed && (<div style={{ fontSize: 11, opacity: 0.6, marginBottom: 6 }}>{revThread.length ? `${revThread.length} message${revThread.length === 1 ? '' : 's'} in the revision chat — expand to continue.` : 'Generate first — then revise here.'}</div>)}
+          {!revCollapsed && (<>
           <textarea value={editPrompt} onChange={(e) => setEditPrompt(e.target.value)} rows={3} style={{ width: '100%', background: '#0b0e14', color: '#e8edf5', border: '1px solid #2a3a5c', borderRadius: 6, padding: 8 }} placeholder="Describe the change conversationally — I'll ask if I need details…" />
           <button disabled={busy} onClick={onEdit} style={{ marginTop: 8, width: '100%' }}>Revise chart</button>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6, alignItems: 'center' }}>
@@ -1101,6 +1401,10 @@ export default function App() {
             </div>
           )}
           <div style={{ fontSize: 12, opacity: 0.6, marginTop: 6 }}>No model? Offline rules handle charts, titles, shapes, colors, fonts and retimes.</div>
+          </>)}
+          <h3 style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 6 }}><button onClick={() => setAssetsCollapsed((c) => !c)} title={assetsCollapsed ? 'Expand the Assets section' : 'Collapse the Assets section'} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0 }}>{assetsCollapsed ? '▸' : '▾'}</button><span>3 · Assets</span></h3>
+          {assetsCollapsed && (<div style={{ fontSize: 11, opacity: 0.6, marginBottom: 6 }}>Backgrounds, images & audio — expand to manage.</div>)}
+          {!assetsCollapsed && <AssetsStage onAddImage={(m) => onAddImage(m)} onAddTts={(id) => onAddAudioLayer('audio_tts', id)} onAddMusic={(id) => onAddAudioLayer('audio_music', id)} />}
           <h4>History</h4>
           <div style={{ fontSize: 11, opacity: 0.55, marginBottom: 4 }}>Right-click a conversation to rename or delete.</div>
           {conversations.length ? (
@@ -1108,7 +1412,7 @@ export default function App() {
               {conversations.map((c) => (
                 <div key={c.id} style={{ background: '#0e1420', borderRadius: 6, padding: '6px 8px', cursor: 'context-menu' }} title="Right-click for rename / delete" onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ id: c.id, x: e.clientX, y: e.clientY }) }}>
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                    <button onClick={() => { loadConversation(c.id); setStatus(`Loaded: ${c.title}`, 'done'); setGenCollapsed(true); pushRev('assistant', `Loaded “${c.title}”. Ask for revisions in section 2 below.`) }} title={c.prompt} style={{ flex: 1, textAlign: 'left', background: 'none', border: 'none', color: '#9fc3ff', cursor: 'pointer', padding: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</button>
+                    <button onClick={() => { loadConversation(c.id); setStatus(`Loaded: ${c.title}`, 'done'); setGenCollapsed(true); setRevCollapsed(false); pushRev('assistant', `Loaded “${c.title}”. Ask for revisions in section 2 below.`) }} title={c.prompt} style={{ flex: 1, textAlign: 'left', background: 'none', border: 'none', color: '#9fc3ff', cursor: 'pointer', padding: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</button>
                     <button onClick={() => deleteConversation(c.id)} title="Delete conversation" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>✕</button>
                   </div>
                   <div style={{ opacity: 0.55, fontSize: 11 }}>{new Date(c.createdAt).toLocaleString()} · {c.layerCount} layer{c.layerCount === 1 ? '' : 's'}</div>
@@ -1133,7 +1437,7 @@ export default function App() {
           {selectedLayer && <LayerInspector key={selectedLayer.id} layer={selectedLayer} getFrame={getFrame} onJump={jumpTo} onClose={() => { clearPreview(); selectLayer(null) }} onPreview={(props) => onPreview(selectedLayer.id, props)} clearPreview={clearPreview} fps={scene.fps} />}
         </div>
       </div>
-      <Timeline scene={scene} getFrame={getFrame} selectedId={selectedLayerId} onSelectTrack={handleSelect} onAddText={onAddText} onImageFile={onUploadImageLayer} onSeek={jumpTo} />
+      <Timeline scene={scene} getFrame={getFrame} selectedId={selectedLayerId} onSelectTrack={handleSelect} onAddText={onAddText} onSeek={jumpTo} />
       {ctxMenu && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={() => setCtxMenu(null)} onContextMenu={(e) => { e.preventDefault(); setCtxMenu(null) }}>
           <div style={{ position: 'fixed', left: Math.min(ctxMenu.x, window.innerWidth - 170), top: Math.min(ctxMenu.y, window.innerHeight - 110), background: '#0d1322', border: '1px solid #2a3a5c', borderRadius: 8, padding: 4, minWidth: 150, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }} onClick={(e) => e.stopPropagation()}>
@@ -1144,16 +1448,20 @@ export default function App() {
       )}
       {showSettings && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => setShowSettings(false)}>
-          <div style={{ background: '#0b0e14', border: '1px solid #2a3a5c', borderRadius: 10, maxWidth: 600, width: '100%', maxHeight: '88vh', overflowY: 'auto', padding: 16 }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ background: '#0b0e14', border: '1px solid #2a3a5c', borderRadius: 10, maxWidth: 640, width: '100%', maxHeight: '88vh', overflowY: 'auto', padding: 16 }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
-              <strong>Model & engine settings</strong>
+              <strong>Settings</strong>
               <span style={{ flex: 1 }} />
               <button onClick={() => setShowSettings(false)}>✕ Close</button>
             </div>
-            <h4 style={{ marginTop: 8 }}>Local engine</h4>
-            <EngineSettings pushLog={pushLog} />
-            <h4 style={{ marginTop: 16 }}>Ollama / cloud / prompts</h4>
-            <LlmSettings value={llm} onChange={setLlm} />
+            <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
+              {[['models', '🧠 Models'], ['tts', '🎙 Text-to-Speech'], ['engine', '🖥 Engine']].map(([id, label]) => (
+                <button key={id} onClick={() => setSettingsTab(id)} title={`${label} settings`} style={{ flex: 1, background: settingsTab === id ? '#1d3a6e' : undefined, border: settingsTab === id ? '1px solid #4da3ff' : undefined }}>{label}</button>
+              ))}
+            </div>
+            {settingsTab === 'models' && <LlmSettings value={llm} onChange={setLlm} />}
+            {settingsTab === 'tts' && <TtsSettings />}
+            {settingsTab === 'engine' && <EngineSettings pushLog={pushLog} />}
           </div>
         </div>
       )}

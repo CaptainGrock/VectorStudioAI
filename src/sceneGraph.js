@@ -15,7 +15,7 @@ export const KeyframeSchema = z.object({
 export const LayerSchema = z.object({
   id: z.string(),
   name: z.string(),
-  type: z.enum(['bar_chart', 'line_chart', 'map_bubbles', 'pie_chart', 'area_chart', 'scatter_chart', 'histogram', 'waterfall', 'funnel_chart', 'radar_chart', 'surface_plot', 'text', 'vector_shape', 'sprite', 'image_layer']),
+  type: z.enum(['bar_chart', 'line_chart', 'map_bubbles', 'pie_chart', 'area_chart', 'scatter_chart', 'histogram', 'waterfall', 'funnel_chart', 'radar_chart', 'surface_plot', 'text', 'vector_shape', 'sprite', 'image_layer', 'audio_tts', 'audio_music']),
   startFrame: z.number().int().min(0),
   endFrame: z.number().int().min(0),
   data: z.any().optional(),
@@ -106,6 +106,8 @@ const TYPE_ALIASES = {
   waterfall: 'waterfall', funnel: 'funnel_chart', radar: 'radar_chart', spider: 'radar_chart',
   surface: 'surface_plot',
   image: 'image_layer', image_layer: 'image_layer', picture: 'image_layer', photo: 'image_layer',
+  audiotts: 'audio_tts', tts: 'audio_tts', narration: 'audio_tts', voiceover: 'audio_tts',
+  audiomusic: 'audio_music', music: 'audio_music', audio: 'audio_music', soundtrack: 'audio_music',
 }
 const num = (v, fallback) => {
   const n = Number(v)
@@ -152,10 +154,12 @@ export function normalizeScene(raw) {
       const ko = k && typeof k === 'object' ? k : {}
       const props = ko.properties && typeof ko.properties === 'object' ? ko.properties : {}
       const clean = {}
-      for (const key of ['x', 'y', 'scale', 'opacity', 'rotation', 'fontSize']) {
+      for (const key of ['x', 'y', 'scale', 'opacity', 'rotation', 'fontSize', 'volume']) {
         if (props[key] !== undefined && props[key] !== null && props[key] !== '') {
           const n = Number(props[key])
-          if (Number.isFinite(n)) clean[key] = key === 'opacity' ? Math.min(1, Math.max(0, n)) : n
+          // Volume rides keyframes like opacity (0 = silent) so fade-ins,
+          // ducking and start/stop are all plain keyframe data.
+          if (Number.isFinite(n)) clean[key] = key === 'opacity' ? Math.min(1, Math.max(0, n)) : key === 'volume' ? Math.min(2, Math.max(0, n)) : n
         }
       }
       return { frame: Math.max(0, Math.round(num(ko.frame, startFrame))), properties: clean, ...(ko.easing ? { easing: String(ko.easing) } : {}) }

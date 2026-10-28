@@ -8,6 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { startRender, renderStatus, renderFile } from "./render.mjs";
+import { defaultTtsDir, ttsModels, ttsFit, startTtsDownload, findLib, scanLibDir, defaultAppLibDir, startLibInstall, startDepsInstall, startCudaTorchInstall, scanForPythons, cancelLibJob, libJobState, ttsPythonStatus, pickPython, startSynthJob, synthJobState, cancelSynthJob, startCheckpointDownload, ckptJobState } from "./tts.mjs";
 import { hardwareProfile, memoryBudgetGB, budgetBasis, describeBudget } from "./hardware.mjs";
 import {
   loadSettings, saveSettings, defaultModelDir, localModels,
@@ -357,6 +358,101 @@ const server = http.createServer(async (req, res) => {
         return send(res, 502, { ok: false, error: err?.message || "Font fetch failed." })
       }
     }
+    // ---- Text-to-Speech (BreezeTTS-2, local) ----
+    if (req.method === "GET" && url.pathname === "/api/tts") {
+      const dir = settings.ttsDir || defaultTtsDir(ROOT);
+      const profile = await hardwareProfile({ target: dir });
+      const budgetGB = memoryBudgetGB(profile);
+      const lib = findLib(ROOT);
+      const pyStatus = ttsPythonStatus(ROOT, settings.ttsPy || null, lib.ok ? lib.path : "");
+      return send(res, 200, { dir, models: ttsModels(dir), fit: ttsFit(budgetGB), budgetGB, python: pyStatus.selected, pythons: pyStatus.list, pySuggested: pyStatus.suggested || null, lib, appLibDir: defaultAppLibDir(ROOT), libJob: libJobState(), ckptJob: ckptJobState() });
+    }
+    if (req.method === "POST" && url.pathname === "/api/tts/lib") {
+      const dir = String(body.dir || "").trim();
+      if (!dir) return send(res, 400, { ok: false, error: "Paste the BreezeTTS-2 folder first." });
+      const hit = scanLibDir(dir);
+      if (!hit) return send(res, 400, { ok: false, error: "That folder does not exist." });
+      if (!hit.ok) {
+        const missing = [!hit.hasRuntime && "breeze_infer", !hit.hasInfer && "infer.py"].filter(Boolean).join(" + ");
+        return send(res, 400, { ok: false, error: `That folder holds no BreezeTTS-2 code (missing ${missing}). A ComfyUI node pack alone won't do — Install the official repo below, or point at a full clone.` });
+      }
+      saveSettings({ ttsLibDir: dir });
+      return send(res, 200, { ok: true, lib: findLib(ROOT) });
+    }
+    if (req.method === "POST" && url.pathname === "/api/tts/install") return send(res, 200, startLibInstall(ROOT));
+    if (req.method === "POST" && url.pathname === "/api/tts/deps") {
+      const lib = findLib(ROOT);
+      const pick = pickPython(lib.ok ? lib.path : "", settings.ttsPy || null);
+      // breeze_infer alone isn't readiness (it imports without torch) —
+      // only skip when every package infer.py needs already resolves.
+      const depsMissing = !pick.hasBreeze || ["torch", "transformers", "qwen_tts", "soundfile"].some((k) => !(pick.deps || {})[k]);
+      if (!depsMissing) return send(res, 200, { ok: true, already: true });
+      if (!pick.py) return send(res, 400, { ok: false, error: pick.broken ? `That Python won't launch (${pick.exe}) — pick another first.` : "No Python found — install Python 3.10+ first." });
+      return send(res, 200, startDepsInstall(ROOT, pick.py));
+    }
+    if (req.method === "POST" && url.pathname === "/api/tts/cuda-torch") {
+      const lib = findLib(ROOT);
+      const pick = pickPython(lib.ok ? lib.path : "", settings.ttsPy || null);
+      if (!pick.py) return send(res, 400, { ok: false, error: "No Python found — install Python 3.10+ first." });
+      if (pick.cuda?.available) return send(res, 200, { ok: true, already: true });
+      return send(res, 200, startCudaTorchInstall(ROOT, pick.py));
+    }
+    if (req.method === "POST" && url.pathname === "/api/tts/pythons/scan") {
+      const roots = Array.isArray(body.roots) && body.roots.length ? body.roots : ["C:\\", "D:\\"];
+      const scan = scanForPythons(roots);
+      if (!scan.ok) return send(res, 400, scan);
+      if (scan.found.length) {
+        const cur = Array.isArray(settings.ttsPyExtra) ? settings.ttsPyExtra : [];
+        const keys = new Set(cur.map((a) => a.join(" ").toLowerCase()));
+        for (const f of scan.found) {
+          const k = f.argv.join(" ").toLowerCase();
+          if (!keys.has(k)) { keys.add(k); cur.push(f.argv); }
+        }
+        saveSettings({ ttsPyExtra: cur });
+      }
+      return send(res, 200, scan);
+    }
+    if (req.method === "POST" && url.pathname === "/api/tts/job/cancel") return send(res, 200, cancelLibJob());
+    if (req.method === "POST" && url.pathname === "/api/tts/py") {
+      const argv = Array.isArray(body.argv) ? body.argv.filter((x) => typeof x === "string" && x) : null;
+      if (!argv || !argv.length) return send(res, 400, { ok: false, error: "Pick a Python first." });
+      saveSettings({ ttsPy: argv });
+      return send(res, 200, { ok: true });
+    }
+    if (req.method === "POST" && url.pathname === "/api/tts/dir") {
+      const dir = String(body.dir || "").trim();
+      if (!dir) return send(res, 400, { ok: false, error: "Pick a folder first." });
+      try {
+        if (!fs.statSync(dir).isDirectory()) throw new Error("not a folder");
+      } catch {
+        return send(res, 400, { ok: false, error: "That folder does not exist." });
+      }
+      saveSettings({ ttsDir: dir });
+      return send(res, 200, { ok: true, dir, models: ttsModels(dir) });
+    }
+    if (req.method === "POST" && url.pathname === "/api/tts/download") {
+      const dir = settings.ttsDir || defaultTtsDir(ROOT);
+      const file = String(body.file || "").split("/").pop();
+      if (!body.url || !file) return send(res, 400, { ok: false, error: "Need a file URL and name." });
+      try { fs.mkdirSync(dir, { recursive: true }); } catch { /* ignore */ }
+      return send(res, 200, startTtsDownload({ url: body.url, file, dir, sizeBytes: body.sizeBytes || 0 }));
+    }
+    // Synthesis runs as a background job so the UI can show live progress.
+    if (req.method === "POST" && url.pathname === "/api/tts/synth") {
+      return send(res, 200, startSynthJob({
+        text: body.text, refAudioDataUrl: body.refAudioDataUrl, refText: body.refText,
+        instruction: body.instruction, modelPath: body.modelPath || body.model, seed: body.seed,
+        libDir: settings.ttsLibDir || "", appRoot: ROOT, savedPy: settings.ttsPy || null,
+      }));
+    }
+    const synthPollMatch = url.pathname.match(/^\/api\/tts\/synth\/([^/]+)$/);
+    if (req.method === "GET" && synthPollMatch) return send(res, 200, synthJobState(synthPollMatch[1]));
+    const synthCancelMatch = url.pathname.match(/^\/api\/tts\/synth\/([^/]+)\/cancel$/);
+    if (req.method === "POST" && synthCancelMatch) return send(res, 200, cancelSynthJob(synthCancelMatch[1]));
+    if (req.method === "POST" && url.pathname === "/api/tts/checkpoint") {
+      return send(res, 200, await startCheckpointDownload(ROOT, body.repo || "BreezeBlue/Breeze-TTS-2"));
+    }
+    if (req.method === "GET" && url.pathname === "/api/tts/checkpoint") return send(res, 200, ckptJobState());
     return send(res, 404, { ok: false, error: "Unknown route." });
   } catch (err) {
     return send(res, 500, { ok: false, error: err?.message || String(err) });

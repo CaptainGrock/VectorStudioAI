@@ -1,5 +1,5 @@
 import React from 'react'
-import { AbsoluteFill, interpolate, useCurrentFrame, useRemotionEnvironment, delayRender, continueRender } from 'remotion'
+import { AbsoluteFill, Audio, interpolate, useCurrentFrame, useRemotionEnvironment, delayRender, continueRender } from 'remotion'
 import { lerpKeyframes, effectiveTiming } from '../sceneGraph.js'
 import { webFontFamilies, fontCssUrl, addMirrorLinks, cleanFamily, customFontFaces, injectCustomFont, fontStack } from '../fonts.js'
 import { MAP_W, MAP_H, project } from '../geo.js'
@@ -663,6 +663,32 @@ function LayerView({ layer, frame, onSelect, selected, preview, onDragPreview, o
   const supRef = React.useRef(false)
   const dragRef = React.useRef(null)
   const [isDrag, setIsDrag] = React.useState(false)
+  const env = useRemotionEnvironment()
+  // Audio layers (TTS narration, music) have no visuals: mount the sound
+  // while the playhead is inside the layer, fade via volume keyframes.
+  // The badge is preview-only so it never burns into the MP4.
+  if (layer.type === 'audio_tts' || layer.type === 'audio_music') {
+    if (frame < layer.startFrame || frame > layer.endFrame || !layer.assetUrl) return null
+    const vol = preview && preview.id === layer.id && preview.props?.volume !== undefined
+      ? preview.props.volume
+      : (lerpKeyframes(layer.keyframes, frame).volume ?? layer.data?.volume ?? 1)
+    // offsetFrames trims long sources (3-minute song under a 4-second
+    // clip): the track plays (endFrame - startFrame) from that point in.
+    const off = Math.max(0, Math.round(Number(layer.data?.offsetFrames) || 0))
+    const len = Math.max(1, layer.endFrame - layer.startFrame)
+    return (
+      <>
+        <Audio src={layer.assetUrl} volume={Math.min(2, Math.max(0, Number(vol) || 0))} startFrom={off} endAt={off + len} />
+        {!env.isRendering && (
+          <div onClick={(e) => { e.stopPropagation(); onSelect?.(layer.id) }}
+            title="Click to select the audio track"
+            style={{ position: 'absolute', left: 24, bottom: 24, outline: selected ? '3px dashed #4da3ff' : undefined, cursor: 'pointer', background: 'rgba(13,19,34,0.9)', border: '1px solid #2a3a5c', borderRadius: 8, padding: '6px 10px', fontSize: 14 }}>
+            {layer.type === 'audio_tts' ? '🎙' : '🎵'} {layer.name || 'Audio'}
+          </div>
+        )}
+      </>
+    )
+  }
   if (frame < layer.startFrame || frame > layer.endFrame) return null
   // Uncommitted slider moves (preview) override keyframes so the canvas
   // follows the inspector in real time. Preview is transient, never saved.

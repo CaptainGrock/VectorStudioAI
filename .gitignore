@@ -1,5 +1,6 @@
 node_modules/
 models/
+tts/
 llama.cpp/
 server/settings.json
 *.part

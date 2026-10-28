@@ -226,6 +226,12 @@ export const useStudio = create((set, get) => ({
   attachImage: (img) => set((s) => ({ images: [...s.images, img].slice(-10), log: [...s.log, `Attached image ${img.name} (${img.width}x${img.height}).`] })),
   removeImage: (id) => set((s) => ({ images: s.images.filter((m) => m.id !== id) })),
 
+  // Session audio assets (TTS wav/mp3, background music). Stored as data:
+  // URLs so preview and MP4 export resolve the identical bytes.
+  audios: [],
+  attachAudio: (a) => set((s) => ({ audios: [...s.audios, a].slice(-10), log: [...s.log, `Attached audio ${a.name}.`] })),
+  removeAudio: (id) => set((s) => ({ audios: s.audios.filter((a) => a.id !== id) })),
+
   setPrompt: (prompt) => set({ prompt }),
   setEditPrompt: (editPrompt) => set({ editPrompt }),
   pushLog: (msg) => set((s) => ({ log: [...s.log, msg] })),
