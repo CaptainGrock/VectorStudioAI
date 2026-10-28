@@ -112,6 +112,25 @@ const num = (v, fallback) => {
   return Number.isFinite(n) ? n : fallback
 }
 
+// Chart numbers must be finite: an LLM hand-transcribing a table can emit
+// blanks or words inside values/series, which poison Math.max into NaN and
+// blank the whole chart (the classic "NaN and no real data"). Coerce here
+// — every generation passes through normalize — so renderers stay simple.
+const finiteNum = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0 }
+function sanitizeLayerData(d) {
+  if (!d || typeof d !== 'object' || Array.isArray(d)) return d
+  const out = { ...d }
+  if (Array.isArray(d.labels)) out.labels = d.labels.map((l) => String(l ?? ''))
+  if (Array.isArray(d.values)) out.values = d.values.map(finiteNum)
+  if (Array.isArray(d.series)) {
+    out.series = d.series.map((s) => (s && typeof s === 'object'
+      ? { ...s, label: String(s.label ?? ''), values: Array.isArray(s.values) ? s.values.map(finiteNum) : [] }
+      : s))
+  }
+  if (Array.isArray(d.pointColors)) out.pointColors = d.pointColors.map((c) => String(c ?? ''))
+  return out
+}
+
 // LLMs rarely return the schema verbatim: camelCase types, numeric strings,
 // missing ids or empty keyframes. Normalize first so validation judges the
 // intent, not the formatting — anything still invalid is reported, not
@@ -155,7 +174,7 @@ export function normalizeScene(raw) {
       type: TYPE_ALIASES[typeKey] || o.type,
       startFrame,
       endFrame,
-      ...(o.data !== undefined ? { data: o.data } : {}),
+      ...(o.data !== undefined ? { data: sanitizeLayerData(o.data) } : {}),
       ...(o.text !== undefined ? { text: String(o.text) } : {}),
       ...(o.assetUrl ? { assetUrl: String(o.assetUrl) } : {}),
       ...(o.fontFamily ? { fontFamily: String(o.fontFamily) } : {}),

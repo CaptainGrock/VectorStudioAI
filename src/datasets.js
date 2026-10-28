@@ -77,6 +77,140 @@ export function parseMarkdownTable(text) {
   return null
 }
 
+/** Split one pasted line on commas (or semicolons for German-style CSV). */
+function splitDelimited(line) {
+  const comma = splitCSVLine(line)
+  const semi = String(line).split(';').map((s) => s.trim())
+  return semi.length > comma.length ? semi : comma
+}
+
+// A pasted table's header sometimes glues prompt prose onto its first cell
+// ("create line chart with this data: State,Jan_hL,..."). When the text
+// before the last colon looks like prose (contains a space), the real
+// header starts after it.
+function stripProsePrefix(cells) {
+  if (!cells.length) return cells
+  const first = String(cells[0] ?? '')
+  const at = first.lastIndexOf(':')
+  if (at < 0 || !/ /.test(first.slice(0, at))) return cells
+  const head = first.slice(at + 1).trim()
+  return head ? [head, ...cells.slice(1)] : cells
+}
+
+function delimitedCellsNumeric(cells) {
+  let hits = 0, checked = 0
+  for (const v of cells) {
+    const t = String(v ?? '').trim()
+    if (!t) continue
+    checked++
+    if (cleanNumber(t) !== null) hits++
+  }
+  return checked > 0 && hits / checked >= 0.8
+}
+
+/** Prose glued onto a span's header line ("create line chart with this
+ *  data: State,Jan_hL,..." → "create line chart with this data:").
+ *  Kept as prose when table lines are stripped, so intent words on the
+ *  table line ("top 2 vessels:", "by vessel:") still match. */
+export function gluedProsePrefix(line) {
+  const cells = splitDelimited(line)
+  const stripped = stripProsePrefix(cells)
+  if (!stripped.length || stripped[0] === cells[0]) return ''
+  const first = String(cells[0] ?? '')
+  return first.slice(0, first.lastIndexOf(':') + 1).trim()
+}
+
+/** Raw line spans (inclusive) of pasted raw-CSV tables: runs of 3+ lines
+ *  sharing a cell count, with a text header and at least one numeric
+ *  column. Used to parse the paste AND to hide data lines from the
+ *  prose-matching heuristics (mentions, grouping, lineage). */
+export function delimitedTableSpans(text) {
+  const lines = String(text).split(/\r?\n/)
+  const spans = []
+  let i = 0
+  while (i < lines.length) {
+    if (!lines[i].trim()) { i++; continue }
+    const width = splitDelimited(lines[i]).length
+    if (width < 2) { i++; continue }
+    const run = [i]
+    let j = i + 1
+    while (j < lines.length && lines[j].trim() && splitDelimited(lines[j]).length === width) { run.push(j); j++ }
+    if (run.length >= 3) {
+      const columns = stripProsePrefix(splitDelimited(lines[run[0]]))
+      const dataRows = run.slice(1).map((k) => splitDelimited(lines[k]))
+      const hasTextHeader = columns.some((c) => { const t = String(c).trim(); return t !== '' && Number.isNaN(Number(t)) })
+      const numericCol = columns.some((_, ci) => delimitedCellsNumeric(dataRows.map((r) => r[ci])))
+      if (hasTextHeader && numericCol) spans.push({ start: run[0], end: run[run.length - 1] })
+      i = j
+    } else i++
+  }
+  return spans
+}
+
+/** Parse the richest pasted raw-CSV table in free text (or null). Only
+ *  markdown tables were recognized before, so a comma-pasted dataset was
+ *  silently ignored and the chart fell back to number-scraping the prose. */
+export function parseDelimitedTable(text) {
+  const lines = String(text).split(/\r?\n/)
+  const spans = delimitedTableSpans(text)
+  if (!spans.length) return null
+  spans.sort((a, b) => (b.end - b.start) - (a.end - a.start))
+  const s = spans[0]
+  const columns = stripProsePrefix(splitDelimited(lines[s.start]))
+  const rows = []
+  for (let k = s.start + 1; k <= s.end; k++) {
+    const cells = splitDelimited(lines[k])
+    const row = {}
+    columns.forEach((c, ci) => { row[c] = cells[ci] ?? '' })
+    rows.push(row)
+  }
+  return rows.length ? { columns, rows } : null
+}
+
+const MONTH_TOKENS = new Set(['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'sept', 'oct', 'nov', 'dec', 'january', 'february', 'march', 'april', 'june', 'july', 'august', 'september', 'october', 'november', 'december'])
+const PERIOD_WORDS = new Set(['month', 'week', 'quarter', 'year', 'day'])
+function periodToken(t) {
+  return MONTH_TOKENS.has(t) || PERIOD_WORDS.has(t) || /^q[1-4]$/.test(t) || /^(19|20)\d{2}$/.test(t)
+}
+function colWordTokens(c) {
+  return String(c || '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
+}
+const SUMMARY_COL_RE = /total|sum|^ttm$|ytd|cagr|average|^avg|mean|grand/i
+
+/** Wide time-series layout: one label column plus period columns
+ *  (Jan_hL…Sep_hL, quarters, years). Returns the label column and the
+ *  period columns in table order, excluding row-summary columns
+ *  (YTD/total) and any user-excluded columns. */
+export function widePeriodColumns(table, excluded = new Set()) {
+  if (!table || !Array.isArray(table.columns)) return { labelCol: null, periods: [] }
+  const textCols = table.columns.filter((c) => !excluded.has(c) && !isNumericColumn(table.rows, c))
+  if (!textCols.length) return { labelCol: null, periods: [] }
+  const periods = table.columns.filter((c) => {
+    if (excluded.has(c)) return false
+    if (!isNumericColumn(table.rows, c)) return false
+    const toks = colWordTokens(c)
+    if (!toks.some(periodToken)) return false
+    // A summary column never enters the axis — unless it IS a period
+    // ("January average" keeps its month token; YTD_Total_hL does not).
+    if (SUMMARY_COL_RE.test(c) && !toks.some(periodToken)) return false
+    return true
+  })
+  if (periods.length < 2) return { labelCol: null, periods: [] }
+  return { labelCol: textCols[0], periods }
+}
+
+/** Shared unit across period columns ("Jan_hL" → "hL"), or ''. */
+export function periodUnit(periods) {
+  const stripped = (periods || []).map((c) => {
+    const toks = colWordTokens(c)
+    const pt = toks.find(periodToken)
+    if (!pt) return String(c).trim()
+    return String(c).replace(new RegExp(`^${pt}[_\\s-]*|[_\\s-]*${pt}$`, 'i'), '').trim()
+  })
+  const first = stripped[0] || ''
+  return first && stripped.every((s) => s === first) ? first : ''
+}
+
 export async function parseXLSX(file) {
   const XLSX = await import('xlsx')
   const buf = await file.arrayBuffer()
@@ -157,12 +291,17 @@ export function summarizeForLLM(table, maxRows = 12) {
       const distinct = [...new Set(table.rows.map((r) => String(r[c] ?? '').trim()).filter(Boolean))]
       return `${c} (${distinct.length}${distinct.length <= 8 ? ': ' + distinct.join(', ') : ''})`
     })
+  const wide = widePeriodColumns(table)
+  const summaryCols = wide.periods.length
+    ? table.columns.filter((c) => c !== wide.labelCol && !wide.periods.includes(c))
+    : []
   return [
     `DATASET "${table.name}" (${table.rows.length} rows):`,
     '| ' + table.columns.join(' | ') + ' |',
     '| ' + table.columns.map(() => '---').join(' | ') + ' |',
     head,
     picked ? `Suggested mapping: labels=${picked.labelCol}, values=${picked.valueCol}.` : 'No clear numeric column.',
+    wide.periods.length ? `Wide time series: ${wide.periods.join(', ')} are time periods (one line per ${wide.labelCol}); ${summaryCols.join(', ') || 'no other columns'} are row summaries — plot series over the periods, never the summaries as points.` : '',
     groupable.length ? `Groupable: ${groupable.join(' · ')}. You can group ("group by X"), aggregate ("count/sum/average"), limit ("top N"), or drop a column ("ignore Z").` : '',
   ].filter(Boolean).join('\n')
 }

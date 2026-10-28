@@ -2,7 +2,7 @@
 // Never writes code; only returns Scene Graph JSON or JSON Patch.
 
 import { defaultScene, effectiveTiming } from './sceneGraph.js'
-import { parseMarkdownTable, tableToLayerData, summarizeForLLM, isNumericColumn, cleanNumber } from './datasets.js'
+import { parseMarkdownTable, parseDelimitedTable, delimitedTableSpans, gluedProsePrefix, widePeriodColumns, periodUnit, tableToLayerData, summarizeForLLM, isNumericColumn, cleanNumber } from './datasets.js'
 import { countryCoords, project } from './geo.js'
 
 // Optional per-point coloring for table charts: "green for positive, red for
@@ -67,7 +67,7 @@ export function wantsChart(prompt) {
 }
 
 export function wantsMap(prompt) {
-  const nt = String(prompt).split('\n').filter((l) => !/^\s*\|/.test(l)).join('\n').toLowerCase()
+  const nt = stripTableLines(prompt).toLowerCase()
   if (/\bmap\b|bubble|geograph|choropleth|\bglobe\b/.test(nt)) return true
   // "by country" alone is a grouping, not a map — only a map when no
   // explicit chart type (pie, bar, …) was requested.
@@ -135,7 +135,36 @@ export function buildMapLayer(p, table, base = defaultScene, maxBubbles = 60) {
 export function findPromptTable(prompt, datasets = []) {
   const inline = parseMarkdownTable(prompt)
   if (inline) return { id: 'pasted', name: 'pasted table', ...inline }
+  // Raw comma/semicolon pastes (no markdown pipes) are tables too —
+  // without this the chart silently falls back to number-scraping.
+  const csv = parseDelimitedTable(prompt)
+  if (csv) return { id: 'pasted', name: 'pasted table', ...csv }
   return datasets[0] || null
+}
+
+// Prose-only view of a prompt: drops markdown table lines AND pasted
+// raw-CSV lines, so data values never read as user intent (mentions,
+// grouping, shapes, lineage all consume this).
+export function stripTableLines(p) {
+  const lines = String(p || '').split('\n')
+  const inSpan = new Set()
+  const starts = new Set()
+  for (const s of delimitedTableSpans(String(p || ''))) {
+    starts.add(s.start)
+    for (let i = s.start; i <= s.end; i++) inSpan.add(i)
+  }
+  const out = []
+  lines.forEach((l, i) => {
+    if (/^\s*\|/.test(l)) return
+    if (!inSpan.has(i)) { out.push(l); return }
+    // Span header glued to prose ("top 2 vessels: State,..."): keep the
+    // prose so intent words survive, drop only the table itself.
+    if (starts.has(i)) {
+      const pre = gluedProsePrefix(l)
+      if (pre) out.push(pre)
+    }
+  })
+  return out.join('\n')
 }
 
 // Data-directive parsing: lets prompts regroup, re-measure and re-shape a
@@ -362,10 +391,10 @@ function parseSort(p) {
 export function filterRowsByMentions(p, table) {
   let rows = table.rows
   let filterName = null
-  // Mention matching ignores pasted markdown table lines: values coming
-  // from the data itself are not user intent ("chart of revenue" must not
-  // filter to the first table value).
-  const pnt = String(p).split('\n').filter((l) => !/^\s*\|/.test(l)).join('\n')
+  // Mention matching ignores pasted table lines (markdown or raw CSV):
+  // values coming from the data itself are not user intent ("chart of
+  // revenue" must not filter to the first table value).
+  const pnt = stripTableLines(p)
   const mentions = findValueMentions(pnt, table)
   if (mentions.length) {
     const before = (i, re) => re.test(pnt.slice(Math.max(0, i - 28), i))
@@ -404,7 +433,7 @@ export function filterRowsByMentions(p, table) {
 // Prose-only prompt for rebuilds: pasted-table lines would bloat history and
 // go stale, so refresh replays just the words that shaped the mapping.
 export function prosePrompt(p) {
-  return String(p || '').split('\n').filter((l) => !/^\s*\|/.test(l)).join(' ').replace(/\s+/g, ' ').trim().slice(0, 400)
+  return stripTableLines(p).split('\n').join(' ').replace(/\s+/g, ' ').trim().slice(0, 400)
 }
 // Lineage stamp shared by the chart builders: which session dataset this
 // layer came from (by id) and the prose that shaped it, so a replaced file
@@ -416,6 +445,47 @@ function lineage(p, table) {
     ...(table.id && table.id !== 'scene' ? { datasetId: table.id } : {}),
   }
 }
+// Wide time-series tables (one label column plus period columns like
+// Jan_hL…Sep_hL): a line ask plots one series per row over the periods —
+// never one point per row off a summary column. Totals/YTD rank the
+// series but never enter the axis. Caps at 12 series (top by total,
+// fewer with an explicit "top N").
+const MAX_LINE_SERIES = 12
+function wideSeriesData(p, table, rows, excluded) {
+  const t = chartTypeFromPrompt(p)
+  if (t && t !== 'line_chart') return null
+  if (parseAxisHint(p, table)) return null
+  const { labelCol, periods } = widePeriodColumns(table, excluded)
+  if (!labelCol || periods.length < 2 || !rows.length) return null
+  const { valueCol: namedMetric } = parseMetric(p, [])
+  if (namedMetric) return null
+  if (wantsCount(p) || wantsStacked(p) || wantsUnstacked(p)) return null
+  const gm = stripTableLines(p).match(/\bby\s+([a-z][a-z &]*?)(?:\s+reference|\s+sheet|\s+data|\s+for\s|\s+based|\s+from|,|\s+total|\s+amount|$)/)
+  if (gm && matchColumn(table, groupHead(gm[1]))) return null
+  const sort = parseSort(p)
+  const unit = periodUnit(periods)
+  const all = rows.map((r, i) => ({
+    label: String(r[labelCol] ?? '').trim() || `Row ${i + 1}`,
+    values: periods.map((c) => cleanNumber(r[c]) ?? 0),
+  }))
+  all.sort((a, b) => b.values.reduce((x, y) => x + y, 0) - a.values.reduce((x, y) => x + y, 0))
+  const kept = all.slice(0, Math.max(1, sort.n ?? MAX_LINE_SERIES))
+  const series = kept.map((s, si) => ({
+    label: s.label,
+    values: s.values.map((v) => Math.round(v * 100) / 100),
+    color: STACK_PALETTE[si % STACK_PALETTE.length],
+  }))
+  return {
+    labelCol, valueCol: unit || 'value', labels: periods, series,
+    legend: series.map((s) => ({ label: s.label, color: s.color })),
+    aggregatedBy: labelCol, aggregation: 'series',
+    ...(all.length > kept.length ? { seriesTruncated: all.length - kept.length } : {}),
+    rowCount: rows.length,
+    rows: table.rows.slice(0, 500).map((r) => table.columns.map((c) => String(r[c] ?? ''))),
+    columns: table.columns,
+  }
+}
+
 export function tableChartData(p, table) {
   let base = tableToLayerData(table)
   // No numeric column (pure categorical table): counting rows per group is
@@ -455,12 +525,12 @@ export function tableChartData(p, table) {
     // Bare column mention ("top 2 vessels", "vessel counts"): a distinctive
     // categorical column token named outright in the prose (not the pasted
     // table) reads as a grouping ask.
-    const pNoTable = String(p).split('\n').filter((l) => !/^\s*\|/.test(l)).join('\n')
+    const pNoTable = stripTableLines(p)
     groupCol = table.columns.filter((c) => c !== countryCol && !excluded.has(c) && !isNumericColumn(rows, c)).find((c) =>
       colTokens(c).some((t) => t.length >= 5 && new RegExp(`\\b${t}s?\\b`).test(pNoTable))
     ) || null
   }
-  if (!groupCol && mentions.length >= 2 && !parseMarkdownTable(p)) {
+  if (!groupCol && mentions.length >= 2 && !parseMarkdownTable(p) && !parseDelimitedTable(p)) {
     // Value-implied grouping ("only Cup and Waffle Cone"): several named
     // values from one column read as "group by that column". Skipped when
     // the table is pasted inline (every value trivially matches its column).
@@ -471,6 +541,12 @@ export function tableChartData(p, table) {
   }
   if (!groupCol && /\bcategor/.test(p)) groupCol = table.columns.find((c) => /categor/i.test(c)) || null
   if (groupCol && excluded.has(groupCol)) groupCol = null
+  // Wide time-series (label + period columns) with no explicit grouping:
+  // one series per row over the periods, not one point per row.
+  if (!groupCol) {
+    const wide = wideSeriesData(p, table, rows, excluded)
+    if (wide) return filterName ? { ...wide, filteredBy: filterName } : wide
+  }
   // Metric: an explicitly named one ("sum of revenue", "average of
   // scoops") wins; otherwise the default metric unless it was excluded.
   const { valueCol: namedMetric, agg } = parseMetric(p, usableNumeric)
@@ -585,8 +661,10 @@ export function parseAxisFormat(p) {
 }
 export function buildTableChartLayer(p, table, base = defaultScene) {
   const layerData = tableChartData(p, table)
-  if (!layerData || (!layerData.labels.length && !layerData.values.length)) return null
-  const type = chartTypeFromPrompt(p) || (p.includes('bar') ? 'bar_chart' : p.includes('line') ? 'line_chart' : layerData.labels.length > 8 ? 'line_chart' : 'bar_chart')
+  if (!layerData || (!layerData.labels.length && !layerData.values.length && !layerData.series?.length)) return null
+  // Multi-series time data always draws lines (the renderer that supports it).
+  const type = layerData.series?.length ? 'line_chart'
+    : chartTypeFromPrompt(p) || (p.includes('bar') ? 'bar_chart' : p.includes('line') ? 'line_chart' : layerData.labels.length > 8 ? 'line_chart' : 'bar_chart')
   const orientation = /horizontal/.test(p) && (type === 'bar_chart' || type === 'histogram') ? 'horizontal' : (/vertical/.test(p) ? 'vertical' : undefined)
   const variant = type === 'pie_chart' && /donut|doughnut/.test(p) ? 'donut' : undefined
   const uniform = !/positive|negative|by categor|per categor|each categor/.test(p)
@@ -643,15 +721,14 @@ export function buildStackedData(p, table, opts = {}) {
     const gm = stripStack(p).match(/\bby\s+([a-z][a-z &]*?)(?:\s+reference|\s+sheet|\s+data|\s+for\s|\s+based|\s+from\s|,|\s+total|\s+amount|$)/)
     if (gm) groupCol = matchColumn(table, groupHead(gm[1])) || null
   }
-  if (!groupCol) {
-    // Match against prose with stack clauses (and tables) stripped, so a
-    // "stacked by topping" split never doubles as the group axis.
-    const pNoTable = stripStack(String(p).split('\n').filter((l) => !/^\s*\|/.test(l)).join('\n'))
+  if (!groupCol) {      // Match against prose with stack clauses (and tables) stripped, so a
+      // "stacked by topping" split never doubles as the group axis.
+      const pNoTable = stripStack(stripTableLines(p))
     groupCol = catCols().find((c) =>
       colTokens(c).some((t) => t.length >= 5 && new RegExp(`\\b${t}s?\\b`).test(pNoTable))
     ) || null
   }
-  if (!groupCol && mentions.length >= 2 && !parseMarkdownTable(p)) {
+  if (!groupCol && mentions.length >= 2 && !parseMarkdownTable(p) && !parseDelimitedTable(p)) {
     const byCol = new Map()
     for (const m of mentions) byCol.set(m.col, (byCol.get(m.col) || 0) + 1)
     const top = [...byCol.entries()].sort((a, b) => b[1] - a[1])[0]
@@ -772,7 +849,9 @@ export function refreshLayerData(layer, table) {
   const d = layer?.data || {}
   const bp = typeof d.buildPrompt === 'string' && d.buildPrompt.trim() ? d.buildPrompt : null
   if (!bp || !table || !Array.isArray(table.columns)) return null
-  const stacked = Array.isArray(d.series) && d.series.length > 0
+  // Only stacked bars (stackBy set) rebuild through the stacked path —
+  // line-chart series also ride on data.series and rebuild flat.
+  const stacked = !!d.stackBy && Array.isArray(d.series) && d.series.length > 0
   const fresh = stacked
     ? buildStackedData(bp, table, { groupCol: d.aggregatedBy, stackCol: d.stackBy })
     : tableChartData(bp, table)
@@ -832,9 +911,16 @@ export function repairEngineScene(scene, prompt, datasets = [], images = []) {
   const p = prompt.toLowerCase()
   const out = { ...scene, layers: scene.layers.map((l) => ({ ...l })) }
   const table = findPromptTable(prompt, datasets)
+  // A layer is only usable when every plotted number is finite: an LLM
+  // that hand-transcribes a table can emit numeric strings (fine — the
+  // renderers coerce) but also blanks/words, which poison Math.max into
+  // NaN and blank the whole chart. Non-finite data rebuilds from the table.
+  const finiteArr = (a) => Array.isArray(a) && a.length > 0
+    && a.every((v) => v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v)))
   const usable = (l) => Array.isArray(l?.data?.labels) && l.data.labels.length > 0
-    && ((Array.isArray(l?.data?.values) && l.data.values.length === l.data.labels.length)
-      || (Array.isArray(l?.data?.series) && l.data.series.length > 0))
+    && ((Array.isArray(l?.data?.values) && l.data.values.length === l.data.labels.length && finiteArr(l.data.values))
+      || (Array.isArray(l?.data?.series) && l.data.series.length > 0
+        && l.data.series.every((s) => Array.isArray(s.values) && s.values.length === l.data.labels.length && finiteArr(s.values))))
   if (table) {
     const layerData = tableChartData(p, table)
     if (layerData) {
@@ -1000,7 +1086,7 @@ export function ruleBasedScene(prompt, base = defaultScene, datasets = [], image
   const p = prompt.toLowerCase()
   const layers = []
   // title (quoted "X as a title" wins over a bare keyword match)
-  const promptNoTable = prompt.split('\n').filter((l) => !/^\s*\|/.test(l)).join('\n')
+  const promptNoTable = stripTableLines(prompt)
   const titleMatch = prompt.match(/['"]([^'"]{1,80})['"]\s+as a (title|heading)/i) || prompt.match(/title\s+['"]([^'"]+)['"]/i) || prompt.match(/start with[^.]*?['"]([^'"]+)['"]/i)
   if ((p.includes('title') && !/(no|without|hide|remove)\b[^.]{0,16}\btitle\b/.test(p)) || titleMatch || p.includes('q3 review')) {
     const text = titleMatch ? titleMatch[1] : 'Q3 Review'

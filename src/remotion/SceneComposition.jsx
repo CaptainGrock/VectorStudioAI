@@ -193,14 +193,25 @@ function Legend({ items }) {
 }
 
 function LineChart({ layer, frame }) {
-  const { labels = [], values = [], pointColors = [], legend = [] } = layer.data || {}
-  const max = Math.max(1, ...values)
+  const { labels = [], values = [], pointColors = [], legend = [], series = [] } = layer.data || {}
+  // Multi-series time data (one line per row over period labels); otherwise
+  // the classic single line. Every value coerces through Number — a stray
+  // non-numeric would otherwise poison Math.max into NaN and blank the chart.
+  const multi = series.length > 0 && series.every((s) => Array.isArray(s.values))
+  const nums = multi ? series.flatMap((s) => s.values.map((v) => Number(v) || 0)) : values.map((v) => Number(v) || 0)
+  const max = Math.max(1, ...nums)
   const lT = effectiveTiming(layer)
   const progress = masterP(frame, lT)
+  const n = multi ? labels.length : values.length
+  const X = (i) => (i / Math.max(1, n - 1)) * 900 + 60
+  const Y = (v) => 320 - ((Number(v) || 0) / max) * 260
   // Draws left-to-right: values grow in place while a wipe reveals the line.
   // Points hold their final positions (stationary) — the wipe reveals them
   // left-to-right and dots pop in sequence, instead of rising from the base.
-  const pts = values.map((v, i) => `${(i / Math.max(1, values.length - 1)) * 900 + 60},${320 - (v / max) * 260}`).join(' ')
+  const lines = multi
+    ? series.map((s, si) => ({ pts: s.values.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' '), color: s.color || CHART_PALETTE[si % CHART_PALETTE.length] }))
+    : [{ pts: values.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' '), color: '#4da3ff' }]
+  const autoLegend = legend.length ? legend : multi ? series.map((s, i) => ({ label: s.label, color: s.color || CHART_PALETTE[i % CHART_PALETTE.length] })) : legend
   const step = Math.max(1, Math.ceil(labels.length / 10))
   return (
     <div style={{ width: 1280, height: 720, padding: 48, display: 'flex', flexDirection: 'column' }}>
@@ -214,12 +225,17 @@ function LineChart({ layer, frame }) {
             </g>
           ))}
           <line x1={60} y1={320} x2={1000} y2={320} stroke="rgba(255,255,255,0.35)" strokeWidth={2} />
-          <polyline points={pts} fill="none" stroke="#4da3ff" strokeWidth={6} strokeLinejoin="round" />        {values.map((v, i) => (
-          <circle key={i} cx={(i / Math.max(1, values.length - 1)) * 900 + 60} cy={320 - (v / max) * 260} r={values.length > 12 ? 6 : 10} fill={pointColors[i] || '#4da3ff'} opacity={pointEOA(frame, lT, i)} />
-        ))}
-      </svg>
+          {lines.map((L, si) => (
+            <g key={si}>
+              <polyline points={L.pts} fill="none" stroke={L.color} strokeWidth={6} strokeLinejoin="round" />
+              {(multi ? series[si].values : values).map((v, i) => (
+                <circle key={i} cx={X(i)} cy={Y(v)} r={n > 12 ? 6 : 10} fill={multi ? L.color : (pointColors[i] || '#4da3ff')} opacity={pointEOA(frame, lT, i)} />
+              ))}
+            </g>
+          ))}
+        </svg>
       </div>
-      {showL(layer) && <Legend items={legend} />}
+      {showL(layer) && <Legend items={autoLegend} />}
       {!!labels.length && (
         <div style={{ display: 'flex', marginTop: 6, fontSize: 13, opacity: 0.8 }}>
           {labels.map((lb, i) => (i % step === 0 || i === labels.length - 1 ? (

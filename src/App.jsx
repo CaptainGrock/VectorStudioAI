@@ -6,7 +6,7 @@ import { generateScene, editScene, getLastSource, tableFromLayer, describeTable,
 import { validateScene, normalizeScene, lerpKeyframes, effectiveTiming } from './sceneGraph.js'
 import { FONT_CHOICES } from './llm.js'
 import { OPEN_FONTS, SYSTEM_FONTS_LIST, ensureFonts, ensureCustomFonts, restoreCustomFonts, fetchGoogleFont, fetchCustomFontFromUrl, registerCustomFont, cleanFamily, fontStack, probeFontCdn, fontCdnStatus } from './fonts.js'
-import { parseAttachedFile, parseCSV, parseMarkdownTable } from './datasets.js'
+import { parseAttachedFile, parseCSV, parseMarkdownTable, parseDelimitedTable } from './datasets.js'
 import { isImageFile, processImageFile } from './images.js'
 import EngineSettings from './EngineSettings.jsx'
 import LlmSettings from './LlmSettings.jsx'
@@ -854,7 +854,7 @@ export default function App() {
       // (saved-history quota), but the session keeps the full original so
       // regroups stay exact until reload.
       let genDatasets = datasets
-      const pasted = parseMarkdownTable(usedPrompt)
+      const pasted = parseMarkdownTable(usedPrompt) || parseDelimitedTable(usedPrompt)
       if (pasted && !datasets.some((d) => d.rows.length === pasted.rows.length && d.columns.join('|') === pasted.columns.join('|'))) {
         const full = { id: `ds_${Date.now().toString(36)}`, name: 'pasted table', ...pasted }
         attachDataset(full)
