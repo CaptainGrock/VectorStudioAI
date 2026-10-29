@@ -828,6 +828,37 @@ function ShapeSection({ layer }) {
   )
 }
 
+// Rotating header quips — one picked per session, next to the Donate button.
+const HEADER_QUIPS = [
+  "Save these animations from staring at an empty server.",
+  "Even pixels need a roof over their heads.",
+  "Don't let my hard work become a sad desktop icon.",
+  "Be the hero who stops a developer from crying.",
+  "My keyboard is crying. Spare a dollar for tissues?",
+  "Support local code. It promises not to bite.",
+  "Fuel my caffeine addiction so these slides keep moving.",
+  "Help keep the internet colorful and slightly less boring.",
+  "A coffee today keeps the 404 errors away.",
+  "Pay now so you don't have to watch me cry later.",
+  "Free animations cost money. Math is hard. Help.",
+  "Your wallet is lighter, but your karma is glowing.",
+  "Trade your spare change for legendary internet karma.",
+  "Because free stuff usually costs someone their sanity.",
+  "Invest in my procrastination. It's practically a charity.",
+  "Donate now and feel like a modern-day Renaissance patron.",
+  "Keep the animations free. Keep the creator fed.",
+  "Drop a coin in the digital tip jar.",
+  "Good slides. Zero cost. Voluntary appreciation welcome here.",
+  'Help me keep the "free" in free platform.',
+  "Sponsor a slide. Change a developer's afternoon.",
+  "Your wallet won't feel it, but my server bill will.",
+  "If you don't donate, the hamster powering this server quits.",
+  "Donate today to prevent me from selling consulting insurance.",
+  "Fund this platform before my cat forces me to.",
+  "Even digital geniuses needs to eat sometimes.",
+  "Pay it forward before the algorithm finds me.",
+  "Because asking for money awkwardly builds character.",
+]
 function AssetsStage({ onAddImage, onAddTts, onAddMusic, onAddShape, simple }) {
   const scene = useStudio(s => s.scene)
   const updateSceneField = useStudio(s => s.updateSceneField)
@@ -1596,6 +1627,8 @@ export default function App() {
   // media assets, JSON export and TTS. Persisted — default Simple.
   const [mode, setMode] = useState(() => { try { return localStorage.getItem('vectorstudio.mode.v1') || 'simple' } catch { return 'simple' } })
   const isSimple = mode !== 'power'
+  // One quip per session, picked on first mount.
+  const [quip] = useState(() => HEADER_QUIPS[Math.floor(Math.random() * HEADER_QUIPS.length)])
   function toggleMode() {
     const next = isSimple ? 'power' : 'simple'
     setMode(next)
@@ -2033,6 +2066,9 @@ export default function App() {
       <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--vs-line)', display: 'flex', gap: 10, alignItems: 'center' }}>
         <strong>VectorStudio AI</strong>
         <StatusBar status={status} busy={busy} />
+        <span style={{ flex: 1 }} />
+        <span title={quip} style={{ fontSize: 12, fontStyle: 'italic', opacity: 0.75, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 420 }}>{quip}</span>
+        <a href="https://www.paypal.com/ncp/payment/29EH6KL5B37UU" target="_blank" rel="noreferrer" title="Support VectorStudio AI — opens PayPal in a new tab" style={{ background: '#b5651d', color: '#fff', borderRadius: 7, padding: '4px 12px', fontSize: 12.5, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>Donate Today</a>
         <span style={{ flex: 1 }} />
         <button onClick={toggleMode} title={isSimple ? 'Switch to Power Mode — unlock sequencing, media assets, JSON export and TTS' : 'Switch to Simple Mode — essentials only'} style={isSimple ? undefined : { fontWeight: 700, background: '#6d3fd1', border: '1px solid #6d3fd1', color: '#fff' }}>{isSimple ? 'Simple Mode' : 'Power Mode'}</button>
         {!isSimple && <button onClick={() => { setSeqMode(!seqMode); if (!seqMode) { selectLayer(null); clearPreview?.() } }} title={seqMode ? 'Back to the single-scene editor' : 'Sequence mode: chain history clips into one reel'} style={seqMode ? { fontWeight: 700, background: 'var(--vs-accent-solid)', border: '1px solid var(--vs-accent-solid)', color: '#fff' } : undefined}>🎬 Sequence</button>}
