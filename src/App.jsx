@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react'
 import { Player } from '@remotion/player'
 import { SceneComposition } from './remotion/SceneComposition.jsx'
 import { SequenceComposition } from './remotion/SequenceComposition.jsx'
-import { useStudio, seqLayout, seqCanvas, clipDuration } from './store.js'
+import { useStudio, seqLayout, seqCanvas, clipDuration, emptyScene } from './store.js'
 import { generateScene, editScene, getLastSource, tableFromLayer, describeTable, resolveEditTable, diagnoseNoPatch, refreshLayerData, resolveRefreshTable } from './llm.js'
 import { validateScene, normalizeScene, lerpKeyframes, backfillKeyframeProps, effectiveTiming } from './sceneGraph.js'
 import { FONT_CHOICES } from './llm.js'
@@ -1825,6 +1825,16 @@ export default function App() {
     setBusy(false)
   }
 
+  // Blank slide: reset to an empty canvas (canvas dims kept), undoable via
+  // the scene past, and checkpointed into History so it can't be lost.
+  function onNewSlide() {
+    const blank = { ...emptyScene, width: scene.width || 1280, height: scene.height || 720, fps: scene.fps || 30, layers: [] }
+    setScene(blank)
+    selectLayer(null); clearPreview?.(); jumpTo(0)
+    useStudio.getState().addConversation('Blank slide', blank)
+    setStatus('New blank slide started — saved to History.', 'done')
+    pushRev('assistant', 'Started a blank slide — saved to History. Add text, shapes or media, or describe a chart in Generate.')
+  }
   function onAddText() {
     const dur = scene.durationInFrames
     // Visible from frame 0 (opacity 1): a fade-from-nothing default meant new
@@ -2044,6 +2054,7 @@ export default function App() {
       </div>
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
         <div style={{ width: 340, borderRight: '1px solid var(--vs-line)', padding: 12, overflowY: 'auto', background: 'var(--vs-rail)' }}>
+          <button onClick={onNewSlide} style={{ width: '100%', marginBottom: 8, borderStyle: 'dashed', fontWeight: 700 }} title="Start a blank slide — saved to History so you can't lose it">＋ New Slide</button>
           <button onClick={() => setGenCollapsed((c) => !c)} title={genCollapsed ? 'Expand the Generate section' : 'Collapse to give the revision chat more room'} style={{ width: '100%', marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, background: genCollapsed ? '#4a2e8a' : '#6d3fd1', border: '1px solid #7c5cd6', borderLeft: genCollapsed ? '1px solid #7c5cd6' : '3px solid #ffd166', borderRadius: 8, padding: '9px 10px', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: '#fff' }}><span style={{ background: 'var(--vs-accent-solid)', color: '#fff', borderRadius: 6, padding: '1px 7px', fontSize: 11 }}>1</span><span style={{ flex: 1, textAlign: 'left' }}>Generate</span><span style={{ fontSize: 11, fontWeight: 400, opacity: 0.7 }}>{genCollapsed ? `${scene.layers.length} layer${scene.layers.length === 1 ? '' : 's'} · expand ▸` : '▾'}</span></button>
           {genCollapsed && (<div style={{ fontSize: 11, opacity: 0.6, margin: '4px 2px 6px' }}>{scene.layers.length} layer{scene.layers.length === 1 ? '' : 's'} ready — expand to start over, or revise below.</div>)}
           {!genCollapsed && (<>
@@ -2094,7 +2105,7 @@ export default function App() {
           {!assetsCollapsed && <AssetsStage simple={isSimple} onAddImage={(m) => onAddImage(m)} onAddTts={(id) => onAddAudioLayer('audio_tts', id)} onAddMusic={(id) => onAddAudioLayer('audio_music', id)} onAddShape={(id) => onAddShape(id)} />}
           <button onClick={() => setHistCollapsed((c) => !c)} title={histCollapsed ? 'Expand the History section' : 'Collapse the History section'} style={{ width: '100%', marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, background: histCollapsed ? '#4a2e8a' : '#6d3fd1', border: '1px solid #7c5cd6', borderLeft: histCollapsed ? '1px solid #7c5cd6' : '3px solid #ffd166', borderRadius: 8, padding: '9px 10px', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: '#fff' }}><span style={{ background: 'var(--vs-accent-solid)', color: '#fff', borderRadius: 6, padding: '1px 7px', fontSize: 11 }}>{conversations.length}</span><span style={{ flex: 1, textAlign: 'left' }}>History</span><span style={{ fontSize: 11, fontWeight: 400, opacity: 0.7 }}>{histCollapsed ? 'expand ▸' : '▾'}</span></button>
           {!histCollapsed && (<>
-          <div style={{ fontSize: 11, opacity: 0.55, margin: '6px 2px 4px' }}>Right-click a conversation to rename or delete.</div>
+          <div style={{ fontSize: 11, opacity: 0.55, margin: '6px 2px 4px' }}>⧉ duplicates a version to tweak · right-click to rename/delete.</div>
           {conversations.length ? (
             <div style={{ fontSize: 12, maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
               {conversations.map((c) => (
@@ -2103,6 +2114,7 @@ export default function App() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                       <button onClick={() => { loadConversation(c.id); setStatus(`Loaded: ${c.title}`, 'done'); setGenCollapsed(true); setRevCollapsed(false); pushRev('assistant', `Loaded “${c.title}”. Ask for revisions in section 2 below.`) }} title={c.prompt} style={{ flex: 1, textAlign: 'left', background: 'none', border: 'none', color: 'var(--vs-accent)', cursor: 'pointer', padding: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</button>
+                      <button onClick={() => { const st = useStudio.getState(); const item = st.addConversation(c.prompt, JSON.parse(JSON.stringify(c.scene))); st.renameConversation(item.id, `${c.title} (copy)`.slice(0, 80)); setStatus(`Duplicated “${c.title}” — tweak away, the original is kept.`, 'done') }} title="Duplicate — tweak/rename a new version, the original is kept" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>⧉</button>
                       <button onClick={() => addSeqItem(c)} title="Append to the sequence reel" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#3ddc84' }}>＋Seq</button>
                       <button onClick={() => deleteConversation(c.id)} title="Delete conversation" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>✕</button>
                     </div>
