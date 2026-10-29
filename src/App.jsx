@@ -1,19 +1,21 @@
 import React, { useMemo, useState } from 'react'
 import { Player } from '@remotion/player'
 import { SceneComposition } from './remotion/SceneComposition.jsx'
-import { useStudio } from './store.js'
+import { SequenceComposition } from './remotion/SequenceComposition.jsx'
+import { useStudio, seqLayout, seqCanvas, clipDuration } from './store.js'
 import { generateScene, editScene, getLastSource, tableFromLayer, describeTable, resolveEditTable, diagnoseNoPatch, refreshLayerData, resolveRefreshTable } from './llm.js'
-import { validateScene, normalizeScene, lerpKeyframes, effectiveTiming } from './sceneGraph.js'
+import { validateScene, normalizeScene, lerpKeyframes, backfillKeyframeProps, effectiveTiming } from './sceneGraph.js'
 import { FONT_CHOICES } from './llm.js'
 import { OPEN_FONTS, SYSTEM_FONTS_LIST, ensureFonts, ensureCustomFonts, restoreCustomFonts, fetchGoogleFont, fetchCustomFontFromUrl, registerCustomFont, cleanFamily, fontStack, probeFontCdn, fontCdnStatus } from './fonts.js'
 import { parseAttachedFile, parseCSV, parseMarkdownTable, parseDelimitedTable } from './datasets.js'
 import { isImageFile, processImageFile } from './images.js'
+import { SHAPE_GROUPS, SHAPE_KINDS, shapeKind, shapeParts } from './shapes.js'
 import EngineSettings from './EngineSettings.jsx'
 import LlmSettings from './LlmSettings.jsx'
 import TtsSettings, { loadTts } from './TtsSettings.jsx'
 import { loadSettings } from './llmSettings.js'
 
-function Playhead({ getFrame, duration }) {
+function Playhead({ getFrame, duration, onGrabDown, onGrabMove, onGrabUp }) {
   const [frame, setFrame] = React.useState(0)
   React.useEffect(() => {
     let raf = 0
@@ -26,8 +28,25 @@ function Playhead({ getFrame, duration }) {
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
   }, [getFrame])
+  const pct = Math.min(100, (frame / Math.max(1, duration)) * 100)
   return (
-    <div style={{ position: 'absolute', top: -2, bottom: -2, left: `${Math.min(100, (frame / Math.max(1, duration)) * 100)}%`, width: 2, background: '#ff5252', pointerEvents: 'none', zIndex: 2 }} />
+    <>
+      <div style={{ position: 'absolute', top: -2, bottom: -2, left: `${pct}%`, width: 2, background: '#ff5252', pointerEvents: 'none', zIndex: 2 }} />
+      {/* Invisible grab strip riding the playhead ABOVE the keyframe diamonds:
+        grabbing the red line always scrubs, even when a diamond sits exactly
+        under it (that overlap used to retime the keyframe instead, which read
+        as "the playhead is stuck"). To retime a diamond at the playhead,
+        click elsewhere on the lane first, then drag the diamond. */}
+      {onGrabDown && (
+        <div onPointerDown={(e) => { e.stopPropagation(); onGrabDown(e) }}
+          onPointerMove={(e) => onGrabMove?.(e)}
+          onPointerUp={(e) => onGrabUp?.(e)}
+          onPointerCancel={() => onGrabUp?.()}
+          onLostPointerCapture={() => onGrabUp?.()}
+          title="Drag to scrub the playhead — to retime a keyframe, move the playhead away first, then drag its yellow diamond"
+          style={{ position: 'absolute', top: -6, bottom: -6, left: `calc(${pct}% - 12px)`, width: 24, cursor: 'ew-resize', zIndex: 4, touchAction: 'none' }} />
+      )}
+    </>
   )
 }
 
@@ -50,6 +69,7 @@ function KeyframeDiamond({ frame, duration, onScrub, onCommit }) {
       onPointerMove={(e) => { if (dragging.current) onScrub(frameFromX(e.clientX)) }}
       onPointerUp={(e) => { if (dragging.current) { dragging.current = false; onCommit(frameFromX(e.clientX)) } }}
       onPointerCancel={() => { dragging.current = false }}
+      onLostPointerCapture={() => { dragging.current = false }}
     />
   )
 }
@@ -60,7 +80,7 @@ function StatusBar({ status, busy }) {
     <>
       <style>{`@keyframes vs-spin { to { transform: rotate(360deg); } }`}</style>
       <span title={status.text} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, minWidth: 0, maxWidth: 340, overflow: 'hidden', whiteSpace: 'nowrap' }}>
-        {busy && <span style={{ width: 11, height: 11, borderRadius: '50%', border: '2px solid #4da3ff', borderTopColor: 'transparent', display: 'inline-block', flexShrink: 0, animation: 'vs-spin 0.8s linear infinite' }} />}
+        {busy && <span style={{ width: 11, height: 11, borderRadius: '50%', border: '2px solid var(--vs-accent)', borderTopColor: 'transparent', display: 'inline-block', flexShrink: 0, animation: 'vs-spin 0.8s linear infinite' }} />}
         <span style={{ color, overflow: 'hidden', textOverflow: 'ellipsis' }}>{status.text}</span>
       </span>
     </>
@@ -83,7 +103,7 @@ function ChartColors({ layer }) {
         <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
           {d.series.map((s, i) => (
             <label key={i} style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(s.color) ? s.color : '#4da3ff'} onChange={(e) => setSeriesColor(s.label, e.target.value)} />
+              <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(s.color) ? s.color : 'var(--vs-accent)'} onChange={(e) => setSeriesColor(s.label, e.target.value)} />
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.label}</span>
             </label>
           ))}
@@ -95,8 +115,8 @@ function ChartColors({ layer }) {
   const values = d.values || []
   const mapBubbles = d.bubbles || []
   const uniform = isMap
-    ? (mapBubbles.length && mapBubbles.every((b) => b.color === mapBubbles[0].color) ? mapBubbles[0].color : '#4da3ff')
-    : (d.pointColors?.length === values.length && d.pointColors.every((c) => c === d.pointColors[0]) ? d.pointColors[0] : '#4da3ff')
+    ? (mapBubbles.length && mapBubbles.every((b) => b.color === mapBubbles[0].color) ? mapBubbles[0].color : 'var(--vs-accent)')
+    : (d.pointColors?.length === values.length && d.pointColors.every((c) => c === d.pointColors[0]) ? d.pointColors[0] : 'var(--vs-accent)')
   const setSingle = (color) => updateLayer(layer.id, (o) => (isMap
     ? { ...o, data: { ...o.data, bubbles: (o.data.bubbles || []).map((b) => ({ ...b, color })), legend: [] } }
     : { ...o, data: { ...o.data, pointColors: (o.data.values || []).map(() => color), legend: [] } }))
@@ -114,7 +134,7 @@ function ChartColors({ layer }) {
     const pointColors = (dd.values || []).map((_, i) => {
       const rowVal = colIdx >= 0 && Array.isArray(dd.rows?.[i]) ? String(dd.rows[i][colIdx]) : null
       if (rowVal !== null && rowVal === groupVal) return color
-      return dd.pointColors?.[i] || '#4da3ff'
+      return dd.pointColors?.[i] || 'var(--vs-accent)'
     })
     const legend = (dd.legend || []).map((it) => (it.label === legendItem.label ? { ...it, color } : it))
     return { ...o, data: { ...dd, pointColors, legend } }
@@ -122,12 +142,12 @@ function ChartColors({ layer }) {
   return (
     <div style={{ marginTop: 8 }}>
       <div style={{ fontSize: 11, opacity: 0.65, marginBottom: 4 }}>Colors</div>
-      <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>Single color <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(uniform) ? uniform : '#4da3ff'} onChange={(e) => setSingle(e.target.value)} title="Paint every bar/point one color (clears groups)" /></label>
+      <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>Single color <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(uniform) ? uniform : 'var(--vs-accent)'} onChange={(e) => setSingle(e.target.value)} title="Paint every bar/point one color (clears groups)" /></label>
       {!!d.legend?.length && (
         <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
           {d.legend.map((it, i) => (
             <label key={i} style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(it.color) ? it.color : '#4da3ff'} onChange={(e) => setGroupColor(it, e.target.value)} />
+              <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(it.color) ? it.color : 'var(--vs-accent)'} onChange={(e) => setGroupColor(it, e.target.value)} />
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.label}</span>
             </label>
           ))}
@@ -228,17 +248,17 @@ function FontPicker({ layer }) {
   return (
     <div style={{ fontSize: 11 }}>
       <div style={{ opacity: 0.65, marginBottom: 4 }}>Font — {web === false ? 'web fonts unreachable, System only' : `${OPEN_FONTS.length} built-in, or load any Google Font below${web === 'mirror' ? ' (via mirror)' : ''}`}</div>
-      <button onClick={() => { setOpen(!open); ensureFonts([current]) }} style={{ width: '100%', textAlign: 'left', background: '#101828', color: '#fff', border: '1px solid #2a3a5c', borderRadius: 6, padding: '5px 8px', cursor: 'pointer' }} title="Open fonts are all open-licensed (Google Fonts)">
+      <button onClick={() => { setOpen(!open); ensureFonts([current]) }} style={{ width: '100%', textAlign: 'left', background: 'var(--vs-inset)', color: 'var(--vs-bright)', border: '1px solid var(--vs-border)', borderRadius: 6, padding: '5px 8px', cursor: 'pointer' }} title="Open fonts are all open-licensed (Google Fonts)">
         <span style={{ fontFamily: fontStack(current), fontSize: 14 }}>{current || 'Inter'}</span>
         <span style={{ opacity: 0.6 }}> {open ? '▴' : '▾'}</span>
       </button>
       {open && (
-        <div style={{ marginTop: 4, background: '#101828', border: '1px solid #2a3a5c', borderRadius: 6, padding: 6 }}>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search: script, mono, display…" style={{ width: '100%', marginBottom: 6, background: '#0b0e14', color: '#fff', border: '1px solid #2a3a5c', borderRadius: 4, padding: '4px 6px' }} />
+        <div style={{ marginTop: 4, background: 'var(--vs-inset)', border: '1px solid var(--vs-border)', borderRadius: 6, padding: 6 }}>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search: script, mono, display…" style={{ width: '100%', marginBottom: 6, background: 'var(--vs-deep)', color: 'var(--vs-bright)', border: '1px solid var(--vs-border)', borderRadius: 4, padding: '4px 6px' }} />
           <div style={{ maxHeight: 190, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
             {!!sysHits.length && <div style={{ fontSize: 10, opacity: 0.55, marginTop: 2 }}>System — always available, works offline</div>}
             {sysHits.map((f) => (
-              <button key={`sys-${f.name}`} onClick={() => applyFont(f.name)} {...previewFor(f.name, f.stack)} title="System font — no download needed" style={{ textAlign: 'left', background: f.name === current ? '#1d3a6e' : 'transparent', color: '#fff', border: 'none', borderRadius: 4, padding: '5px 6px', cursor: 'pointer' }}>
+              <button key={`sys-${f.name}`} onClick={() => applyFont(f.name)} {...previewFor(f.name, f.stack)} title="System font — no download needed" style={{ textAlign: 'left', background: f.name === current ? 'var(--vs-sel)' : 'transparent', color: 'var(--vs-bright)', border: 'none', borderRadius: 4, padding: '5px 6px', cursor: 'pointer' }}>
                 <span style={{ fontFamily: f.stack, fontSize: 15 }}>{f.name}</span>
                 <div style={{ fontFamily: f.stack, fontSize: 11, opacity: 0.7 }}>Ag Sales 123</div>
               </button>
@@ -246,7 +266,7 @@ function FontPicker({ layer }) {
             {web === false && <div style={{ fontSize: 11, opacity: 0.7, padding: 4 }}>No connection to Google Fonts or its mirror — System fonts below work fully offline.</div>}
             {web !== false && !!sysHits.length && !!hits.length && <div style={{ fontSize: 10, opacity: 0.55, marginTop: 4 }}>Google Fonts — open-licensed, needs internet once</div>}
             {web !== false && hits.map((f) => (
-              <button key={f.name} onClick={() => applyFont(f.name)} {...previewFor(f.name, fontStack(f.name))} title={f.cats.join(', ')} style={{ textAlign: 'left', background: f.name === current ? '#1d3a6e' : 'transparent', color: '#fff', border: 'none', borderRadius: 4, padding: '5px 6px', cursor: 'pointer' }}>
+              <button key={f.name} onClick={() => applyFont(f.name)} {...previewFor(f.name, fontStack(f.name))} title={f.cats.join(', ')} style={{ textAlign: 'left', background: f.name === current ? 'var(--vs-sel)' : 'transparent', color: 'var(--vs-bright)', border: 'none', borderRadius: 4, padding: '5px 6px', cursor: 'pointer' }}>
                 <span style={{ fontFamily: fontStack(f.name), fontSize: 15 }}>{f.name}</span>
                 <span style={{ opacity: 0.55, fontSize: 10 }}> · {f.cats.join(' ')}</span>
                 <div style={{ fontFamily: fontStack(f.name), fontSize: 11, opacity: 0.7 }}>Ag Sales 123</div>
@@ -261,15 +281,15 @@ function FontPicker({ layer }) {
           {web === null && <div style={{ fontSize: 11, opacity: 0.6, marginTop: 6 }}>Checking web fonts…</div>}
           {web !== false && (
           <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
-            <input value={custom} onChange={(e) => setCustom(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') loadCustom() }} placeholder="Any Google Font name…" title="Loads any open-licensed Google Font on demand (needs internet once)" style={{ flex: 1, background: '#0b0e14', color: '#fff', border: '1px solid #2a3a5c', borderRadius: 4, padding: '4px 6px' }} />
+            <input value={custom} onChange={(e) => setCustom(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') loadCustom() }} placeholder="Any Google Font name…" title="Loads any open-licensed Google Font on demand (needs internet once)" style={{ flex: 1, background: 'var(--vs-deep)', color: 'var(--vs-bright)', border: '1px solid var(--vs-border)', borderRadius: 4, padding: '4px 6px' }} />
             <button onClick={() => loadCustom()} disabled={customBusy || !custom.trim()} title="Verify + download this Google Font, preview it, and apply">{customBusy ? '…' : 'Load'}</button>
           </div>
           )}
           {customMsg && <div style={{ fontSize: 11, marginTop: 4, color: customMsg.ok ? '#3ddc84' : '#ff8080' }}>{customMsg.text}</div>}
-          <div style={{ marginTop: 6, borderTop: '1px solid #2a3a5c', paddingTop: 6 }}>
+          <div style={{ marginTop: 6, borderTop: '1px solid var(--vs-border)', paddingTop: 6 }}>
             <div style={{ fontSize: 10, opacity: 0.55, marginBottom: 4 }}>1001Fonts / your own file — paste a font page URL or upload a file</div>
             <div style={{ display: 'flex', gap: 4 }}>
-              <input value={fontUrl} onChange={(e) => setFontUrl(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') loadFontUrl() }} placeholder="https://www.1001fonts.com/…" title="Paste a 1001Fonts font URL — the app downloads and applies it" style={{ flex: 1, minWidth: 0, background: '#0b0e14', color: '#fff', border: '1px solid #2a3a5c', borderRadius: 4, padding: '4px 6px' }} />
+              <input value={fontUrl} onChange={(e) => setFontUrl(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') loadFontUrl() }} placeholder="https://www.1001fonts.com/…" title="Paste a 1001Fonts font URL — the app downloads and applies it" style={{ flex: 1, minWidth: 0, background: 'var(--vs-deep)', color: 'var(--vs-bright)', border: '1px solid var(--vs-border)', borderRadius: 4, padding: '4px 6px' }} />
               <button onClick={loadFontUrl} disabled={fontBusy || !fontUrl.trim()} title="Download this font and apply it">{fontBusy ? '…' : 'Fetch'}</button>
               <button onClick={() => fileRef.current?.click()} title="Upload a .ttf/.otf/.woff/.woff2 from your computer">Upload</button>
             </div>
@@ -279,7 +299,7 @@ function FontPicker({ layer }) {
         </div>
       )}
       {open && hover && (
-        <div style={{ position: 'fixed', left: hover.x, top: hover.y, width: 280, background: '#0d1322', border: '1px solid #4da3ff', borderRadius: 8, padding: 12, zIndex: 9999, pointerEvents: 'none', boxShadow: '0 8px 32px rgba(0,0,0,0.6)' }}>
+        <div style={{ position: 'fixed', left: hover.x, top: hover.y, width: 280, background: 'var(--vs-pop)', border: '1px solid var(--vs-accent)', borderRadius: 8, padding: 12, zIndex: 9999, pointerEvents: 'none', boxShadow: '0 8px 32px rgba(0,0,0,0.6)' }}>
           <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>{hover.name}</div>
           <div style={{ fontFamily: hover.stack, fontSize: 30, lineHeight: 1.2 }}>Ag Sales 123</div>
           <div style={{ fontFamily: hover.stack, fontSize: 15, opacity: 0.85, marginTop: 6 }}>ABCDEFGHIJKLM abcdefghijklm 1234567890</div>
@@ -311,18 +331,18 @@ function CanvasSize() {
   const setDim = (field, n) => { if (Number.isFinite(n)) updateSceneField(field, clampDim(n)) }
   const row = (label, field, value, min, max) => (
     <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>{label}
-      <input type="number" value={Math.round(value)} min={160} max={3840} step={8} onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setDim(field, n) }} style={{ width: 64, background: '#0b0e14', color: '#fff', border: '1px solid #2a3a5c', borderRadius: 4, padding: '2px 6px' }} />
+      <input type="number" value={Math.round(value)} min={160} max={3840} step={8} onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setDim(field, n) }} style={{ width: 64, background: 'var(--vs-deep)', color: 'var(--vs-bright)', border: '1px solid var(--vs-border)', borderRadius: 4, padding: '2px 6px' }} />
       <input type="range" min={min} max={max} step={8} value={Math.min(max, Math.max(min, value))} onChange={(e) => setDim(field, Number(e.target.value))} style={{ flex: 1 }} title={`Canvas ${label} — live in preview, export matches`} />
     </label>
   )
   return (
-    <div style={{ marginTop: 8, background: '#101828', border: '1px solid #2a3a5c', borderRadius: 6, padding: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
+    <div style={{ marginTop: 8, background: 'var(--vs-inset)', border: '1px solid var(--vs-border)', borderRadius: 6, padding: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
       <div style={{ fontSize: 11, opacity: 0.65 }}>Canvas size — {W}×{H} ({aspectName(W, H)})</div>
       {row('W', 'width', W, 320, 1920)}
       {row('H', 'height', H, 320, 1920)}
       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
         {CANVAS_PRESETS.map((p) => (
-          <button key={p.label} onClick={() => { setDim('width', p.w); setDim('height', p.h) }} title={`Set canvas to ${p.w}×${p.h}`} style={{ fontSize: 11, background: W === p.w && H === p.h ? '#1d3a6e' : undefined }}>{p.label}</button>
+          <button key={p.label} onClick={() => { setDim('width', p.w); setDim('height', p.h) }} title={`Set canvas to ${p.w}×${p.h}`} style={{ fontSize: 11, background: W === p.w && H === p.h ? 'var(--vs-sel)' : undefined }}>{p.label}</button>
         ))}
       </div>
       <div style={{ fontSize: 10, opacity: 0.55 }}>Layers live on a 1280×720 stage scaled to fit — preview and MP4 export match these dims.</div>
@@ -333,8 +353,8 @@ function CanvasSize() {
 function Section({ title, defaultOpen, children }) {
   const [open, setOpen] = React.useState(!!defaultOpen)
   return (
-    <div style={{ marginTop: 8, background: '#101828', border: '1px solid #2a3a5c', borderRadius: 6 }}>
-      <button onClick={() => setOpen((o) => !o)} title={open ? `Collapse ${title}` : `Expand ${title}`} style={{ width: '100%', background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: '6px 8px', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>{open ? '▾' : '▸'} {title}</button>
+    <div style={{ marginTop: 8, background: 'var(--vs-inset)', border: '1px solid var(--vs-border)', borderRadius: 6 }}>
+      <button onClick={() => setOpen((o) => !o)} title={open ? `Collapse ${title}` : `Expand ${title}`} style={{ width: '100%', background: 'none', border: 'none', color: 'var(--vs-bright)', cursor: 'pointer', padding: '6px 8px', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>{open ? '▾' : '▸'} {title}</button>
       {open && <div style={{ padding: '0 8px 8px', display: 'flex', flexDirection: 'column', gap: 6 }}>{children}</div>}
     </div>
   )
@@ -345,7 +365,7 @@ function TextStyle({ layer }) {
   return (
     <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
       <div style={{ fontSize: 11, opacity: 0.65 }} title="The layer name (above) is just a label — this is what shows on the video">Text <span style={{ opacity: 0.7 }}>(layer name stays separate — rename it above)</span></div>
-      <textarea value={layer.text || ''} onChange={(e) => updateLayer(layer.id, (o) => ({ ...o, text: e.target.value }))} placeholder="Text shown on the video — Enter for a new line" rows={2} style={{ width: '100%', background: '#0b0e14', color: '#e8edf5', border: '1px solid #2a3a5c', borderRadius: 6, padding: 6, resize: 'vertical' }} />
+      <textarea value={layer.text || ''} onChange={(e) => updateLayer(layer.id, (o) => ({ ...o, text: e.target.value }))} placeholder="Text shown on the video — Enter for a new line" rows={2} style={{ width: '100%', background: 'var(--vs-deep)', color: 'var(--vs-text)', border: '1px solid var(--vs-border)', borderRadius: 6, padding: 6, resize: 'vertical' }} />
     </div>
   )
 }
@@ -534,7 +554,7 @@ function AudioSection({ layer, v, push, fps }) {
       {isTts && (
         <>
           <div style={{ fontSize: 11, opacity: 0.65 }}>Script — sent to the voice model</div>
-          <textarea value={layer.data?.text || ''} onChange={(e) => setData({ text: e.target.value })} placeholder="Type what the voice should say…" rows={3} style={{ width: '100%', background: '#0b0e14', color: '#e8edf5', border: '1px solid #2a3a5c', borderRadius: 6, padding: 6, resize: 'vertical' }} />
+          <textarea value={layer.data?.text || ''} onChange={(e) => setData({ text: e.target.value })} placeholder="Type what the voice should say…" rows={3} style={{ width: '100%', background: 'var(--vs-deep)', color: 'var(--vs-text)', border: '1px solid var(--vs-border)', borderRadius: 6, padding: 6, resize: 'vertical' }} />
           <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>Voice
             <select value={layer.data?.voice || voice?.name || ''} onChange={(e) => setData({ voice: e.target.value })} style={{ flex: 1, minWidth: 0 }} title="Voices + reference clips live in ⚙ → Text-to-Speech">
               {(ttsCfg.voices || []).map((vv) => <option key={vv.id} value={vv.name}>{vv.name}{vv.refAudio ? '' : ' (generic)'}</option>)}
@@ -546,14 +566,14 @@ function AudioSection({ layer, v, push, fps }) {
           </label>
           <button onClick={onSynth} disabled={!!synthJob?.running} title="Synthesize with the local BreezeTTS-2 checkpoint">🎙 Generate speech</button>
           {synthJob?.running && (
-            <div style={{ background: '#101828', borderRadius: 6, padding: 6 }}>
+            <div style={{ background: 'var(--vs-inset)', borderRadius: 6, padding: 6 }}>
               <style>{`@keyframes vs-slide { 0% { margin-left: -40%; } 100% { margin-left: 100%; } }`}</style>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ flex: 1 }}>🎙 Synthesizing… {synthJob.elapsedSec || 0}s elapsed</span>
                 <button onClick={onCancelSynth} title="Stop this synthesis run">Cancel</button>
               </div>
-              <div style={{ height: 8, background: '#1a2233', borderRadius: 4, overflow: 'hidden', marginTop: 4 }}>
-                <div style={{ height: '100%', width: '40%', background: '#4da3ff', animation: 'vs-slide 1.2s linear infinite' }} />
+              <div style={{ height: 8, background: 'var(--vs-track)', borderRadius: 4, overflow: 'hidden', marginTop: 4 }}>
+                <div style={{ height: '100%', width: '40%', background: 'var(--vs-accent)', animation: 'vs-slide 1.2s linear infinite' }} />
               </div>
               {!!synthJob.logTail?.length && (
                 <div style={{ marginTop: 4, opacity: 0.7, maxHeight: 90, overflowY: 'auto' }}>
@@ -650,7 +670,10 @@ function LayerInspector({ layer, getFrame, onJump, onClose, onPreview, clearPrev
       if (ki >= 0) kf[ki] = { ...kf[ki], properties: { ...kf[ki].properties, ...props }, easing: ease }
       else kf.push({ frame, properties: props, easing: ease })
       kf.sort((a, b) => a.frame - b.frame)
-      return { ...o, keyframes: kf }
+      // Saving is the repair moment: any legacy bare keyframe on this layer
+      // (e.g. an old {x, y}-only drag commit) inherits its missing keys so
+      // the span into/out of this keyframe interpolates instead of popping.
+      return { ...o, keyframes: backfillKeyframeProps(kf, o.fontSize) }
     })
     setEasePick(null)
     clearPreview?.()
@@ -659,7 +682,7 @@ function LayerInspector({ layer, getFrame, onJump, onClose, onPreview, clearPrev
   }
   const hasKf = layer.keyframes.some((k) => k.frame === frame)
   const hasChart = !!(layer.data?.values || layer.data?.series || layer.data?.bubbles)
-  const hasFonts = layer.type === 'text' || hasChart
+  const hasFonts = layer.type === 'text' || layer.type === 'shape' || hasChart
   const isAudio = layer.type === 'audio_tts' || layer.type === 'audio_music'
   const field = (label, key, step, min, max, fmt = (x) => Math.round(x * 100) / 100) => (
     <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}> {label}
@@ -668,9 +691,9 @@ function LayerInspector({ layer, getFrame, onJump, onClose, onPreview, clearPrev
     </label>
   )
   return (
-    <div style={{ position: 'absolute', top: 12, right: 12, width: 264, maxHeight: 'calc(100% - 24px)', overflowY: 'auto', background: '#0d1322', border: '1px solid #2a3a5c', borderRadius: 10, padding: 12, zIndex: 5 }}>
+    <div style={{ position: 'absolute', top: 12, right: 12, width: 264, maxHeight: 'calc(100% - 24px)', overflowY: 'auto', background: 'var(--vs-pop)', border: '1px solid var(--vs-border)', borderRadius: 10, padding: 12, zIndex: 5 }}>
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
-        <input value={layer.name} onChange={(e) => updateLayer(layer.id, (o) => ({ ...o, name: e.target.value }))} style={{ fontSize: 13, fontWeight: 700, flex: 1, background: '#101828', border: '1px solid #2a3a5c', borderRadius: 4, padding: '2px 6px', minWidth: 0, color: '#fff' }} title="Layer title — this is the label shown on the video" />
+        <input value={layer.name} onChange={(e) => updateLayer(layer.id, (o) => ({ ...o, name: e.target.value }))} style={{ fontSize: 13, fontWeight: 700, flex: 1, background: 'var(--vs-inset)', border: '1px solid var(--vs-border)', borderRadius: 4, padding: '2px 6px', minWidth: 0, color: 'var(--vs-bright)' }} title="Layer title — this is the label shown on the video" />
         <span style={{ flex: 1 }} />
         <button onClick={onClose} title="Deselect">✕</button>
       </div>
@@ -686,7 +709,8 @@ function LayerInspector({ layer, getFrame, onJump, onClose, onPreview, clearPrev
         </div>
       </Section>)}
       {isAudio && <AudioSection layer={layer} v={v} push={push} fps={fps} />}
-      {layer.type === 'text' && <TextStyle layer={layer} />}
+      {['text', 'shape'].includes(layer.type) && <TextStyle layer={layer} />}
+      {layer.type === 'shape' && <ShapeSection layer={layer} />}
       {hasChart && <ShowToggles layer={layer} />}
       {hasChart && <ChartColors layer={layer} />}
       <DataRefresh layer={layer} />
@@ -698,8 +722,8 @@ function LayerInspector({ layer, getFrame, onJump, onClose, onPreview, clearPrev
               <FontPicker layer={layer} />
             </>
           )}
-          {layer.type === 'text' && (
-            <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>Color
+          {['text', 'shape'].includes(layer.type) && (
+            <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>{layer.type === 'shape' ? 'Label color' : 'Color'}
               <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(layer.color || '') ? layer.color : '#ffffff'} onChange={(e) => { updateLayer(layer.id, (o) => ({ ...o, color: e.target.value })); push({}) }} />
             </label>
           )}
@@ -709,7 +733,7 @@ function LayerInspector({ layer, getFrame, onJump, onClose, onPreview, clearPrev
         <div style={{ fontSize: 11, opacity: 0.65 }}>Motion feel into frame {frame}</div>
         <div style={{ display: 'flex', gap: 4 }}>
           {EASE_OPTS.map((o) => (
-            <button key={o.id} onClick={() => setEasePick(o.id)} title={o.tip} style={{ flex: 1, background: easeOpt === o.id ? '#1d3a6e' : undefined, border: easeOpt === o.id ? '1px solid #4da3ff' : undefined }}>{o.short}</button>
+            <button key={o.id} onClick={() => setEasePick(o.id)} title={o.tip} style={{ flex: 1, background: easeOpt === o.id ? 'var(--vs-sel)' : undefined, border: easeOpt === o.id ? '1px solid var(--vs-accent)' : undefined }}>{o.short}</button>
           ))}
         </div>
         {hasChart && <AnimTiming layer={layer} fps={fps} />}
@@ -719,7 +743,7 @@ function LayerInspector({ layer, getFrame, onJump, onClose, onPreview, clearPrev
       <div style={{ fontSize: 11, opacity: 0.65, margin: '8px 0 4px' }}>Keyframes — click a frame to jump, ✕ to delete</div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
         {layer.keyframes.map((k, ki) => (
-          <span key={ki} style={{ fontSize: 11, background: k.frame === frame ? '#4da3ff' : '#1a2233', color: k.frame === frame ? '#fff' : undefined, borderRadius: 4, padding: '2px 4px', display: 'flex', gap: 4, alignItems: 'center' }}>
+          <span key={ki} style={{ fontSize: 11, background: k.frame === frame ? 'var(--vs-accent)' : 'var(--vs-track)', color: k.frame === frame ? '#fff' : undefined, borderRadius: 4, padding: '2px 4px', display: 'flex', gap: 4, alignItems: 'center' }}>
             <button onClick={() => { setFrame(k.frame); onJump?.(k.frame) }} title="Jump playhead here" style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0 }}>{k.frame}</button>
             <button onClick={() => deleteKeyframe(layer.id, ki)} title="Delete keyframe" style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0 }}>✕</button>
           </span>
@@ -729,7 +753,48 @@ function LayerInspector({ layer, getFrame, onJump, onClose, onPreview, clearPrev
   )
 }
 
-function AssetsStage({ onAddImage, onAddTts, onAddMusic }) {
+function ShapeSection({ layer }) {
+  const updateLayer = useStudio(s => s.updateLayer)
+  const d = layer.data || {}
+  const kind = shapeKind(d.kind)
+  const set = (patch) => updateLayer(layer.id, (o) => ({ ...o, data: { ...o.data, ...patch } }))
+  const setFontSize = (n) => updateLayer(layer.id, (o) => ({ ...o, fontSize: Math.min(160, Math.max(12, Math.round(n))) }))
+  const slider = (label, value, min, max, onChange, title) => (
+    <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>{label} {Math.round(value)}
+      <input type="range" min={min} max={max} step={1} value={Math.min(max, Math.max(min, value))} onChange={(e) => onChange(Number(e.target.value))} style={{ flex: 1 }} title={title} />
+    </label>
+  )
+  return (
+    <Section title="Shape" defaultOpen>
+      <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>Kind
+        <select value={kind.id} onChange={(e) => {
+          const nk = shapeKind(e.target.value)
+          set({ kind: nk.id, ...(nk.id === 'ring' && (d.strokeWidth ?? 4) < 8 ? { strokeWidth: 14 } : {}) })
+        }} style={{ flex: 1, minWidth: 0 }} title="Shape geometry — label, paint, and keyframes are kept">
+          {SHAPE_GROUPS.map((g) => (
+            <optgroup key={g.id} label={g.label}>
+              {SHAPE_KINDS.filter((k) => k.group === g.id).map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
+            </optgroup>
+          ))}
+        </select>
+      </label>
+      {slider('Width', d.w || kind.defW, 40, 1200, (n) => set({ w: n }), 'Shape width in canvas pixels')}
+      {slider('Height', d.h || kind.defH, 40, 900, (n) => set({ h: n }), 'Shape height in canvas pixels')}
+      {slider('Label size', layer.fontSize ?? 48, 12, 160, setFontSize, 'Centered label text size')}
+      <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>Fill
+        <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(d.fill || '') ? d.fill : 'var(--vs-sel)'} onChange={(e) => set({ fill: e.target.value })} title={kind.id === 'ring' ? 'Ring is outline-only — fill is ignored' : 'Shape fill color'} />
+        {kind.id === 'ring' && <span style={{ opacity: 0.55 }}>(ring ignores fill)</span>}
+      </label>
+      <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>Outline
+        <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(d.stroke || '') ? d.stroke : 'var(--vs-accent)'} onChange={(e) => set({ stroke: e.target.value })} title="Shape outline color" />
+      </label>
+      {slider('Outline width', d.strokeWidth ?? 4, 0, 40, (n) => set({ strokeWidth: n }), 'Outline thickness in pixels (0 = none)')}
+      {(kind.id === 'roundrect' || kind.id === 'callout') && slider('Corner radius', d.cornerRadius ?? Math.min(d.w || kind.defW, d.h || kind.defH) * (kind.id === 'callout' ? 0.08 : 0.18), 0, 200, (n) => set({ cornerRadius: n }), 'Rounded corner radius')}
+    </Section>
+  )
+}
+
+function AssetsStage({ onAddImage, onAddTts, onAddMusic, onAddShape }) {
   const scene = useStudio(s => s.scene)
   const updateSceneField = useStudio(s => s.updateSceneField)
   const images = useStudio(s => s.images)
@@ -775,7 +840,7 @@ function AssetsStage({ onAddImage, onAddTts, onAddMusic }) {
       } else setStatus(`${f.name} is not an audio file — try WAV, MP3 or OGG.`, 'error')
     }
   }
-  const box = { background: '#101828', border: '1px solid #2a3a5c', borderRadius: 6, padding: 6, display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }
+  const box = { background: 'var(--vs-inset)', border: '1px solid var(--vs-border)', borderRadius: 6, padding: 6, display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }
   return (
     <div>
       <div style={box}>
@@ -800,7 +865,7 @@ function AssetsStage({ onAddImage, onAddTts, onAddMusic }) {
       <div style={box}>
         <div style={{ fontSize: 11, opacity: 0.65 }}>Images — reference by name in prompts, or add as layers</div>
         {images.map((m) => (
-          <div key={m.id} style={{ fontSize: 12, display: 'flex', gap: 6, background: '#0b0e14', borderRadius: 6, padding: '4px 8px', alignItems: 'center' }}>
+          <div key={m.id} style={{ fontSize: 12, display: 'flex', gap: 6, background: 'var(--vs-deep)', borderRadius: 6, padding: '4px 8px', alignItems: 'center' }}>
             <img src={m.dataUrl} alt="" style={{ width: 28, height: 28, objectFit: 'cover', borderRadius: 4 }} />
             <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`${m.width}x${m.height}`}>{m.name}</span>
             <button onClick={() => onAddImage(m)} title="Add as a layer you can move, scale, fade and keyframe">Layer</button>
@@ -814,9 +879,30 @@ function AssetsStage({ onAddImage, onAddTts, onAddMusic }) {
         </div>
       </div>
       <div style={box}>
+        <div style={{ fontSize: 11, opacity: 0.65 }}>Shapes — click to add, then style the label, paint, and keyframes on the right</div>
+        {SHAPE_GROUPS.map((g) => (
+          <div key={g.id} style={{ marginTop: 4 }}>
+            <div style={{ fontSize: 10, opacity: 0.5, marginBottom: 2 }}>{g.label}</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {SHAPE_KINDS.filter((k) => k.group === g.id).map((k) => (
+                <button key={k.id} onClick={() => onAddShape(k.id)} title={`Add ${k.label} — resizable, labeled, keyframable`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '4px 6px', minWidth: 58, background: 'var(--vs-deep)', color: 'var(--vs-text)', border: '1px solid var(--vs-border)', borderRadius: 6, cursor: 'pointer' }}>
+                  <svg width={46} height={30} viewBox="0 0 46 30" style={{ display: 'block', background: 'var(--vs-stage)', borderRadius: 4 }}>
+                    {shapeParts(k.id, 46, 30).map((p, i) => {
+                      const { el: Tag, ...attrs } = p
+                      return <Tag key={i} {...attrs} fill={k.id === 'ring' ? 'none' : 'var(--vs-sel)'} stroke="var(--vs-accent)" strokeWidth={3} strokeLinejoin="round" />
+                    })}
+                  </svg>
+                  <span style={{ fontSize: 9, opacity: 0.8 }}>{k.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={box}>
         <div style={{ fontSize: 11, opacity: 0.65 }}>Audio — narration (TTS) & music tracks</div>
         {audios.map((a) => (
-          <div key={a.id} style={{ fontSize: 12, display: 'flex', gap: 6, background: '#0b0e14', borderRadius: 6, padding: '4px 8px', alignItems: 'center' }}>
+          <div key={a.id} style={{ fontSize: 12, display: 'flex', gap: 6, background: 'var(--vs-deep)', borderRadius: 6, padding: '4px 8px', alignItems: 'center' }}>
             <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={a.name}>🎵 {a.name}</span>
             <button onClick={() => onAddMusic(a.id)} title="Add as a music track">Music</button>
             <button onClick={() => removeAudio(a.id)} title="Remove from assets">✕</button>
@@ -856,6 +942,434 @@ function summarizePatch(patch, layers) {
   return bits.join('; ') + (patch.length > 4 ? ` (+${patch.length - 4} more)` : '')
 }
 
+// ---- Sequencer ----
+// Multi-slide playlist assembled from history conversations. Items hold
+// scene snapshots (history edits never corrupt the reel); the rail derives
+// every start from the clips before it, so reorder/delete/close-gap ripple.
+function SeqMusicLane({ getFrame, onJump, fps }) {
+  const sequence = useStudio(s => s.sequence)
+  const setSeqMusic = useStudio(s => s.setSeqMusic)
+  const audios = useStudio(s => s.audios)
+  const attachAudio = useStudio(s => s.attachAudio)
+  const setStatus = useStudio(s => s.setStatus)
+  const seqFileRef = React.useRef(null)
+  async function onSeqAttach(e) {
+    const f = e.target.files?.[0]
+    e.target.value = ''
+    if (!f) return
+    try {
+      const rd = new FileReader()
+      await new Promise((res, rej) => { rd.onload = res; rd.onerror = rej; rd.readAsDataURL(f) })
+      if (typeof rd.result !== 'string' || !rd.result.startsWith('data:audio')) { setStatus(`${f.name} is not an audio file — try WAV, MP3 or OGG.`, 'error'); return }
+      const a = { id: `aud_${Date.now().toString(36)}`, name: f.name, dataUrl: rd.result }
+      attachAudio(a)
+      setSeqMusic({ assetUrl: a.dataUrl, name: a.name, offsetFrames: 0, keyframes: [{ frame: 0, properties: { volume: 0.8 } }] })
+    } catch (err) { setStatus(`Attach failed: ${err.message}`, 'error') }
+  }
+  const music = sequence.music
+  const kfs = [...(music?.keyframes || [])].sort((a, b) => a.frame - b.frame)
+  const atPlayhead = () => Math.round(getFrame?.() ?? 0)
+  const upsertVol = (frame, vol) => {
+    const next = [...kfs]
+    const ki = next.findIndex((k) => k.frame === frame)
+    if (ki >= 0) next[ki] = { ...next[ki], properties: { ...next[ki].properties, volume: vol } }
+    else next.push({ frame, properties: { volume: vol } })
+    next.sort((a, b) => a.frame - b.frame)
+    setSeqMusic({ ...music, keyframes: next })
+  }
+  const curVol = (() => {
+    if (!kfs.length) return 0.8
+    const f = atPlayheadSync()
+    let v = Number(kfs[0].properties?.volume ?? 0.8)
+    for (const k of kfs) if (k.frame <= f) v = Number(k.properties?.volume ?? v)
+    return v
+  })()
+  function atPlayheadSync() { try { return Math.round(getFrame?.() ?? 0) } catch { return 0 } }
+  if (!music) {
+    return (
+      <div style={{ fontSize: 11, opacity: 0.65, display: 'flex', gap: 6, alignItems: 'center', marginTop: 6 }}>
+        <span>🎵 Sequence bed — one music lane across the whole reel (clips keep their own tracks too; everything mixes).</span>
+        <select value="" onChange={(e) => { const a = audios.find((x) => x.id === e.target.value); if (a) setSeqMusic({ assetUrl: a.dataUrl, name: a.name, offsetFrames: 0, keyframes: [{ frame: 0, properties: { volume: 0.8 } }] }) }} style={{ flex: 1, minWidth: 0 }} title="Pick attached audio as the sequence-wide bed">
+          <option value="">Pick attached audio…</option>
+          {audios.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+        </select>
+        <button onClick={() => seqFileRef.current?.click()} title="Attach a fresh WAV/MP3/OGG and use it as the bed">Attach…</button>
+        <input ref={seqFileRef} type="file" accept=".wav,.mp3,.ogg,.m4a,audio/*" style={{ display: 'none' }} onChange={onSeqAttach} />
+      </div>
+    )
+  }
+  return (
+    <div style={{ marginTop: 6, background: 'var(--vs-panel)', borderRadius: 6, padding: '6px 8px' }}>
+      <div style={{ fontSize: 11, display: 'flex', gap: 6, alignItems: 'center' }}>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }} title={music.name || 'Sequence bed'}>🎵 {music.name || 'Sequence bed'}</span>
+        <label style={{ display: 'flex', gap: 4, alignItems: 'center' }} title="Volume at the playhead — Set writes a volume keyframe there">Vol {Math.round(curVol * 100)}%
+          <input type="range" min={0} max={200} step={1} value={Math.round(curVol * 100)} onChange={(e) => upsertVol(atPlayhead(), Number(e.target.value) / 100)} style={{ width: 110 }} />
+        </label>
+        <button onClick={() => upsertVol(atPlayhead(), curVol)} title="Write a volume keyframe at the playhead">Set @ {atPlayhead()}f</button>
+        <button onClick={() => { const f = atPlayhead(); const v = curVol; upsertVol(0, 0); upsertVol(Math.min(f + 30, 3600), v) }} title="Fade in from silence to the current level over 30 frames">Fade in</button>
+        <button onClick={() => { const f = atPlayhead(); upsertVol(f, curVol); upsertVol(f + 30, 0) }} title="Fade out to silence over 30 frames from here">Fade out</button>
+        <button onClick={() => setSeqMusic(null)} title="Remove the sequence bed">✕</button>
+      </div>
+      {!!kfs.length && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+          {kfs.map((k, ki) => (
+            <span key={ki} style={{ fontSize: 11, background: 'var(--vs-track)', borderRadius: 4, padding: '2px 4px', display: 'flex', gap: 4, alignItems: 'center' }}>
+              <button onClick={() => onJump?.(k.frame)} title="Jump playhead here" style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0 }}>{k.frame}f · {Math.round(Number(k.properties?.volume ?? 0) * 100)}%</button>
+              <button onClick={() => setSeqMusic({ ...music, keyframes: kfs.filter((_, j) => j !== ki) })} title="Delete volume keyframe" style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0 }}>✕</button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---- Clip thumbnails (data-driven mini-preview) ----
+// Real frame snapshots would need a Remotion context per card (a Player
+// each — far too heavy) plus async font/audio loading. Instead this draws
+// a static summary from the scene graph: background, titles, mini bars in
+// the chart's real colors, shape glyphs in their real paint, and badges
+// for audio/image layers. Cheap, offline, and enough to tell clips apart
+// at rail/history size.
+const THUMB_PALETTE = ['var(--vs-accent)', '#3ddc84', '#ffcf40', '#ff6b6b', '#b388ff', '#4dd0e1', '#ff9e40', '#f06292']
+function ClipThumb({ scene, width = 132 }) {
+  const h = Math.round((width * 9) / 16)
+  const layers = scene?.layers || []
+  const texts = layers.filter((l) => l.type === 'text')
+  const title = texts[0]?.text || texts[0]?.name || ''
+  const subtitle = texts[1]?.text || ''
+  const chart = layers.find((l) => Array.isArray(l.data?.values) && l.data.values.length)
+    || layers.find((l) => Array.isArray(l.data?.series?.[0]?.values))
+  const series = chart?.data?.series?.[0]?.values || chart?.data?.values || []
+  const max = Math.max(1e-9, ...series.slice(0, 12).map((v) => Number(v) || 0))
+  const barColor = (i) => chart?.data?.pointColors?.[i]
+    || chart?.data?.series?.[0]?.color
+    || (chart?.data?.series?.[1] ? THUMB_PALETTE[i % THUMB_PALETTE.length] : 'var(--vs-accent)')
+  const legend = (chart?.data?.legend || []).slice(0, 3)
+  const shapes = layers.filter((l) => l.type === 'shape').slice(0, 4)
+  const hasAudio = layers.some((l) => l.type === 'audio_tts' || l.type === 'audio_music')
+  const hasImage = layers.some((l) => l.type === 'image_layer')
+  return (
+    <div style={{ width, height: h, borderRadius: 6, overflow: 'hidden', position: 'relative', flexShrink: 0, background: scene?.background || '#10141d', border: '1px solid var(--vs-border)' }}>
+      {!!scene?.backgroundImage && <img src={scene.backgroundImage} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: scene.backgroundImageOpacity ?? 1 }} />}
+      {!!title && (
+        <div style={{ position: 'absolute', top: '6%', left: 0, right: 0, textAlign: 'center', fontSize: Math.max(8, Math.round(width / 16)), fontWeight: 800, color: 'var(--vs-bright)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 6px' }}>{String(title).slice(0, 40)}</div>
+      )}
+      {!!subtitle && !series.length && (
+        <div style={{ position: 'absolute', top: '30%', left: 0, right: 0, textAlign: 'center', fontSize: Math.max(7, Math.round(width / 22)), color: '#c9d4e8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 6px' }}>{String(subtitle).slice(0, 48)}</div>
+      )}
+      {!!legend.length && (
+        <div style={{ position: 'absolute', top: '6%', left: 4, display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {legend.map((g, i) => (
+            <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 6, color: 'var(--vs-text)' }}><span style={{ width: 5, height: 5, borderRadius: 2, background: g.color || THUMB_PALETTE[i % THUMB_PALETTE.length], display: 'inline-block' }} />{String(g.label || '').slice(0, 10)}</span>
+          ))}
+        </div>
+      )}
+      {!!series.length && (['line_chart', 'area_chart', 'scatter_chart'].includes(chart?.type) ? (
+        <div style={{ position: 'absolute', left: '8%', right: '8%', bottom: '10%', height: '46%' }}>
+          <svg viewBox="0 0 100 40" preserveAspectRatio="none" style={{ width: '100%', height: '100%' }}>
+            <polyline points={series.slice(0, 12).map((v, i, a) => `${a.length === 1 ? 50 : (i / (a.length - 1)) * 100},${40 - Math.max(4, ((Number(v) || 0) / max) * 36)}`).join(' ')} fill="none" stroke={barColor(0)} strokeWidth={3} strokeLinejoin="round" strokeLinecap="round" />
+            {series.slice(0, 12).map((v, i, a) => (
+              <circle key={i} cx={a.length === 1 ? 50 : (i / (a.length - 1)) * 100} cy={40 - Math.max(4, ((Number(v) || 0) / max) * 36)} r={3.2} fill={barColor(i)} />
+            ))}
+          </svg>
+        </div>
+      ) : (
+        <div style={{ position: 'absolute', left: '8%', right: '8%', bottom: '10%', height: '46%', display: 'flex', alignItems: 'flex-end', gap: 2 }}>
+          {series.slice(0, 12).map((v, i) => (
+            <div key={i} style={{ flex: 1, height: `${Math.max(6, ((Number(v) || 0) / max) * 100)}%`, background: barColor(i), borderRadius: 2, minWidth: 2 }} />
+          ))}
+        </div>
+      ))}
+      {!!shapes.length && !series.length && (
+        <div style={{ position: 'absolute', inset: 0, top: title ? '22%' : 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+          {shapes.map((s, i) => (
+            <svg key={i} width={Math.round(width / 6)} height={Math.round(width / 8)} viewBox="0 0 46 30" style={{ background: 'var(--vs-stage)', borderRadius: 3 }}>
+              {shapeParts(s.data?.kind || 'rect', 46, 30).map((p, j) => {
+                const { el: Tag, ...attrs } = p
+                return <Tag key={j} {...attrs} fill={s.data?.fill || 'var(--vs-sel)'} stroke={s.data?.stroke || 'var(--vs-accent)'} strokeWidth={4} strokeLinejoin="round" />
+              })}
+            </svg>
+          ))}
+        </div>
+      )}
+      {(hasAudio || hasImage) && (
+        <div style={{ position: 'absolute', bottom: 2, right: 3, fontSize: 8, opacity: 0.9 }}>{hasAudio ? '🎵' : ''}{hasImage ? '🖼' : ''}</div>
+      )}
+      {!title && !series.length && !shapes.length && layers.length > 0 && (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, opacity: 0.6 }}>{layers.length} layer{layers.length === 1 ? '' : 's'}</div>
+      )}
+    </div>
+  )
+}
+
+// Grabbable sequence playhead: a wide invisible strip centered on the red
+// line, so grabbing the playhead never hits a clip block underneath.
+function SeqPlayhead({ getFrame, duration, onScrub }) {
+  const [frame, setFrame] = React.useState(0)
+  React.useEffect(() => {
+    let raf = 0
+    let last = -1
+    const tick = () => {
+      const f = Math.round(getFrame?.() ?? 0)
+      if (f !== last) { last = f; setFrame(f) }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [getFrame])
+  const pct = (Math.min(Math.max(0, frame), Math.max(1, duration)) / Math.max(1, duration)) * 100
+  return (
+    <>
+      <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${pct}%`, width: 2, background: '#ff5252', pointerEvents: 'none', zIndex: 3 }} />
+      <div onPointerDown={(e) => { e.stopPropagation(); onScrub?.(true); try { e.currentTarget.setPointerCapture(e.pointerId) } catch {} }}
+        onPointerMove={(e) => { if (e.buttons) onScrub?.(e) }}
+        onPointerUp={() => onScrub?.(false)}
+        onPointerCancel={() => onScrub?.(false)}
+        onLostPointerCapture={() => onScrub?.(false)}
+        title="Drag the red line to scrub (wide grab strip — top/bottom handles included)" style={{ position: 'absolute', top: -12, bottom: -12, left: `calc(${pct}% - 40px)`, width: 80, cursor: 'ew-resize', zIndex: 5, touchAction: 'none', background: 'rgba(255,82,82,0.14)', border: '1px solid rgba(255,82,82,0.6)', borderRadius: 6 }}>
+          <span style={{ position: 'absolute', top: -1, left: '50%', transform: 'translateX(-50%)', width: 26, height: 10, background: '#ff5252', borderRadius: '0 0 6px 6px' }} />
+          <span style={{ position: 'absolute', bottom: -1, left: '50%', transform: 'translateX(-50%)', width: 26, height: 10, background: '#ff5252', borderRadius: '6px 6px 0 0' }} />
+        </div>
+    </>
+  )
+}
+
+function SequencerPanel({ getFrame, onJump, onExportSeq, rendering, playerRef }) {
+  const sequence = useStudio(s => s.sequence)
+  const conversations = useStudio(s => s.conversations)
+  const addSeqItem = useStudio(s => s.addSeqItem)
+  const removeSeqItem = useStudio(s => s.removeSeqItem)
+  const moveSeqItem = useStudio(s => s.moveSeqItem)
+  const moveSeqItemTo = useStudio(s => s.moveSeqItemTo)
+  const updateSeqItem = useStudio(s => s.updateSeqItem)
+  const clearSequence = useStudio(s => s.clearSequence)
+  const seqSelectedId = useStudio(s => s.seqSelectedId)
+  const setSeqSelectedId = useStudio(s => s.setSeqSelectedId)
+  const setSeqMode = useStudio(s => s.setSeqMode)
+  const setStatus = useStudio(s => s.setStatus)
+  const { clips, total } = React.useMemo(() => seqLayout(sequence), [sequence])
+  const canvas = seqCanvas(sequence)
+  const [dragId, setDragId] = React.useState(null)
+  const [dropIdx, setDropIdx] = React.useState(null)
+  const secs = (f) => `${f}f (${(f / Math.max(1, canvas.fps)).toFixed(1)}s)`
+  function jumpIntoClip(item) {
+    const st = useStudio.getState()
+    try {
+      st.setScene(validateScene(normalizeScene(item.scene)))
+    } catch (e) { st.setStatus(`Could not open clip: ${e.message}`, 'error'); return }
+    st.selectLayer(null)
+    st.setSeqMode(false)
+    st.setEditingSeqId(item.id)
+    st.setStatus(`Editing sequence clip “${item.name}” — save it as a new version when done.`, 'info')
+    onJump?.(0)
+  }
+  // "Continue from" duplicate: fork the clip into a renamed history copy
+  // placed right after itself, so the user edits a differently-named slide
+  // while the original stays intact in both reel and history.
+  function duplicateVariation(item, index) {
+    const st = useStudio.getState()
+    let scene = null
+    try { scene = validateScene(normalizeScene(item.scene)) } catch (e) { st.setStatus(`Could not duplicate clip: ${e.message}`, 'error'); return }
+    const name = window.prompt('Duplicate as:', `${item.name} (copy)`)
+    if (name === null) return
+    const convo = st.addConversation(name.trim() || `${item.name} (copy)`, scene)
+    st.addSeqItem(convo, index + 1)
+    st.setStatus(`Duplicated as “${convo.title}” right after the original — edit the copy freely.`, 'done')
+  }
+  function onRailDrop(e) {
+    e.preventDefault()
+    const st = useStudio.getState()
+    const at = dropIdx == null ? st.sequence.items.length : dropIdx
+    const seqId = e.dataTransfer.getData('text/vs-seq')
+    if (seqId) {
+      if (seqId !== dragId) moveSeqItem(seqId, at)
+    } else {
+      const convoId = e.dataTransfer.getData('text/vs-convo')
+      const c = st.conversations.find((x) => x.id === convoId)
+      if (c) addSeqItem(c, at)
+    }
+    setDragId(null); setDropIdx(null)
+  }
+  // Horizontal reorder: press-and-hold the grip, drag left/right, release
+  // to drop — with a live vertical insertion line. Pointer-based (not
+  // native HTML5 drag), so it works the same on every card size.
+  const railRef = React.useRef(null)
+  const rulerRef = React.useRef(null)
+  const [grab, setGrab] = React.useState(null) // {id, over} — over is a post-removal index
+  const grabRef = React.useRef(null) // sync copy of the dragged id (no stale closures)
+  // Drop target measured against the REMAINING cards (dragged one excluded),
+  // so dropping clip #1 past clip #2's midpoint lands at the end — the old
+  // pre-removal math mapped that drop back onto the original slot.
+  function railIndexFromEvent(e, excludeId) {
+    const el = railRef.current
+    const rest = el ? [...el.querySelectorAll('[data-seq-card]')].filter((c) => c.dataset.seqId !== (excludeId || grabRef.current)) : []
+    for (let i = 0; i < rest.length; i++) {
+      const r = rest[i].getBoundingClientRect()
+      if (e.clientX < r.left + r.width / 2) return i
+    }
+    return rest.length
+  }
+  const dragIdx = grab ? clips.findIndex(({ item }) => item.id === grab.id) : -1
+  const restLen = dragIdx >= 0 ? clips.length - 1 : clips.length
+  // Post-removal position of card i (the dragged card keeps no slot).
+  const lineFor = (i) => grab && dragIdx >= 0 && (i > dragIdx ? i - 1 : i) === grab.over
+  // Shared px-per-frame scale for ruler + cards, so the two stay aligned.
+  // The reel auto-fits its full width on every clip change (zoom out =
+  // shrink-to-fit, zoom in scrolls horizontally). Manual zoom sticks
+  // until the clip list changes again.
+  const [seqZoom, setSeqZoom] = React.useState(1)
+  const [seqAutoFit, setSeqAutoFit] = React.useState(true)
+  const BASE_PPF = 2.2
+  const ppf = BASE_PPF * seqZoom
+  React.useEffect(() => {
+    if (!seqAutoFit) return
+    try {
+      const wrap = railRef.current?.parentElement
+      const avail = (wrap?.clientWidth || 900) - 8
+      const need = Math.max(1, total * BASE_PPF)
+      const fit = Math.min(1, avail / need)
+      setSeqZoom(Math.max(0.2, Math.round(fit * 100) / 100))
+    } catch { setSeqZoom(1) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [total, clips.length])
+  const railW = Math.max(1, Math.round(total * ppf))
+  const seqFrameAtX = (clientX, bar) => {
+    if (!bar || !bar.width || !total) return 0
+    if (clientX <= bar.left + 8) return 0
+    if (clientX >= bar.right - 8) return total
+    return Math.round(Math.min(1, Math.max(0, (clientX - bar.left) / bar.width)) * total)
+  }
+  const seqScrub = React.useRef(false)
+  const clipAtFrame = (f) => clips.find(({ start, dur }) => f >= start && f < start + dur)?.item || null
+  const scrubTo = (arg) => {
+    // Called with true/false from the playhead grabber, or a pointer
+    // event from ruler drags: resolve the frame from the ruler element.
+    // NOTE: the ruler is a sibling of the card rail, not a child — so it
+    // needs its own ref (querying inside railRef always missed and made
+    // every playhead/ruler drag a silent no-op).
+    if (arg === true || arg === false) { seqScrub.current = arg; return }
+    const ruler = rulerRef.current
+    if (!ruler) return
+    const f = seqFrameAtX(arg.clientX, ruler.getBoundingClientRect())
+    const hit = clipAtFrame(f)
+    if (hit) setSeqSelectedId(hit.id)
+    onJump?.(f)
+  }
+  const rulerDown = (e) => {
+    seqScrub.current = true
+    try { e.currentTarget.setPointerCapture(e.pointerId) } catch {}
+    const ruler = rulerRef.current
+    const bar = ruler?.getBoundingClientRect()
+    const f = bar ? seqFrameAtX(e.clientX, bar) : 0
+    // Clicking / grabbing the timeline also selects the clip under the
+    // cursor, so the card below highlights and the preview follows.
+    const hit = clipAtFrame(f)
+    if (hit) setSeqSelectedId(hit.id)
+    onJump?.(f)
+  }
+  const rulerMove = (e) => { if (seqScrub.current && e.buttons) scrubTo(e) }
+  const rulerUp = () => { seqScrub.current = false }
+  // Press-to-seek: selecting + seeking on press (not release) means a press
+  // that slides off the card can never swallow the *next* click. Card-body
+  // drags do nothing (reorder starts on the ⋮⋮ grip), so nothing is lost.
+  // Global play/pause for the reel, reflecting live player state.
+  const [playing, setPlaying] = React.useState(false)
+  React.useEffect(() => {
+    const t = setInterval(() => {
+      try { setPlaying(!!playerRef?.current?.isPlaying?.()) } catch { /* ignore */ }
+    }, 400)
+    return () => clearInterval(t)
+  }, [playerRef])
+  const togglePlay = () => {
+    try {
+      const p = playerRef?.current
+      if (!p) return
+      if (p.isPlaying?.()) { p.pause(); return }
+      // Restart when parked on the last frame — Remotion's play() is a
+      // no-op there, which read as "the play button doesn't work".
+      const cur = Math.round(p.getCurrentFrame?.() ?? 0)
+      if (cur >= total - 1 && total > 1) { p.seekTo?.(0); setTimeout(() => { try { p.play?.() } catch {} }, 60) }
+      else p.play?.()
+    } catch { /* player not mounted yet */ }
+  }
+  return (
+    <div style={{ borderTop: '1px solid var(--vs-line)', padding: 12, overflowX: 'auto', overflowY: 'auto', minHeight: 150, maxHeight: 420, background: 'var(--vs-rail)' }}>
+      <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, opacity: 0.9, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <button onClick={togglePlay} disabled={!clips.length} title={playing ? 'Pause the sequence (Space)' : 'Play the whole sequence (Space)'} style={{ fontSize: 14, padding: '2px 10px', fontWeight: 700 }}>{playing ? '⏸' : '▶'}</button>
+        <span>Sequence · {clips.length} clip{clips.length === 1 ? '' : 's'} · {secs(total)}</span>
+        <span style={{ fontWeight: 400, opacity: 0.55 }}>{canvas.width}×{canvas.height} · first clip sets the canvas</span>
+        <span style={{ flex: 1 }} />
+        <span style={{ fontWeight: 400, display: 'flex', gap: 4, alignItems: 'center' }} title="Timeline zoom — zooming in scrolls horizontally">
+          <button onClick={() => { setSeqAutoFit(false); setSeqZoom((z) => Math.max(0.2, Math.round((z - 0.25) * 100) / 100)) }} disabled={seqZoom <= 0.2} title="Zoom out">−</button>
+          <span style={{ fontSize: 11, minWidth: 44, textAlign: 'center' }}>{Math.round(seqZoom * 100)}%</span>
+          <button onClick={() => { setSeqAutoFit(false); setSeqZoom((z) => Math.min(6, Math.round((z + 0.25) * 100) / 100)) }} title="Zoom in">+</button>
+          <button onClick={() => { setSeqAutoFit(true); try { const wrap = railRef.current?.parentElement; const avail = (wrap?.clientWidth || 900) - 8; const need = Math.max(1, total * BASE_PPF); setSeqZoom(Math.max(0.2, Math.round(Math.min(1, avail / need) * 100) / 100)) } catch { setSeqZoom(1) } }} title="Fit the whole reel">Fit</button>
+        </span>
+        <button onClick={() => setSeqMode(false)} title="Back to the single-scene editor">Scene editor</button>
+        <button onClick={() => { if (window.confirm('Clear the whole sequence? (History is kept.)')) clearSequence() }} disabled={!clips.length} title="Remove all clips — history is kept">Clear</button>
+      </div>
+      {clips.length ? (
+        <div style={{ overflowX: 'auto', paddingBottom: 4 }}>
+          <div style={{ width: '100%', minWidth: 300 }}>
+          <div data-seq-ruler ref={rulerRef} style={{ position: 'relative', height: 40, background: 'var(--vs-ruler)', borderRadius: 6, cursor: 'ew-resize', touchAction: 'none', marginBottom: 8, overflow: 'visible' }} title="Click or drag to scrub the sequence (edges snap; grab the red line to scrub)"
+            onPointerDown={rulerDown} onPointerMove={rulerMove} onPointerUp={rulerUp} onPointerCancel={rulerUp} onLostPointerCapture={rulerUp}>
+            {clips.map(({ item, start, dur }, i) => (
+              <div key={item.id} style={{ position: 'absolute', top: 5, bottom: 5, left: `${(start / Math.max(1, total)) * 100}%`, width: `${Math.max(1.5, (dur / Math.max(1, total)) * 100)}%`, background: seqSelectedId === item.id ? '#2f5da8' : 'var(--vs-block)', border: seqSelectedId === item.id ? '1px solid var(--vs-accent)' : '1px solid var(--vs-block-bd)', borderRadius: 4, overflow: 'hidden', pointerEvents: 'none' }}>
+                <span style={{ fontSize: 10, padding: '0 4px', whiteSpace: 'nowrap', color: 'var(--vs-text)' }}>{i + 1} · {item.name}</span>
+              </div>
+            ))}
+            <SeqPlayhead getFrame={getFrame} duration={Math.max(1, total)} onScrub={scrubTo} />
+          </div>
+          <div ref={railRef} onDragOver={(e) => e.preventDefault()} onDrop={onRailDrop} style={{ display: 'flex', alignItems: 'stretch', gap: 4 }} title="Drag the ⋮⋮ grip left/right to reorder · Delete key removes the selected clip">
+          {clips.map(({ item, start, dur }, i) => (
+            <React.Fragment key={item.id}>
+              {grab && item.id !== grab.id && lineFor(i) && (
+                <div style={{ width: 4, background: 'var(--vs-accent)', borderRadius: 2, flexShrink: 0 }} />
+              )}
+              <div data-seq-card data-seq-id={item.id} onPointerDown={() => { setSeqSelectedId(item.id); onJump?.(start) }} onContextMenu={(e) => { e.preventDefault(); jumpIntoClip(item) }} title="Click to select + seek · right-click to edit" style={{ width: Math.max(96, Math.round(dur * ppf)), flexShrink: 0, background: seqSelectedId === item.id ? 'var(--vs-sel)' : 'var(--vs-card)', border: seqSelectedId === item.id ? '1px solid var(--vs-accent)' : '1px solid var(--vs-border)', borderRadius: 8, padding: 6, cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 4, opacity: grab && grab.id === item.id ? 0.45 : 1 }}>
+                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                  <span onPointerDown={(e) => { e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); grabRef.current = item.id; setGrab({ id: item.id, over: railIndexFromEvent(e, item.id) }) }}
+                    onPointerMove={(e) => { if (grabRef.current === item.id) setGrab({ id: item.id, over: railIndexFromEvent(e, item.id) }) }}
+                    onPointerUp={(e) => { e.stopPropagation(); const id = grabRef.current; grabRef.current = null; setGrab(null); if (id === item.id) moveSeqItemTo(item.id, railIndexFromEvent(e, item.id)) }}
+                    onPointerCancel={() => { grabRef.current = null; setGrab(null) }}
+                    title="Drag left/right to reorder" style={{ cursor: 'grab', color: '#8a93a8', fontSize: 13, padding: '0 2px', touchAction: 'none' }}>⋮⋮</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}><span style={{ opacity: 0.55, fontWeight: 400 }}>{i + 1} · </span>{item.name}</span>
+                  <button onClick={(e) => { e.stopPropagation(); removeSeqItem(item.id) }} title="Remove from sequence (history kept)" style={{ background: '#2a1418', border: '1px solid #6e2a33', color: '#ff9a9a', cursor: 'pointer', padding: '0 5px', borderRadius: 6, fontSize: 12, lineHeight: 1.4 }}>✕</button>
+                </div>
+                <ClipThumb scene={item.scene} width={Math.max(64, Math.max(96, Math.round(dur * ppf)) - 16)} />
+                <div style={{ fontSize: 11, opacity: 0.65 }}>{secs(dur)} · starts {secs(start)}</div>
+                <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button onClick={(e) => { e.stopPropagation(); setSeqSelectedId(item.id); onJump?.(start); const p = playerRef?.current; if (p) setTimeout(() => { try { if (!p.isPlaying?.()) p.play?.() } catch {} }, 80) }} title="Seek here and play">▶</button>
+                  <button onClick={(e) => { e.stopPropagation(); jumpIntoClip(item) }} title="Edit this clip (loads it into the scene editor)">✎</button>
+                  <button onClick={(e) => { e.stopPropagation(); duplicateVariation(item, i) }} title="Duplicate this clip into a renamed copy right after itself">⧉</button>
+                </div>
+              </div>
+              <div style={{ width: Math.max(26, Math.round(Number(item.gapAfter) || 0) * ppf), flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {Math.round(Number(item.gapAfter) || 0) > 0 ? (
+                  <button onClick={() => updateSeqItem(item.id, { gapAfter: 0 })} title={`Close the ${Math.round(Number(item.gapAfter) || 0)}f gap — later clips pull in`} style={{ fontSize: 11, border: '1px dashed var(--vs-accent)', borderRadius: 6, padding: '4px 6px', background: 'none', color: 'var(--vs-accent)', cursor: 'pointer' }}>⇥ {Math.round(Number(item.gapAfter) || 0)}f</button>
+                ) : (
+                  <button onClick={() => updateSeqItem(item.id, { gapAfter: 30 })} title="Add a 30-frame gap after this clip" style={{ fontSize: 11, opacity: 0.5, background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}>+gap</button>
+                )}
+              </div>
+            </React.Fragment>
+          ))}
+            {grab && dragIdx >= 0 && grab.over === restLen && (
+              <div style={{ width: 4, background: 'var(--vs-accent)', borderRadius: 2, flexShrink: 0 }} />
+            )}
+            <div onDragOver={(e) => { e.preventDefault(); setDropIdx(clips.length) }} style={{ minWidth: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5, fontSize: 11 }}>drop →</div>
+          </div>
+          </div>
+        </div>
+      ) : (
+        <div style={{ fontSize: 12, opacity: 0.65, padding: '8px 0' }}>Empty reel — drag history items here, or press ＋Seq on any history conversation. The sequence preview above plays clips back-to-back.</div>
+      )}
+      <SeqMusicLane getFrame={getFrame} onJump={onJump} fps={canvas.fps} />
+      <div style={{ fontSize: 11, opacity: 0.6, marginTop: 6 }}>Right-click a clip to edit it in the scene editor · Delete key removes the selected clip · gap badges ⇥ close the gap and pull later clips in.</div>
+    </div>
+  )
+}
+
 function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onSeek }) {
   const scrubbing = React.useRef(false)
   // Fit-to-page time scale: every track shares one scale pinned to the
@@ -866,16 +1380,24 @@ function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onSee
   const timeMax = Math.max(1, scene.durationInFrames,
     ...scene.layers.map((l) => l.endFrame ?? 0),
     ...scene.layers.flatMap((l) => (l.keyframes || []).map((k) => k.frame ?? 0)))
-  const frameFromEvent = (e) => {
-    const bar = e.currentTarget.getBoundingClientRect()
-    if (!bar || !bar.width) return 0
+  const frameFromX = (clientX, bar) => {
+    if (!bar || !bar.width) return null
     // Forgiving edges: the first/last 8px snap to 0/timeMax, so the very
     // start/end are clickable even with a keyframe diamond sitting on them.
-    if (e.clientX <= bar.left + 8) return 0
-    if (e.clientX >= bar.right - 8) return timeMax
-    return Math.round(Math.min(1, Math.max(0, (e.clientX - bar.left) / bar.width)) * timeMax)
+    if (clientX <= bar.left + 8) return 0
+    if (clientX >= bar.right - 8) return timeMax
+    return Math.round(Math.min(1, Math.max(0, (clientX - bar.left) / bar.width)) * timeMax)
   }
+  const frameFromEvent = (e) => frameFromX(e.clientX, e.currentTarget.getBoundingClientRect())
+  const seekFrame = (f) => { if (Number.isFinite(f)) onSeek?.(f) }
+  // The playhead grab strip is 24px wide, so resolve against its parent
+  // (the lane) — never against the strip itself.
+  const frameFromGrab = (e) => frameFromX(e.clientX, e.currentTarget.parentElement?.getBoundingClientRect())
+  const grabDown = (e) => { scrubbing.current = true; try { e.currentTarget.setPointerCapture(e.pointerId) } catch {} ; seekFrame(frameFromGrab(e)) }
+  const grabMove = (e) => { if (scrubbing.current && e.buttons) seekFrame(frameFromGrab(e)) }
+  const grabEnd = () => { scrubbing.current = false }
   const [menu, setMenu] = React.useState(null)
+  const addLayer = useStudio(s => s.addLayer)
   const renameLayer = useStudio(s => s.renameLayer)
   const deleteLayer = useStudio(s => s.deleteLayer)
   const updateLayer = useStudio(s => s.updateLayer)
@@ -910,26 +1432,27 @@ function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onSee
   const [collapsed, setCollapsed] = React.useState(() => new Set())
   const toggleTrack = (id) => setCollapsed((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
   return (
-    <div style={{ borderTop: '1px solid #222a3a', padding: 12, overflowX: 'auto', overflowY: 'auto', minHeight: 96, maxHeight: 360, background: '#0a0e18' }}>
+    <div style={{ borderTop: '1px solid var(--vs-line)', padding: 12, overflowX: 'auto', overflowY: 'auto', minHeight: 96, maxHeight: 360, background: 'var(--vs-rail)' }}>
       <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, opacity: 0.8, display: 'flex', alignItems: 'center', gap: 8 }}>Timeline · {scene.layers.length} track{scene.layers.length === 1 ? '' : 's'} · {scene.durationInFrames} frames<span style={{ flex: 1 }} /><div style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 400 }} title="Timeline zoom — 100% fits the whole scene, zooming in scrolls"><button onClick={() => setZoom((z) => Math.max(1, Math.round((z - 0.25) * 100) / 100))} disabled={zoom <= 1} title="Zoom out">−</button><span style={{ fontSize: 11, minWidth: 38, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span><button onClick={() => setZoom((z) => Math.min(3, Math.round((z + 0.25) * 100) / 100))} title="Zoom in">+</button><button onClick={() => setZoom(1)} disabled={zoom === 1} title="Fit the whole scene">Fit</button><button onClick={trimToContent} disabled={!scene.layers.length} title="Snap scene length to the longest layer (stray keyframes pulled in too)">Trim</button></div>{scene.layers.length > 1 && (<><button onClick={() => setCollapsed(new Set(scene.layers.map((l) => l.id)))} title="Collapse all tracks">Collapse all</button><button onClick={() => setCollapsed(new Set())} title="Expand all tracks">Expand all</button></>)}<span style={{ fontWeight: 400, opacity: 0.55 }} title="Backgrounds, images and audio live in Stage 3 · Assets (left rail)">BG + media → Stage 3</span></div>
       {!scene.layers.length && (
         <div style={{ fontSize: 13, opacity: 0.65, padding: '8px 0' }}>No tracks yet — generate a scene and its layers, clips and keyframe diamonds will appear here.</div>
       )}
       {scene.layers.map((l, li) => (
         <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: collapsed.has(l.id) ? 4 : 10 }}>
-          <div onClick={() => onSelectTrack?.(l.id)} title="Select layer — right-click to rename / delete" onContextMenu={(e) => { e.preventDefault(); setMenu({ id: l.id, x: e.clientX, y: e.clientY }) }} style={{ width: 180, fontSize: 13, cursor: 'pointer', color: '#fff', background: selectedId === l.id ? '#1d3a6e' : '#141b2c', border: selectedId === l.id ? '1px solid #4da3ff' : '1px solid #2a3a5c', borderRadius: 4, padding: '3px 6px', display: 'flex', alignItems: 'center', gap: 4 }}><button onClick={(e) => { e.stopPropagation(); toggleTrack(l.id) }} title={collapsed.has(l.id) ? 'Expand track' : 'Collapse track'} style={{ background: 'none', border: 'none', color: '#9fb3d8', cursor: 'pointer', padding: 0, fontSize: 12 }}>{collapsed.has(l.id) ? '▸' : '▾'}</button><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(l.name || '').trim() ? l.name : <i style={{ opacity: 0.6 }}>Untitled</i>} <span style={{ color: '#9fb3d8' }}>({l.type === 'audio_tts' ? 'voice' : l.type === 'audio_music' ? 'music' : l.type})</span></span></div>
+          <div onClick={() => onSelectTrack?.(l.id)} title="Select layer — right-click to rename / delete" onContextMenu={(e) => { e.preventDefault(); setMenu({ id: l.id, x: e.clientX, y: e.clientY }) }} style={{ width: 180, fontSize: 13, cursor: 'pointer', color: 'var(--vs-bright)', background: selectedId === l.id ? 'var(--vs-sel)' : 'var(--vs-card)', border: selectedId === l.id ? '1px solid var(--vs-accent)' : '1px solid var(--vs-border)', borderRadius: 4, padding: '3px 6px', display: 'flex', alignItems: 'center', gap: 4 }}><button onClick={(e) => { e.stopPropagation(); toggleTrack(l.id) }} title={collapsed.has(l.id) ? 'Expand track' : 'Collapse track'} style={{ background: 'none', border: 'none', color: '#9fb3d8', cursor: 'pointer', padding: 0, fontSize: 12 }}>{collapsed.has(l.id) ? '▸' : '▾'}</button><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(l.name || '').trim() ? l.name : <i style={{ opacity: 0.6 }}>Untitled</i>} <span style={{ color: '#9fb3d8' }}>({l.type === 'audio_tts' ? 'voice' : l.type === 'audio_music' ? 'music' : l.type})</span></span></div>
           {!collapsed.has(l.id) && (<>
-          <div style={{ position: 'relative', flex: zoom === 1 ? 1 : 'none', width: zoom === 1 ? undefined : `${Math.round(zoom * 100)}%`, height: 34, background: '#151b29', borderRadius: 6, cursor: 'ew-resize', touchAction: 'none' }} title="Click or drag to scrub the playhead (edges snap; Home/End jump to start/end)"
-            onPointerDown={(e) => { scrubbing.current = true; e.currentTarget.setPointerCapture(e.pointerId); onSeek?.(frameFromEvent(e)) }}
-            onPointerMove={(e) => { if (scrubbing.current) onSeek?.(frameFromEvent(e)) }}
+          <div style={{ position: 'relative', flex: zoom === 1 ? 1 : 'none', width: zoom === 1 ? undefined : `${Math.round(zoom * 100)}%`, height: 34, background: 'var(--vs-ruler)', borderRadius: 6, cursor: 'ew-resize', touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none' }} title="Click or drag to scrub the playhead (edges snap; Home/End jump to start/end)"
+            onPointerDown={(e) => { scrubbing.current = true; try { e.currentTarget.setPointerCapture(e.pointerId) } catch {} ; seekFrame(frameFromEvent(e)) }}
+            onPointerMove={(e) => { if (scrubbing.current && e.buttons) seekFrame(frameFromEvent(e)) }}
             onPointerUp={() => { scrubbing.current = false }}
-            onPointerCancel={() => { scrubbing.current = false }}>
-            <Playhead getFrame={getFrame} duration={timeMax} />
+            onPointerCancel={() => { scrubbing.current = false }}
+            onLostPointerCapture={() => { scrubbing.current = false }}>
+            <Playhead getFrame={getFrame} duration={timeMax} onGrabDown={grabDown} onGrabMove={grabMove} onGrabUp={grabEnd} />
             <div style={{
               position: 'absolute', top: 4, bottom: 4,
               left: `${(l.startFrame / timeMax) * 100}%`,
               width: `${Math.max(2, ((l.endFrame - l.startFrame) / timeMax) * 100)}%`,
-              background: '#24406e', borderRadius: 4, border: '1px solid #3b62a8',
+              background: 'var(--vs-block)', borderRadius: 4, border: '1px solid var(--vs-block-bd)',
             }} />
             {timeMax > scene.durationInFrames && (
               <div title={`Scene end — ${scene.durationInFrames}f`} style={{ position: 'absolute', top: 0, bottom: 0, left: `${(scene.durationInFrames / timeMax) * 100}%`, borderLeft: '2px dashed #8a93a8', pointerEvents: 'none' }} />
@@ -951,9 +1474,10 @@ function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onSee
       <div style={{ fontSize: 12, opacity: 0.6 }}>Red line is the playhead — click or drag any track to scrub it. Drag yellow diamonds to retime keyframes. Drag titles, images and shapes right on the video to move them (drop saves a keyframe).</div>
       {menu && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={() => setMenu(null)} onContextMenu={(e) => { e.preventDefault(); setMenu(null) }}>
-          <div style={{ position: 'fixed', left: Math.min(menu.x, window.innerWidth - 180), top: Math.min(menu.y, window.innerHeight - 140), background: '#161d30', border: '1px solid #4a5a80', borderRadius: 8, padding: 4, minWidth: 170, boxShadow: '0 8px 24px rgba(0,0,0,0.65)' }} onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => { const l = scene.layers.find((x) => x.id === menu.id); const name = window.prompt('Rename layer (empty = blank title)', l?.name || ''); if (name !== null) renameLayer(menu.id, name.trim()); setMenu(null) }} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: '#ffffff', fontSize: 13 }}>✏️ Rename layer</button>
-            {onAddText && <button onClick={() => { onAddText(); setMenu(null) }} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: '#ffffff', fontSize: 13 }}>＋ Insert text layer</button>}
+          <div style={{ position: 'fixed', left: Math.min(menu.x, window.innerWidth - 180), top: Math.min(menu.y, window.innerHeight - 140), background: 'var(--vs-menu)', border: '1px solid var(--vs-border)', borderRadius: 8, padding: 4, minWidth: 170, boxShadow: '0 8px 24px rgba(0,0,0,0.65)' }} onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => { const l = scene.layers.find((x) => x.id === menu.id); const name = window.prompt('Rename layer (empty = blank title)', l?.name || ''); if (name !== null) renameLayer(menu.id, name.trim()); setMenu(null) }} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-bright)', fontSize: 13 }}>✏️ Rename layer</button>
+            <button onClick={() => { const l = scene.layers.find((x) => x.id === menu.id); if (l) { const copy = JSON.parse(JSON.stringify(l)); copy.id = `layer_copy_${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`; copy.name = `${l.name || 'Layer'} copy`; addLayer(copy); setStatus(`Duplicated “${l.name}” with its keyframes.`, 'done') } setMenu(null) }} title="Copy this layer with all its keyframes — the copy selects so you can move it" style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-bright)', fontSize: 13 }}>⧉ Duplicate layer</button>
+            {onAddText && <button onClick={() => { onAddText(); setMenu(null) }} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-bright)', fontSize: 13 }}>＋ Insert text layer</button>}
             <button onClick={() => { if (window.confirm(`Delete layer "${scene.layers.find((x) => x.id === menu.id)?.name}"?`)) deleteLayer(menu.id); setMenu(null) }} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: '#ffb3b3', fontSize: 13 }}>🗑 Delete layer</button>
           </div>
         </div>
@@ -966,6 +1490,16 @@ export default function App() {
   const { scene, sceneRev, setScene, patchScene, undo, redo, prompt, setPrompt, editPrompt, setEditPrompt, log, pushLog } = useStudio()
   const conversations = useStudio(s => s.conversations)
   const addConversation = useStudio(s => s.addConversation)
+  const addSeqItem = useStudio(s => s.addSeqItem)
+  const sequence = useStudio(s => s.sequence)
+  const seqMode = useStudio(s => s.seqMode)
+  const setSeqMode = useStudio(s => s.setSeqMode)
+  const editingSeqId = useStudio(s => s.editingSeqId)
+  const setEditingSeqId = useStudio(s => s.setEditingSeqId)
+  const updateSeqItem = useStudio(s => s.updateSeqItem)
+  const seqLay = React.useMemo(() => seqLayout(sequence), [sequence])
+  const seqCan = React.useMemo(() => seqCanvas(sequence), [sequence])
+  const editingSeqItem = editingSeqId ? sequence.items.find((x) => x.id === editingSeqId) || null : null
   const loadConversation = useStudio(s => s.loadConversation)
   const deleteConversation = useStudio(s => s.deleteConversation)
   const renameConversation = useStudio(s => s.renameConversation)
@@ -1024,7 +1558,26 @@ export default function App() {
     if (el) el.scrollTop = el.scrollHeight
   }, [revThread])
   const [llm, setLlm] = useState(loadSettings)
+  // Slide preview: watch a history conversation big without touching the
+  // current scene — Back restores the work underneath.
+  const [previewConvo, setPreviewConvo] = useState(null)
+  const previewConvoRef = React.useRef(null)
+  React.useEffect(() => { previewConvoRef.current = previewConvo }, [previewConvo])
+  function previewConvoScene(c) {
+    if (!c?.scene) { setStatus('That history item has no scene to preview.', 'error'); return }
+    try { setPreviewConvo({ id: c.id, title: c.title, scene: validateScene(normalizeScene(c.scene)) }) }
+    catch (e) { setStatus(`Could not preview: ${e.message}`, 'error') }
+  }
   const playerRef = React.useRef(null)
+  // Auto-play previews: the Player's autoPlay can be blocked when a clip
+  // carries audio, so explicitly press play shortly after a slide preview
+  // (or the sequence reel) mounts. Honors the Settings toggle.
+  React.useEffect(() => {
+    if (llm.autoplayPreviews === false) return
+    if (!previewConvo && !seqMode) return
+    const t = setTimeout(() => { try { const p = playerRef.current; if (p && !p.isPlaying?.()) p.play?.() } catch {} }, 350)
+    return () => clearTimeout(t)
+  }, [previewConvo?.id, seqMode, llm.autoplayPreviews])
   const fileRef = React.useRef(null)
   // Space plays/pauses the preview whenever focus isn't in an editable
   // control or a button (so typing spaces and button activation keep working).
@@ -1043,8 +1596,22 @@ export default function App() {
         else st.redo()
         return
       }
-      // Home/End jump the playhead to the scene start/end — same field
-      // guard as undo/redo so text editing keeps native behavior.
+      // Delete/Backspace removes the selected sequence clip in Sequence
+      // mode — never while typing, and never touches history.
+      if ((e.key === 'Delete' || e.key === 'Backspace') && !showSettings) {
+        const t = e.target
+        const tag = t?.tagName
+        if (t?.isContentEditable || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+        const st = useStudio.getState()
+        if (st.seqMode && st.seqSelectedId) {
+          e.preventDefault()
+          st.removeSeqItem(st.seqSelectedId)
+          return
+        }
+      }
+      // Home/End jump the playhead to the start/end of whatever is showing:
+      // slide preview, sequence reel, or scene — same field guard as
+      // undo/redo so text editing keeps native behavior.
       if ((e.key === 'Home' || e.key === 'End') && !showSettings) {
         const t = e.target
         const tag = t?.tagName
@@ -1052,14 +1619,33 @@ export default function App() {
         e.preventDefault()
         try {
           if (e.key === 'Home') playerRef.current?.seekTo?.(0)
-          else playerRef.current?.seekTo?.(useStudio.getState().scene.durationInFrames)
+          else {
+            const st = useStudio.getState()
+            // End lands on the last content frame (not the exclusive
+            // duration): seeking to exactly `total` sits past the end and
+            // the Player clamps back toward the middle.
+            let end = 0
+            const pv = previewConvoRef.current?.scene?.durationInFrames
+            if (pv != null) end = Math.max(0, Math.round(Number(pv) || 0) - 1)
+            else if (st.seqMode) {
+              const lay = seqLayout(st.sequence)
+              const last = lay.clips[lay.clips.length - 1]
+              end = last ? Math.max(0, last.start + last.dur - 1) : 0
+            } else end = Math.max(0, Math.round(Number(st.scene.durationInFrames) || 1) - 1)
+            playerRef.current?.seekTo?.(end)
+          }
         } catch { /* player not mounted yet */ }
         return
       }
-      if (e.code !== 'Space' || showSettings) return
+      const isSpace = e.code === 'Space' || e.key === ' ' || e.key === 'Spacebar'
+      if (!isSpace || showSettings) return
       const t = e.target
       const tag = t?.tagName
-      if (t?.isContentEditable || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON') return
+      if (t?.isContentEditable || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      // Space is global play/pause — even on a focused button (clicking any
+      // UI leaves focus behind, which used to swallow the shortcut and
+      // re-trigger the button instead).
+      if (tag === 'BUTTON') t?.blur?.()
       e.preventDefault()
       try {
         if (playerRef.current?.isPlaying?.()) playerRef.current.pause()
@@ -1125,9 +1711,18 @@ export default function App() {
       const ki = kf.findIndex((k) => k.frame === f)
       const p = { x: Math.round(props.x), y: Math.round(props.y) }
       if (ki >= 0) kf[ki] = { ...kf[ki], properties: { ...kf[ki].properties, ...p }, easing: kf[ki].easing || 'linear' }
-      else kf.push({ frame: f, properties: p, easing: 'linear' })
+      else {
+        // A drop is a full pose, not just a position: seed the new keyframe
+        // with the interpolated state at this frame (what you see is what
+        // gets recorded) so opacity/scale can't go missing and break fades.
+        const base = o.keyframes.length ? lerpKeyframes(o.keyframes, f) : {}
+        const full = { ...base, ...p }
+        if (full.opacity === undefined) full.opacity = 1
+        if (full.scale === undefined) full.scale = 1
+        kf.push({ frame: f, properties: full, easing: 'linear' })
+      }
       kf.sort((a, b) => a.frame - b.frame)
-      return { ...o, keyframes: kf }
+      return { ...o, keyframes: backfillKeyframeProps(kf, o.fontSize) }
     })
     setPreview(null)
     setStatus(`Moved “${layer.name}” to (${Math.round(props.x)}, ${Math.round(props.y)}) at frame ${f} — keyframe saved.`, 'done')
@@ -1239,6 +1834,29 @@ export default function App() {
     setStatus(`Image layer “${img.name}” added — X/Y sliders move it, “Enter from” flies it in from off-screen.`, 'done')
   }
 
+  // Parametric shapes: kind + geometry live in data, paint in
+  // data.fill/stroke, the centered label in text/fontSize/fontFamily/color
+  // — everything animates through the standard keyframe engine.
+  function onAddShape(kindId) {
+    const kind = shapeKind(kindId)
+    const dur = scene.durationInFrames
+    const w = kind.defW, h = kind.defH
+    const x = Math.round((1280 - w) / 2), y = Math.round((720 - h) / 2)
+    addLayer({
+      id: `layer_shape_${Date.now().toString(36)}`, name: `${kind.label} Shape`, type: 'shape',
+      text: '', fontSize: 48,
+      data: { kind: kind.id, w, h, fill: 'var(--vs-sel)', stroke: 'var(--vs-accent)', strokeWidth: kind.id === 'ring' ? 14 : 4 },
+      startFrame: 0, endFrame: dur,
+      keyframes: [
+        { frame: 0, properties: { x, y, scale: 0.85, opacity: 0 } },
+        { frame: Math.min(24, dur), properties: { x, y, scale: 1, opacity: 1 }, easing: 'easeOutExpo' },
+      ],
+    })
+    setPreview(null)
+    jumpTo(0)
+    setStatus(`${kind.label} added — select it in the preview to change kind, size, colors, and label.`, 'done')
+  }
+
   // A question about the data itself ("what columns are there?") gets an
   // answer straight from the attached/embedded table — no render needed.
   function answerSchema() {
@@ -1295,11 +1913,14 @@ export default function App() {
   const [rendering, setRendering] = useState(false)
   async function onExportMp4() {
     if (rendering) return
-    if (!scene.layers.length) { setStatus('Nothing to render — generate a scene first.', 'error'); return }
+    // Sequence mode exports the whole reel; scene mode exports the scene.
+    const seqSt = useStudio.getState()
+    const exportingSeq = seqSt.seqMode && seqSt.sequence.items.length > 0
+    if (!exportingSeq && !scene.layers.length) { setStatus('Nothing to render — generate a scene first.', 'error'); return }
     setRendering(true)
     setBusy(true)
     try {
-      setStatus('Starting MP4 render on the local server…')
+      setStatus(exportingSeq ? 'Starting sequence MP4 render on the local server…' : 'Starting MP4 render on the local server…')
       try {
         const h = await fetch('/api/health').then((r) => r.json()).catch(() => null)
         if (!h?.ok) throw new Error('local server unreachable — is start.bat running?')
@@ -1310,7 +1931,8 @@ export default function App() {
       }
       let res
       try {
-        res = await fetch('/api/render', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ scene }) })
+        const payload = exportingSeq ? { sequence: useStudio.getState().sequence } : { scene }
+        res = await fetch('/api/render', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })
       } catch (e) { throw new Error('local server unreachable — is start.bat running?') }
       const started = await res.json()
       if (!res.ok || !started.ok) throw new Error(started.error || 'render failed to start')
@@ -1333,22 +1955,31 @@ export default function App() {
     setRendering(false)
   }
 
+  const theme = llm.theme === 'light' ? 'light' : 'dark'
+  function setTheme(next) {
+    setLlm((prev) => {
+      const merged = { ...prev, theme: next }
+      try { localStorage.setItem('vectorstudio.llm.v1', JSON.stringify(merged)) } catch { /* ignore */ }
+      return merged
+    })
+  }
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <div style={{ padding: '10px 16px', borderBottom: '1px solid #222a3a', display: 'flex', gap: 10, alignItems: 'center' }}>
+    <div className="vs-app" data-theme={theme} style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+      <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--vs-line)', display: 'flex', gap: 10, alignItems: 'center' }}>
         <strong>VectorStudio AI</strong>
         <StatusBar status={status} busy={busy} />
         <span style={{ flex: 1 }} />
-        <button onClick={undo} disabled={!pastLen} title="Undo (Ctrl+Z)" style={{ fontSize: 15, padding: '2px 8px' }}>↶</button>
-        <button onClick={redo} disabled={!futureLen} title="Redo (Ctrl+Y / Ctrl+Shift+Z)" style={{ fontSize: 15, padding: '2px 8px' }}>↷</button>
+        <button onClick={() => { setSeqMode(!seqMode); if (!seqMode) { selectLayer(null); clearPreview?.() } }} title={seqMode ? 'Back to the single-scene editor' : 'Sequence mode: chain history clips into one reel'} style={seqMode ? { fontWeight: 700, background: 'var(--vs-accent-solid)', border: '1px solid var(--vs-accent-solid)', color: '#fff' } : undefined}>🎬 Sequence</button>
+        <button onClick={undo} disabled={!pastLen || seqMode} title="Undo (Ctrl+Z)" style={{ fontSize: 15, padding: '2px 8px' }}>↶</button>
+        <button onClick={redo} disabled={!futureLen || seqMode} title="Redo (Ctrl+Y / Ctrl+Shift+Z)" style={{ fontSize: 15, padding: '2px 8px' }}>↷</button>
         <div style={{ position: 'relative' }}>
           <button onClick={() => setExportOpen((o) => !o)} disabled={rendering || busy} title="Download the video or the scene file" style={{ fontWeight: 700 }}>Export ▾</button>
           {exportOpen && (
             <>
               <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={() => setExportOpen(false)} />
-              <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 4px)', background: '#0d1322', border: '1px solid #2a3a5c', borderRadius: 8, padding: 4, minWidth: 190, zIndex: 61, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
-                <button onClick={() => { setExportOpen(false); onExportMp4() }} disabled={rendering || busy} title="Render the current scene to MP4 on the local server, then download it (first render fetches a headless browser and takes a few minutes)" style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: '#dbe4f3' }}>{rendering ? 'Rendering MP4…' : '🎬 Export MP4'}</button>
-                <button onClick={() => { setExportOpen(false); onExport() }} title="Download scene.json (re-importable project file)" style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: '#dbe4f3' }}>📄 Export JSON</button>
+              <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 4px)', background: 'var(--vs-pop)', border: '1px solid var(--vs-border)', borderRadius: 8, padding: 4, minWidth: 190, zIndex: 61, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
+                <button onClick={() => { setExportOpen(false); onExportMp4() }} disabled={rendering || busy} title={seqMode ? 'Render the whole sequence reel to one MP4 on the local server, then download it' : 'Render the current scene to MP4 on the local server, then download it (first render fetches a headless browser and takes a few minutes)'} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-text)' }}>{rendering ? 'Rendering MP4…' : seqMode ? '🎬 Export sequence MP4' : '🎬 Export MP4'}</button>
+                <button onClick={() => { setExportOpen(false); onExport() }} title="Download scene.json (re-importable project file)" style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-text)' }}>📄 Export JSON</button>
               </div>
             </>
           )}
@@ -1356,11 +1987,11 @@ export default function App() {
         <button onClick={() => { setSettingsTab('models'); setShowSettings(true) }} title="Settings — models, text-to-speech, engine" style={{ fontSize: 15, padding: '2px 8px' }}>⚙</button>
       </div>
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-        <div style={{ width: 340, borderRight: '1px solid #222a3a', padding: 12, overflowY: 'auto' }}>
+        <div style={{ width: 340, borderRight: '1px solid var(--vs-line)', padding: 12, overflowY: 'auto' }}>
           <h3 style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}><button onClick={() => setGenCollapsed((c) => !c)} title={genCollapsed ? 'Expand the Generate section' : 'Collapse to give the revision chat more room'} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0 }}>{genCollapsed ? '▸' : '▾'}</button><span>1 · Generate</span></h3>
           {genCollapsed && (<div style={{ fontSize: 11, opacity: 0.6, marginBottom: 6 }}>{scene.layers.length} layer{scene.layers.length === 1 ? '' : 's'} ready — expand to start over, or revise below.</div>)}
           {!genCollapsed && (<>
-          <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={4} style={{ width: '100%', background: '#0b0e14', color: '#e8edf5', border: '1px solid #2a3a5c', borderRadius: 6, padding: 8 }} placeholder="Create infographic: title 'Q3 Review', bar chart 10k to 50k, bank slides in from left" />
+          <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={4} style={{ width: '100%', background: 'var(--vs-deep)', color: 'var(--vs-text)', border: '1px solid var(--vs-border)', borderRadius: 6, padding: 8 }} placeholder="Create infographic: title 'Q3 Review', bar chart 10k to 50k, bank slides in from left" />
           <div style={{ display: 'flex', gap: 6, marginTop: 6, alignItems: 'center', flexWrap: 'wrap' }}>
             <button disabled={busy} onClick={() => fileRef.current?.click()} title="Attach CSV/XLSX data or PNG/JPG images (transparent PNGs supported)">Attach files</button>
             <select defaultValue="" title="Load a bundled sample dataset" onChange={(e) => { onLoadSample(e.target.value); e.target.value = '' }} style={{ maxWidth: 140 }}>
@@ -1372,7 +2003,7 @@ export default function App() {
             <span style={{ fontSize: 11, opacity: 0.6 }}>or paste a table into the prompt</span>
           </div>
           {datasets.map((d) => (
-            <div key={d.id} style={{ fontSize: 12, display: 'flex', gap: 6, marginTop: 4, background: '#101828', borderRadius: 6, padding: '4px 8px', alignItems: 'center' }}>
+            <div key={d.id} style={{ fontSize: 12, display: 'flex', gap: 6, marginTop: 4, background: 'var(--vs-inset)', borderRadius: 6, padding: '4px 8px', alignItems: 'center' }}>
               <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={d.columns.join(', ')}>📎 {d.name} · {d.rows.length} rows</span>
               <button onClick={() => { setReplaceId(d.id); replaceFileRef.current?.click() }} title="Upload a new file into this slot — charts built from it can then refresh via ↻ Refresh data">Replace</button>
               <button onClick={() => removeDataset(d.id)}>✕</button>
@@ -1385,7 +2016,7 @@ export default function App() {
           <h3 style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 6 }}><button onClick={() => setRevCollapsed((c) => !c)} title={revCollapsed ? 'Expand the Revise section' : 'Collapse the Revise section'} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0 }}>{revCollapsed ? '▸' : '▾'}</button><span>2 · Revise chart</span></h3>
           {revCollapsed && (<div style={{ fontSize: 11, opacity: 0.6, marginBottom: 6 }}>{revThread.length ? `${revThread.length} message${revThread.length === 1 ? '' : 's'} in the revision chat — expand to continue.` : 'Generate first — then revise here.'}</div>)}
           {!revCollapsed && (<>
-          <textarea value={editPrompt} onChange={(e) => setEditPrompt(e.target.value)} rows={3} style={{ width: '100%', background: '#0b0e14', color: '#e8edf5', border: '1px solid #2a3a5c', borderRadius: 6, padding: 8 }} placeholder="Describe the change conversationally — I'll ask if I need details…" />
+          <textarea value={editPrompt} onChange={(e) => setEditPrompt(e.target.value)} rows={3} style={{ width: '100%', background: 'var(--vs-deep)', color: 'var(--vs-text)', border: '1px solid var(--vs-border)', borderRadius: 6, padding: 8 }} placeholder="Describe the change conversationally — I'll ask if I need details…" />
           <button disabled={busy} onClick={onEdit} style={{ marginTop: 8, width: '100%' }}>Revise chart</button>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6, alignItems: 'center' }}>
             <span style={{ fontSize: 11, opacity: 0.6 }}>Try:</span>
@@ -1394,9 +2025,9 @@ export default function App() {
             ))}
           </div>
           {revThread.length > 0 && (
-            <div ref={threadBoxRef} style={{ marginTop: 8, maxHeight: 240, overflowY: 'auto', background: '#0e1420', borderRadius: 6, padding: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div ref={threadBoxRef} style={{ marginTop: 8, maxHeight: 240, overflowY: 'auto', background: 'var(--vs-panel)', borderRadius: 6, padding: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
               {revThread.map((m, i) => (
-                <div key={i} style={{ alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start', background: m.role === 'user' ? '#1d3a6e' : '#141b2c', border: '1px solid #2a3a5c', borderRadius: 8, padding: '6px 8px', maxWidth: '95%', fontSize: 12, whiteSpace: 'pre-wrap' }}>{m.text}</div>
+                <div key={i} style={{ alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start', background: m.role === 'user' ? 'var(--vs-sel)' : 'var(--vs-card)', border: '1px solid var(--vs-border)', borderRadius: 8, padding: '6px 8px', maxWidth: '95%', fontSize: 12, whiteSpace: 'pre-wrap' }}>{m.text}</div>
               ))}
             </div>
           )}
@@ -1404,18 +2035,23 @@ export default function App() {
           </>)}
           <h3 style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 6 }}><button onClick={() => setAssetsCollapsed((c) => !c)} title={assetsCollapsed ? 'Expand the Assets section' : 'Collapse the Assets section'} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0 }}>{assetsCollapsed ? '▸' : '▾'}</button><span>3 · Assets</span></h3>
           {assetsCollapsed && (<div style={{ fontSize: 11, opacity: 0.6, marginBottom: 6 }}>Backgrounds, images & audio — expand to manage.</div>)}
-          {!assetsCollapsed && <AssetsStage onAddImage={(m) => onAddImage(m)} onAddTts={(id) => onAddAudioLayer('audio_tts', id)} onAddMusic={(id) => onAddAudioLayer('audio_music', id)} />}
+          {!assetsCollapsed && <AssetsStage onAddImage={(m) => onAddImage(m)} onAddTts={(id) => onAddAudioLayer('audio_tts', id)} onAddMusic={(id) => onAddAudioLayer('audio_music', id)} onAddShape={(id) => onAddShape(id)} />}
           <h4>History</h4>
           <div style={{ fontSize: 11, opacity: 0.55, marginBottom: 4 }}>Right-click a conversation to rename or delete.</div>
           {conversations.length ? (
             <div style={{ fontSize: 12, maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
               {conversations.map((c) => (
-                <div key={c.id} style={{ background: '#0e1420', borderRadius: 6, padding: '6px 8px', cursor: 'context-menu' }} title="Right-click for rename / delete" onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ id: c.id, x: e.clientX, y: e.clientY }) }}>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                    <button onClick={() => { loadConversation(c.id); setStatus(`Loaded: ${c.title}`, 'done'); setGenCollapsed(true); setRevCollapsed(false); pushRev('assistant', `Loaded “${c.title}”. Ask for revisions in section 2 below.`) }} title={c.prompt} style={{ flex: 1, textAlign: 'left', background: 'none', border: 'none', color: '#9fc3ff', cursor: 'pointer', padding: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</button>
-                    <button onClick={() => deleteConversation(c.id)} title="Delete conversation" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>✕</button>
+                <div key={c.id} draggable onDragStart={(e) => { e.dataTransfer.setData('text/vs-convo', c.id); e.dataTransfer.effectAllowed = 'copy' }} style={{ background: 'var(--vs-panel)', borderRadius: 6, padding: '6px 8px', cursor: 'context-menu', display: 'flex', gap: 8, alignItems: 'center' }} title="Right-click for rename / delete · drag into the sequence rail" onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ id: c.id, x: e.clientX, y: e.clientY }) }}>
+                  <div title="Mini preview — click ▶ to watch this slide big"><ClipThumb scene={c.scene} width={104} /></div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <button onClick={() => { loadConversation(c.id); setStatus(`Loaded: ${c.title}`, 'done'); setGenCollapsed(true); setRevCollapsed(false); pushRev('assistant', `Loaded “${c.title}”. Ask for revisions in section 2 below.`) }} title={c.prompt} style={{ flex: 1, textAlign: 'left', background: 'none', border: 'none', color: 'var(--vs-accent)', cursor: 'pointer', padding: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</button>
+                      <button onClick={() => addSeqItem(c)} title="Append to the sequence reel" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#3ddc84' }}>＋Seq</button>
+                      <button onClick={() => deleteConversation(c.id)} title="Delete conversation" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>✕</button>
+                    </div>
+                    <div style={{ opacity: 0.55, fontSize: 11 }}>{new Date(c.createdAt).toLocaleString()} · {c.layerCount} layer{c.layerCount === 1 ? '' : 's'}</div>
+                    <button onClick={() => { previewConvoScene(c) }} title="Watch this slide in the big preview (your current work is kept — press Back to return)" style={{ fontSize: 11, marginTop: 2 }}>▶ Preview slide</button>
                   </div>
-                  <div style={{ opacity: 0.55, fontSize: 11 }}>{new Date(c.createdAt).toLocaleString()} · {c.layerCount} layer{c.layerCount === 1 ? '' : 's'}</div>
                 </div>
               ))}
             </div>
@@ -1423,40 +2059,80 @@ export default function App() {
             <div style={{ fontSize: 12, opacity: 0.6 }}>No saved generations yet — each Generate lands here.</div>
           )}
           <h4>Activity</h4>
-          <div style={{ fontSize: 12, maxHeight: 120, overflowY: 'auto', background: '#0e1420', padding: 8, borderRadius: 6 }}>
+          <div style={{ fontSize: 12, maxHeight: 120, overflowY: 'auto', background: 'var(--vs-panel)', padding: 8, borderRadius: 6 }}>
             {log.slice(-8).map((m, i) => <div key={i}>· {m}</div>)}
           </div>
         </div>
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#05070c', minWidth: 0, position: 'relative' }}>
-          <Player key={`${sceneRev}-${scene.width || 1280}x${scene.height || 720}`} ref={playerRef} component={SceneComposition} inputProps={inputProps} durationInFrames={scene.durationInFrames} fps={scene.fps} compositionWidth={scene.width || 1280} compositionHeight={scene.height || 720} controls autoPlay={false} clickToPlay={false} loop style={{ width: '100%', maxWidth: (scene.width || 1280) >= (scene.height || 720) ? 900 : 460 }} />
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--vs-stage)', minWidth: 0, position: 'relative' }}>
+          {previewConvo ? (
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
+              <div style={{ fontSize: 12, display: 'flex', gap: 8, alignItems: 'center', background: 'var(--vs-pop)', border: '1px solid var(--vs-border)', borderRadius: 8, padding: '6px 10px' }}>
+                <span>▶ Previewing <strong>“{previewConvo.title}”</strong> — your work is kept underneath.</span>
+                <button onClick={() => setPreviewConvo(null)} title="Back to your current scene">← Back to my scene</button>
+              </div>
+              <Player key={`preview-${previewConvo.id}`} ref={playerRef} component={SceneComposition} inputProps={{ scene: previewConvo.scene }} durationInFrames={previewConvo.scene.durationInFrames} fps={previewConvo.scene.fps} compositionWidth={previewConvo.scene.width || 1280} compositionHeight={previewConvo.scene.height || 720} controls autoPlay={llm.autoplayPreviews !== false} clickToPlay={false} loop style={{ width: '100%', maxWidth: (previewConvo.scene.width || 1280) >= (previewConvo.scene.height || 720) ? 900 : 460 }} />
+            </div>
+          ) : seqMode ? (
+            <Player key={`seq-${seqLay.total}-${seqLay.clips.length}-${seqCan.width}x${seqCan.height}`} ref={playerRef} component={SequenceComposition} inputProps={{ sequence }} durationInFrames={Math.max(1, seqLay.total)} fps={seqCan.fps} compositionWidth={seqCan.width} compositionHeight={seqCan.height} controls autoPlay={llm.autoplayPreviews !== false && seqLay.clips.length > 0} clickToPlay={false} loop style={{ width: '100%', maxWidth: seqCan.width >= seqCan.height ? 900 : 460 }} />
+          ) : (
+            <Player key={`${sceneRev}-${scene.width || 1280}x${scene.height || 720}`} ref={playerRef} component={SceneComposition} inputProps={inputProps} durationInFrames={scene.durationInFrames} fps={scene.fps} compositionWidth={scene.width || 1280} compositionHeight={scene.height || 720} controls autoPlay={false} clickToPlay={false} loop style={{ width: '100%', maxWidth: (scene.width || 1280) >= (scene.height || 720) ? 900 : 460 }} />
+          )}
           {!scene.layers.length && (
             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-              <div style={{ fontSize: 15, opacity: 0.75, background: 'rgba(10,14,24,0.8)', padding: '12px 20px', borderRadius: 8, border: '1px dashed #3b62a8' }}>No scene yet — describe your video on the left, then Generate.</div>
+              <div style={{ fontSize: 15, opacity: 0.75, background: 'rgba(10,14,24,0.8)', padding: '12px 20px', borderRadius: 8, border: '1px dashed var(--vs-block-bd)' }}>No scene yet — describe your video on the left, then Generate.</div>
             </div>
           )}
-          {selectedLayer && <LayerInspector key={selectedLayer.id} layer={selectedLayer} getFrame={getFrame} onJump={jumpTo} onClose={() => { clearPreview(); selectLayer(null) }} onPreview={(props) => onPreview(selectedLayer.id, props)} clearPreview={clearPreview} fps={scene.fps} />}
+          {selectedLayer && !seqMode && <LayerInspector key={selectedLayer.id} layer={selectedLayer} getFrame={getFrame} onJump={jumpTo} onClose={() => { clearPreview(); selectLayer(null) }} onPreview={(props) => onPreview(selectedLayer.id, props)} clearPreview={clearPreview} fps={scene.fps} />}
         </div>
       </div>
-      <Timeline scene={scene} getFrame={getFrame} selectedId={selectedLayerId} onSelectTrack={handleSelect} onAddText={onAddText} onSeek={jumpTo} />
+      {editingSeqItem && !seqMode && (
+        <div style={{ borderTop: '1px solid var(--vs-accent)', background: 'var(--vs-sel)', padding: '8px 12px', display: 'flex', gap: 8, alignItems: 'center', fontSize: 12 }}>
+          <span>✎ Editing sequence clip <strong>“{editingSeqItem.name}”</strong> — saving forks a new history version (the original is kept).</span>
+          <span style={{ flex: 1 }} />
+          <button onClick={() => {
+            const name = window.prompt('Duplicate this clip as:', `${editingSeqItem.name} (copy)`)
+            if (name === null) return
+            const st = useStudio.getState()
+            st.updateSeqItem(editingSeqItem.id, { name: name.trim() || editingSeqItem.name })
+            st.setStatus(`Clip renamed to “${name.trim() || editingSeqItem.name}”.`, 'done')
+          }} title="Rename this sequence clip">Rename</button>
+          <button onClick={() => {
+            const st = useStudio.getState()
+            let valid = null
+            try { valid = validateScene(normalizeScene(st.scene)) } catch (e) { st.setStatus(`Cannot save version: ${e.message}`, 'error'); return }
+            const convo = st.addConversation(`Sequence version: ${editingSeqItem.name}`, valid)
+            st.updateSeqItem(editingSeqItem.id, { convoId: convo.id, name: convo.title, scene: valid })
+            st.setEditingSeqId(null)
+            st.setStatus(`Saved “${convo.title}” — sequence updated, original kept.`, 'done')
+          }} title="Fork the edited clip into a new history conversation and point the sequence at it">Save as new version</button>
+          <button onClick={() => { setEditingSeqId(null); setStatus('Edit discarded — sequence unchanged.', 'info') }} title="Drop the edit, keep the sequence as it was">Discard</button>
+        </div>
+      )}
+      {seqMode
+        ? <SequencerPanel getFrame={getFrame} onJump={jumpTo} onExportSeq={onExportMp4} rendering={rendering} playerRef={playerRef} />
+        : <Timeline scene={scene} getFrame={getFrame} selectedId={selectedLayerId} onSelectTrack={handleSelect} onAddText={onAddText} onSeek={jumpTo} />}
       {ctxMenu && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={() => setCtxMenu(null)} onContextMenu={(e) => { e.preventDefault(); setCtxMenu(null) }}>
-          <div style={{ position: 'fixed', left: Math.min(ctxMenu.x, window.innerWidth - 170), top: Math.min(ctxMenu.y, window.innerHeight - 110), background: '#0d1322', border: '1px solid #2a3a5c', borderRadius: 8, padding: 4, minWidth: 150, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }} onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => { const c = conversations.find(x => x.id === ctxMenu.id); const name = window.prompt('Rename conversation', c?.title || ''); if (name && name.trim()) renameConversation(ctxMenu.id, name.trim()); setCtxMenu(null) }} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: '#dbe4f3' }}>✏️ Rename</button>
+          <div style={{ position: 'fixed', left: Math.min(ctxMenu.x, window.innerWidth - 170), top: Math.min(ctxMenu.y, window.innerHeight - 110), background: 'var(--vs-pop)', border: '1px solid var(--vs-border)', borderRadius: 8, padding: 4, minWidth: 150, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }} onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => { const c = conversations.find(x => x.id === ctxMenu.id); const name = window.prompt('Rename conversation', c?.title || ''); if (name && name.trim()) renameConversation(ctxMenu.id, name.trim()); setCtxMenu(null) }} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-text)' }}>✏️ Rename</button>
             <button onClick={() => { deleteConversation(ctxMenu.id); setCtxMenu(null) }} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: '#ff9090' }}>🗑 Delete</button>
           </div>
         </div>
       )}
       {showSettings && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => setShowSettings(false)}>
-          <div style={{ background: '#0b0e14', border: '1px solid #2a3a5c', borderRadius: 10, maxWidth: 640, width: '100%', maxHeight: '88vh', overflowY: 'auto', padding: 16 }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+          <div style={{ background: 'var(--vs-deep)', border: '1px solid var(--vs-border)', borderRadius: 10, maxWidth: 640, width: '100%', maxHeight: '88vh', overflowY: 'auto', padding: 16 }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8, gap: 8 }}>
               <strong>Settings</strong>
               <span style={{ flex: 1 }} />
+              <span style={{ fontSize: 12, opacity: 0.75 }} title="Switch the whole workspace between dark and light">Appearance:</span>
+              <button onClick={() => setTheme('dark')} title="Dark theme" style={theme === 'dark' ? { background: 'var(--vs-accent-solid)', border: '1px solid var(--vs-accent-solid)', color: '#fff', fontWeight: 700 } : undefined}>Dark</button>
+              <button onClick={() => setTheme('light')} title="Light theme" style={theme === 'light' ? { background: 'var(--vs-accent-solid)', border: '1px solid var(--vs-accent-solid)', color: '#fff', fontWeight: 700 } : undefined}>Light</button>
               <button onClick={() => setShowSettings(false)}>✕ Close</button>
             </div>
             <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
               {[['models', '🧠 Models'], ['tts', '🎙 Text-to-Speech'], ['engine', '🖥 Engine']].map(([id, label]) => (
-                <button key={id} onClick={() => setSettingsTab(id)} title={`${label} settings`} style={{ flex: 1, background: settingsTab === id ? '#1d3a6e' : undefined, border: settingsTab === id ? '1px solid #4da3ff' : undefined }}>{label}</button>
+                <button key={id} onClick={() => setSettingsTab(id)} title={`${label} settings`} style={settingsTab === id ? { flex: 1, fontWeight: 700, background: 'var(--vs-accent-solid)', border: '1px solid var(--vs-accent-solid)', color: '#fff' } : { flex: 1 }}>{label}</button>
               ))}
             </div>
             {settingsTab === 'models' && <LlmSettings value={llm} onChange={setLlm} />}

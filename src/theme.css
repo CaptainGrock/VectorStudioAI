@@ -1,0 +1,121 @@
+/* VectorStudio AI theme system. The app root carries data-theme="dark"|"light"
+   (default dark). Chrome surfaces reference these variables so both themes
+   stay consistent; scene/preview artwork keeps its own explicit colors. */
+
+.vs-app[data-theme="dark"] {
+  color-scheme: dark;
+  --vs-bg: #070b12;
+  --vs-deep: #0b0e14;
+  --vs-panel: #0e1420;
+  --vs-card: #141b2c;
+  --vs-inset: #101828;
+  --vs-rail: #0a0e18;
+  --vs-ruler: #151b29;
+  --vs-pop: #0d1322;
+  --vs-menu: #161d30;
+  --vs-track: #1a2233;
+  --vs-stage: #05070c;
+  --vs-border: #2a3a5c;
+  --vs-line: #222a3a;
+  --vs-block: #24406e;
+  --vs-block-bd: #3b62a8;
+  --vs-sel: #1d3a6e;
+  --vs-text: #e8edf5;
+  --vs-bright: #ffffff;
+  --vs-accent: #4da3ff;
+  --vs-accent-solid: #2f6fed;
+  --vs-btn: #1a2334;
+  --vs-btn-bd: #2f3f5c;
+  --vs-btn-hov: #22304a;
+  --vs-input-bd: #2a3a5c;
+  --vs-shadow: rgba(0, 0, 0, 0.5);
+}
+
+.vs-app[data-theme="light"] {
+  color-scheme: light;
+  --vs-bg: #e9edf3;
+  --vs-deep: #ffffff;
+  --vs-panel: #f4f6fb;
+  --vs-card: #ffffff;
+  --vs-inset: #eef1f7;
+  --vs-rail: #dde3ee;
+  --vs-ruler: #d5ddee;
+  --vs-pop: #ffffff;
+  --vs-menu: #ffffff;
+  --vs-track: #d7dee9;
+  --vs-stage: #dde3ee;
+  --vs-border: #c4cfdf;
+  --vs-line: #d3dbe7;
+  --vs-block: #bcd0f5;
+  --vs-block-bd: #8aa8e8;
+  --vs-sel: #d7e5ff;
+  --vs-text: #17202f;
+  --vs-bright: #17202f;
+  --vs-accent: #2563eb;
+  --vs-accent-solid: #2563eb;
+  --vs-btn: #ffffff;
+  --vs-btn-bd: #c4cfdf;
+  --vs-btn-hov: #e4ebf7;
+  --vs-input-bd: #c4cfdf;
+  --vs-shadow: rgba(23, 32, 47, 0.18);
+}
+
+.vs-app {
+  background: var(--vs-bg);
+  color: var(--vs-text);
+}
+
+/* Consistent, professional controls in both themes. Inline styles still win
+   where a component deliberately overrides (active toggles, danger buttons). */
+.vs-app button {
+  background: var(--vs-btn);
+  border: 1px solid var(--vs-btn-bd);
+  color: var(--vs-text);
+  border-radius: 7px;
+  padding: 4px 10px;
+  font-size: 12.5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.vs-app button:hover:not(:disabled) {
+  background: var(--vs-btn-hov);
+}
+
+.vs-app button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.vs-app button:focus-visible {
+  outline: 2px solid var(--vs-accent);
+  outline-offset: 1px;
+}
+
+.vs-app input,
+.vs-app select,
+.vs-app textarea {
+  background: var(--vs-deep);
+  color: var(--vs-text);
+  border: 1px solid var(--vs-input-bd);
+  border-radius: 6px;
+}
+
+.vs-app input::placeholder,
+.vs-app textarea::placeholder {
+  opacity: 0.45;
+}
+
+.vs-app ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.vs-app ::-webkit-scrollbar-thumb {
+  background: var(--vs-track);
+  border-radius: 5px;
+}
+
+.vs-app ::-webkit-scrollbar-track {
+  background: transparent;
+}

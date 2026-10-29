@@ -37,14 +37,32 @@ Left rail:
 Right rail inspector:
 
 - Transform (X/Y/scale/opacity), Text content, Fonts, Motion (Regular/In/Out easing), keyframes, and audio controls.
-- Drag titles, images, and shapes directly on the video; dropping saves a keyframe.
+- Drag titles, images, and shapes directly on the video; dropping saves a keyframe (canvas drops record the full pose, so opacity/scale fades keep working).
 - Timeline: zoom/fit, Trim, collapse/expand tracks, forgiving edge snapping, Home/End playhead jumps, Ctrl+Z / Ctrl+Y undo-redo.
+- Right-click a track for Rename / **Duplicate layer** (full copy with keyframes) / Insert text / Delete.
+- The red playhead has its own grab strip above the keyframe diamonds, so grabbing the line always scrubs; to retime a diamond sitting at the playhead, click elsewhere on the lane first, then drag the diamond.
 
 ## Charts, pacing, and export
 
 Supported chart types include bar/line/pie/area/scatter/histogram/waterfall/funnel/radar/map bubbles, plus stacked bars (`bar_chart` with `data.series`) and line `drawMode: "connect"` (“connect the dots”: points pop first, then segments draw).
 
 Pacing uses `reveal` and `stagger` per chart; every chart renderer honors both.
+
+## Sequencer (multi-clip reels)
+
+Press **🎬 Sequence** to chain saved history conversations into one reel:
+
+- **+Seq** on any history entry adds it as a clip; the rail auto-fits the full reel (zoom in for detail).
+- Drag clips by the **⋮⋮ grip** to reorder; click a clip (or its timeline block) to select + seek; **Delete** removes the selected clip (history is kept).
+- **Gap badges (⇥)** between clips close the gap and pull later clips in; per-clip head/tail trims cut dead air.
+- A **sequence-wide music bed** (attach MP3/WAV/OGG/M4A in Stage 3 or pick attached audio) plays under the whole reel with volume keyframes.
+- **Right-click a clip to jump back into the scene editor** for that clip.
+- Global **▶/⏸**, Space, and Home/End drive the reel; the red-line grab strip scrubs like the scene timeline.
+- The reel auto-saves to the browser (up to 40 clips) and exports via **Export ▾ → Export sequence MP4**.
+
+## Shapes
+
+Ask for vector shapes in plain language (`decision diamond labeled Approved`, `red arrow pointing right`, `rounded rectangle`, `ring to highlight`) or add them from Stage 3 → Assets. Shapes carry fill/stroke colors, sizes, and centered labels editable in the right rail, ride the same Transform/Motion/keyframe system as everything else, and export like any other layer.
 
 Fonts:
 
@@ -53,9 +71,12 @@ Fonts:
 
 Top bar:
 
+- **🎬 Sequence** toggles the multi-clip Sequencer (see below).
+- **⚙ Settings**: model/engine setup plus Appearance (dark default, light optional) and **Auto-play previews** (slide and reel previews start playing on load).
 - Single **Export ▾** menu:
   - **Export MP4** renders the current scene on the local server (`/api/render`) and downloads `vectorstudio.mp4`. First render may download a headless browser and take several minutes. Export resolution follows the scene’s width/height.
-  - **Export JSON** downloads the re-importable `scene.json`.
+  - **Export sequence MP4** (in Sequence mode) renders the whole reel — clips, gaps, and bed music — to one MP4.
+  - **Export JSON** downloads the re-importable `scene.json` (or `sequence.json` in Sequence mode).
 
 ## Voice narration with BreezeTTS-2
 
@@ -141,7 +162,9 @@ server/tts.mjs       <- BreezeTTS-2 backend: Python scan, installs, checkpoint, 
 server/settings.json <- local backend settings (git-ignored; never commit secrets)
 src/TtsSettings.jsx  <- Settings → Text-to-Speech tab
 src/                 <- React NLE: App.jsx, LlmSettings.jsx, EngineSettings.jsx, store.js, sceneGraph.js, llm.js
-src/remotion/        <- SceneComposition.jsx, Root.jsx, index.js (Remotion entry)
+src/remotion/        <- SceneComposition.jsx, SequenceComposition.jsx, Root.jsx, index.js (Remotion entry)
+src/shapes.js          <- parametric vector-shape kinds (flowchart, arrows, callouts)
+src/theme.css          <- dark/light theme variables (Appearance setting, dark default)
 tts/                 <- installed breeze-tts repo lives here (git-ignored runtime artifact)
 models/              <- your GGUF files land here (created on first download)
 llama.cpp/           <- downloaded llama-server builds live here
@@ -149,6 +172,7 @@ vite.config.js       <- dev server on 127.0.0.1, proxies /api to the backend
 index.html / src/    <- React NLE: App.jsx, EngineSettings.jsx, store.js, sceneGraph.js, llm.js
 public/assets/       <- bank.svg, arrow.svg, person.svg
 scene.json           <- default render props for `npm run render`
+sequence.json        <- sequence render payload (written on Export sequence MP4)
 ```
 
 ## Local engine

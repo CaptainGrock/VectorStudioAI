@@ -17,6 +17,61 @@ function loadConvos() {
 function persistConvos(list) {
   try { localStorage.setItem(CONV_KEY, JSON.stringify(list)) } catch { /* quota/private mode */ }
 }
+const SEQ_KEY = 'vectorstudio.sequence.v1'
+const SEQ_PERSIST_MAX = 4 * 1024 * 1024 // scenes carry data: URLs — skip disk when huge
+
+function loadSequence() {
+  const empty = { items: [], music: null }
+  try {
+    const raw = localStorage.getItem(SEQ_KEY)
+    if (!raw) return empty
+    const s = JSON.parse(raw)
+    if (!s || !Array.isArray(s.items)) return empty
+    const items = s.items.filter((x) => x && x.id && x.scene).slice(0, 40)
+    return { items, music: s.music && s.music.assetUrl ? s.music : null }
+  } catch {
+    return empty
+  }
+}
+function persistSequence(sequence) {
+  try {
+    const raw = JSON.stringify(sequence)
+    if (raw.length > SEQ_PERSIST_MAX) return // keep in memory only
+    localStorage.setItem(SEQ_KEY, raw)
+  } catch { /* quota/private mode — session keeps it */ }
+}
+
+// Clip timing: trims cut head/tail, gapAfter is trailing silence before
+// the next clip. Positions ripple automatically since every start is
+// derived — deleting or closing a gap pulls the rest of the rail in.
+export function clipDuration(item) {
+  const dur = Number(item?.scene?.durationInFrames) || 0
+  const ts = Math.max(0, Math.round(Number(item?.trimStart) || 0))
+  const te = Math.max(0, Math.round(Number(item?.trimEnd) || 0))
+  return Math.max(1, dur - ts - te)
+}
+export function seqLayout(sequence) {
+  const items = sequence?.items || []
+  let t = 0
+  const clips = items.map((item) => {
+    const dur = clipDuration(item)
+    const start = t
+    t += dur + Math.max(0, Math.round(Number(item.gapAfter) || 0))
+    return { item, start, dur }
+  })
+  return { clips, total: t }
+}
+// One canvas for the whole sequence: first clip wins, the rest are
+// uniform-fit scaled inside it (same rule as narrow/portrait scenes).
+export function seqCanvas(sequence) {
+  const first = sequence?.items?.[0]?.scene
+  return {
+    fps: Math.min(120, Math.max(1, Math.round(Number(first?.fps) || 30))),
+    width: Math.round(Number(first?.width) || 1280) || 1280,
+    height: Math.round(Number(first?.height) || 720) || 720,
+  }
+}
+
 function convoTitle(prompt) {
   const first = String(prompt || '').split('\n').find((l) => l.trim() && !/^\s*\|/.test(l)) || ''
   const oneLine = first.replace(/\s+/g, ' ').trim()
@@ -154,19 +209,23 @@ export const useStudio = create((set, get) => ({
     }
   }),
 
-  addConversation: (prompt, scene) => set((s) => {
+  // Returns the new item (callers fork sequence clips from it).
+  addConversation: (prompt, scene) => {
     const item = {
-      id: `c_${Date.now().toString(36)}`,
+      id: `c_${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`,
       title: convoTitle(prompt),
       prompt,
       scene,
       createdAt: new Date().toISOString(),
       layerCount: scene.layers.length,
     }
-    const conversations = [item, ...s.conversations].slice(0, MAX_CONVOS)
-    persistConvos(conversations)
-    return { conversations, log: [...s.log, `Saved to history: ${item.title}`] }
-  }),
+    set((s) => {
+      const conversations = [item, ...s.conversations].slice(0, MAX_CONVOS)
+      persistConvos(conversations)
+      return { conversations, log: [...s.log, `Saved to history: ${item.title}`] }
+    })
+    return item
+  },
 
   loadConversation: (id) => set((s) => {
     const c = s.conversations.find((x) => x.id === id)
@@ -190,6 +249,88 @@ export const useStudio = create((set, get) => ({
     const conversations = s.conversations.map((x) => (x.id === id ? { ...x, title: String(title).trim().slice(0, 80) || x.title } : x))
     persistConvos(conversations)
     return { conversations }
+  }),
+
+  // ---- Sequence (multi-slide playlist) ----
+  // Items hold a validated scene snapshot, so deleting or renaming a
+  // history conversation never breaks the sequence. convoId is only a
+  // back-link for display. Scenes can carry data: URLs (images, audio,
+  // fonts), so disk persistence is best-effort under quota.
+  seqMode: false,
+  setSeqMode: (on) => set({ seqMode: !!on }),
+  sequence: loadSequence(),
+  editingSeqId: null,
+  setEditingSeqId: (id) => set({ editingSeqId: id || null }),
+  seqSelectedId: null,
+  setSeqSelectedId: (id) => set({ seqSelectedId: id || null }),
+  addSeqItem: (convo, atIndex) => set((s) => {
+    if (!convo?.scene) return { log: [...s.log, 'That history item has no scene to sequence.'] }
+    let scene = null
+    try { scene = validateScene(normalizeScene(convo.scene)) } catch (e) { return { log: [...s.log, `Could not sequence “${convo.title}”: ${e.message}`] } }
+    const item = {
+      id: `q_${Date.now().toString(36)}`,
+      convoId: convo.id || null,
+      name: convo.title || 'Untitled clip',
+      scene,
+      trimStart: 0, trimEnd: 0, gapAfter: 0,
+    }
+    const items = [...s.sequence.items]
+    const at = atIndex == null ? items.length : Math.min(Math.max(0, atIndex), items.length)
+    items.splice(at, 0, item)
+    const sequence = { ...s.sequence, items }
+    persistSequence(sequence)
+    return { sequence, seqSelectedId: item.id, log: [...s.log, `Sequenced: ${item.name}`] }
+  }),
+  removeSeqItem: (id) => set((s) => {
+    const sequence = { ...s.sequence, items: s.sequence.items.filter((x) => x.id !== id) }
+    persistSequence(sequence)
+    return { sequence, seqSelectedId: s.seqSelectedId === id ? null : s.seqSelectedId, editingSeqId: s.editingSeqId === id ? null : s.editingSeqId }
+  }),
+  moveSeqItem: (id, toIndex) => set((s) => {
+    const items = [...s.sequence.items]
+    const from = items.findIndex((x) => x.id === id)
+    if (from < 0) return s
+    const [item] = items.splice(from, 1)
+    // toIndex is pre-removal (0..n, n = drop past the end): adjust for the
+    // removal first, THEN clamp to the post-removal range. Clamping first
+    // collapsed a forward drop to the end back onto the origin (e.g. clip
+    // #1 -> end of a 2-clip reel silently no-opped).
+    let to = Math.round(Number(toIndex))
+    if (!Number.isFinite(to)) to = items.length
+    if (from < to) to -= 1
+    to = Math.min(Math.max(0, to), items.length)
+    items.splice(to, 0, item)
+    const sequence = { ...s.sequence, items }
+    persistSequence(sequence)
+    return { sequence }
+  }),
+  // Post-removal coords: `to` is the index in the array AFTER the dragged
+  // item is out (what the rail insertion line shows). No adjustment needed.
+  moveSeqItemTo: (id, to) => set((s) => {
+    const items = [...s.sequence.items]
+    const from = items.findIndex((x) => x.id === id)
+    if (from < 0) return s
+    const [item] = items.splice(from, 1)
+    items.splice(Math.min(Math.max(0, to), items.length), 0, item)
+    const sequence = { ...s.sequence, items }
+    persistSequence(sequence)
+    return { sequence }
+  }),
+  updateSeqItem: (id, patch) => set((s) => {
+    const items = s.sequence.items.map((x) => (x.id === id ? { ...x, ...patch } : x))
+    const sequence = { ...s.sequence, items }
+    persistSequence(sequence)
+    return { sequence }
+  }),
+  clearSequence: () => set((s) => {
+    const sequence = { ...s.sequence, items: [], music: null }
+    persistSequence(sequence)
+    return { sequence, seqSelectedId: null, editingSeqId: null }
+  }),
+  setSeqMusic: (music) => set((s) => {
+    const sequence = { ...s.sequence, music }
+    persistSequence(sequence)
+    return { sequence }
   }),
 
   upsertKeyframe: (id, frame, props) => set((s) => {

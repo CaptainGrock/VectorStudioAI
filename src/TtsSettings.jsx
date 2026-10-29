@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react'
 
 const KEY = 'vectorstudio.tts.v1'
-const FIT_COLOR = { great: '#3ddc84', tight: '#ffcf40', cpu: '#4da3ff', unknown: '#888' }
+const FIT_COLOR = { great: '#3ddc84', tight: '#ffcf40', cpu: 'var(--vs-accent)', unknown: '#888' }
 const DEFAULT_DIR_WIN = 'C:\\Stable\\ComfyUI\\models\\breezetts2'
 // Suggested checkpoints: the official repo first, then the ComfyUI mirror.
 const SUGGESTED = ['BreezeBlue/Breeze-TTS-2', 'drbaph/Breeze-TTS-2-comfyui']
@@ -344,21 +344,21 @@ export default function TtsSettings() {
         </>
       )}
       {!!server?.libJob && (server.libJob.active || server.libJob.error || server.libJob.done) && (
-        <div style={{ marginTop: 6, background: '#101828', borderRadius: 6, padding: 6, fontSize: 11 }}>
+        <div style={{ marginTop: 6, background: 'var(--vs-inset)', borderRadius: 6, padding: 6, fontSize: 11 }}>
           <style>{`@keyframes vs-slide { 0% { margin-left: -40%; } 100% { margin-left: 100%; } }`}</style>
           {server.libJob.active && (
             <>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}><span style={{ opacity: 0.8, flex: 1 }}>Working… ({server.libJob.kind}) · {server.libJob.elapsedSec || 0}s</span><button onClick={cancelJob} title="Stop this install job">Cancel</button></div>
               {server.libJob.pct != null ? (
                 <>
-                  <div style={{ height: 8, background: '#1a2233', borderRadius: 4, overflow: 'hidden', marginTop: 4 }}>
-                    <div style={{ height: '100%', width: `${server.libJob.pct}%`, background: '#4da3ff', transition: 'width .5s' }} />
+                  <div style={{ height: 8, background: 'var(--vs-track)', borderRadius: 4, overflow: 'hidden', marginTop: 4 }}>
+                    <div style={{ height: '100%', width: `${server.libJob.pct}%`, background: 'var(--vs-accent)', transition: 'width .5s' }} />
                   </div>
                   <div style={{ opacity: 0.6, marginTop: 2 }}>{server.libJob.pct}%</div>
                 </>
               ) : (
-                <div style={{ height: 8, background: '#1a2233', borderRadius: 4, overflow: 'hidden', marginTop: 4 }}>
-                  <div style={{ height: '100%', width: '40%', background: '#4da3ff', animation: 'vs-slide 1.2s linear infinite' }} />
+                <div style={{ height: 8, background: 'var(--vs-track)', borderRadius: 4, overflow: 'hidden', marginTop: 4 }}>
+                  <div style={{ height: '100%', width: '40%', background: 'var(--vs-accent)', animation: 'vs-slide 1.2s linear infinite' }} />
                 </div>
               )}
             </>
@@ -375,7 +375,7 @@ export default function TtsSettings() {
         </div>
       )}
       {server?.pySuggested && server.pySuggested.exe !== server.python?.exe && (
-        <div style={{ marginTop: 6, background: '#10231a', borderRadius: 8, padding: 8 }}>
+        <div style={{ marginTop: 6, background: 'var(--vs-inset)', borderRadius: 8, padding: 8 }}>
           <div style={{ fontSize: 12 }}>✨ <strong>{shortPy(server.pySuggested.exe)}</strong> looks fully ready (code + packages + GPU). One click switches to it:</div>
           <button onClick={() => savePy(server.pySuggested.argv)} style={{ marginTop: 4 }}>Use {shortPy(server.pySuggested.exe)} instead</button>
         </div>
@@ -393,12 +393,12 @@ export default function TtsSettings() {
         <button disabled={busy === 'ckpt' || !!server?.ckptJob?.active} onClick={downloadCheckpoint}>{busy === 'ckpt' ? 'Starting…' : server?.ckptJob?.active ? 'Downloading…' : '⬇ Download'}</button>
       </div>
       {!!server?.ckptJob && (server.ckptJob.active || server.ckptJob.error || server.ckptJob.done) && (
-        <div style={{ marginTop: 6, background: '#101828', borderRadius: 6, padding: 6, fontSize: 11 }}>
+        <div style={{ marginTop: 6, background: 'var(--vs-inset)', borderRadius: 6, padding: 6, fontSize: 11 }}>
           {server.ckptJob.active && (
             <>
               <div style={{ opacity: 0.8 }}>{server.ckptJob.file ? `${server.ckptJob.idx + 1}/${server.ckptJob.files.length} · ${server.ckptJob.file}` : 'Starting…'}</div>
-              <div style={{ height: 8, background: '#1a2233', borderRadius: 4, overflow: 'hidden', marginTop: 4 }}>
-                <div style={{ height: '100%', width: `${server.ckptJob.pct ?? 0}%`, background: '#4da3ff', transition: 'width .5s' }} />
+              <div style={{ height: 8, background: 'var(--vs-track)', borderRadius: 4, overflow: 'hidden', marginTop: 4 }}>
+                <div style={{ height: '100%', width: `${server.ckptJob.pct ?? 0}%`, background: 'var(--vs-accent)', transition: 'width .5s' }} />
               </div>
               <div style={{ opacity: 0.6, marginTop: 2 }}>{server.ckptJob.pct ?? 0}% overall</div>
             </>
@@ -432,7 +432,7 @@ export default function TtsSettings() {
       {!!results?.length && (
         <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 150, overflowY: 'auto' }}>
           {results.map((m) => (
-            <div key={m.id} style={{ fontSize: 12, background: '#111a2c', borderRadius: 6, padding: '6px 8px', display: 'flex', gap: 6, alignItems: 'center' }}>
+            <div key={m.id} style={{ fontSize: 12, background: 'var(--vs-card)', borderRadius: 6, padding: '6px 8px', display: 'flex', gap: 6, alignItems: 'center' }}>
               <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`${m.id} · ♥ ${m.likes ?? 0}`}>{m.id}</span>
               <button onClick={() => showFiles(m.id)} style={{ fontSize: 11 }}>Files</button>
             </div>
@@ -440,7 +440,7 @@ export default function TtsSettings() {
         </div>
       )}
       {files && (
-        <div style={{ marginTop: 4, background: '#101828', borderRadius: 6, padding: 6 }}>
+        <div style={{ marginTop: 4, background: 'var(--vs-inset)', borderRadius: 6, padding: 6 }}>
           <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 4 }}>{files.repo} — downloads land in the folder above</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 170, overflowY: 'auto' }}>
             {files.list.length ? files.list.map((f) => (
@@ -462,7 +462,7 @@ export default function TtsSettings() {
       <div style={{ fontSize: 11, opacity: 0.65, marginTop: 2 }}>Clean 10–20 s clip + its exact transcript. Synthesis clones this voice; no clip = generic voice from the instruction alone.</div>
       <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 6 }}>
         {tts.voices.map((v, i) => (
-          <div key={v.id} style={{ background: '#111a2c', borderRadius: 6, padding: '6px 8px' }}>
+          <div key={v.id} style={{ background: 'var(--vs-card)', borderRadius: 6, padding: '6px 8px' }}>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <input value={v.name} onChange={(e) => persist({ ...tts, voices: tts.voices.map((x) => (x.id === v.id ? { ...x, name: e.target.value } : x)) })}
                 title="Speaker name" style={{ flex: 1, fontSize: 12 }} placeholder={`Speaker ${i + 1}`} />

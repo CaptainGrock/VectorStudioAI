@@ -4,6 +4,7 @@
 import { defaultScene, effectiveTiming } from './sceneGraph.js'
 import { parseMarkdownTable, parseDelimitedTable, delimitedTableSpans, gluedProsePrefix, widePeriodColumns, periodUnit, tableToLayerData, summarizeForLLM, isNumericColumn, cleanNumber } from './datasets.js'
 import { countryCoords, project } from './geo.js'
+import { shapeKind } from './shapes.js'
 
 // Optional per-point coloring for table charts: "green for positive, red for
 // negative" colors by sign when values span zero; "by category" / "color"
@@ -1206,6 +1207,40 @@ export function ruleBasedScene(prompt, base = defaultScene, datasets = [], image
           ],
     })
   }
+  // parametric shapes ("add a decision diamond labeled Approved", "red arrow pointing right")
+  const shapeWord = /\bdecision\b|\bdiamond\b/.test(nt) ? 'decision'
+    : /\bterminator\b/.test(nt) ? 'terminator'
+    : /\bdocument\b/.test(nt) ? 'document'
+    : /\bparallelogram\b/.test(nt) || (/\bdata\b/.test(nt) && /\bshape\b/.test(nt)) ? 'data'
+    : /\btrapezoid\b/.test(nt) ? 'trapezoid'
+    : /\bpentagon\b/.test(nt) ? 'pentagon' : /\bhexagon\b/.test(nt) ? 'hexagon'
+    : /\bchevron\b/.test(nt) ? 'chevron' : /\bcallout\b/.test(nt) ? 'callout'
+    : /\bring\b/.test(nt) && /\b(highlight|shape|circle)\b/.test(nt) ? 'ring'
+    : /\bstar\b/.test(nt) ? 'star'
+    : /\btriangle\b/.test(nt) ? 'triangle'
+    : /\bcircle\b/.test(nt) ? 'ellipse' : /\bellipse\b/.test(nt) ? 'ellipse'
+    : /\brounded\b/.test(nt) ? 'roundrect'
+    : /\b(rectangle|square|box)\b/.test(nt) ? 'rect'
+    : /\bprocess\b/.test(nt) && /\bshape\b/.test(nt) ? 'process'
+    : /\barrow\b/.test(nt) ? (/\bleft\b/.test(nt) ? 'arrow-left' : /\bup\b/.test(nt) ? 'arrow-up' : /\bdown\b/.test(nt) ? 'arrow-down' : 'arrow-right')
+    : null
+  if (shapeWord && !shapeFor) {
+    const kind = shapeKind(shapeWord)
+    const lm = nt.match(/(?:labeled|labelled|saying|with text|that says)\s+["']?([^"'.]{1,40})/)
+    const colm = nt.match(/\b(red|blue|green|yellow|orange|purple|pink|teal|gray|grey|white|black)\b/)
+    const fillBy = { red: '#a02c2c', blue: '#1d3a6e', green: '#1f6b3a', yellow: '#8a6d1c', orange: '#9a5a1a', purple: '#5b2f8a', pink: '#8a2f5b', teal: '#1f6b6b', gray: '#3a4556', grey: '#3a4556', white: '#dfe6f2', black: '#151a24' }
+    const w = kind.defW, h = kind.defH
+    layers.push({
+      id: nid('layer'), name: `${kind.label} Shape`, type: 'shape',
+      text: lm ? lm[1].trim() : '', fontSize: 48,
+      data: { kind: kind.id, w, h, fill: (colm && fillBy[colm[1]]) || '#1d3a6e', stroke: '#4da3ff', strokeWidth: kind.id === 'ring' ? 14 : 4 },
+      startFrame: 0, endFrame: base.durationInFrames,
+      keyframes: [
+        { frame: 0, properties: { x: Math.round((1280 - w) / 2), y: Math.round((720 - h) / 2), scale: 0.85, opacity: 0 } },
+        { frame: 30, properties: { x: Math.round((1280 - w) / 2), y: Math.round((720 - h) / 2), scale: 1, opacity: 1 }, easing: 'easeOutExpo' },
+      ],
+    })
+  }
   // sprite walkthrough
   if (nt.includes('walk') || nt.includes('character') || nt.includes('sprite')) {
     layers.push({
@@ -1270,7 +1305,7 @@ export function ruleBasedPatch(scene, prompt, datasets = [], images = []) {
   // from 0 while the layer itself stays put (100% from the start).
   const noZoom = /(n't|not|never|without|stop|remove|disable)\b[^.]{0,40}\bzoom|\bno[ -]?zoom\b|\bstatic\b/i.test(prompt)
   if (noZoom) {
-    const typeWords = {  bar_chart: ['bar', 'chart', 'graph', 'horizontal', 'vertical', 'stacked', 'stack', 'unstack', 'clustered'], line_chart: ['line', 'chart', 'graph'], pie_chart: ['pie', 'donut', 'chart'], area_chart: ['area', 'chart'], scatter_chart: ['scatter', 'chart'], histogram: ['histogram', 'chart'], waterfall: ['waterfall', 'chart'], funnel_chart: ['funnel', 'chart'], radar_chart: ['radar', 'spider', 'chart'], surface_plot: ['surface', '3d', 'chart'], map_bubbles: ['map', 'bubble', 'country', 'chart'], text: ['title', 'text'], vector_shape: ['icon', 'shape', 'bank', 'arrow', 'person'], sprite: ['character', 'sprite', 'walk'] }
+    const typeWords = {  bar_chart: ['bar', 'chart', 'graph', 'horizontal', 'vertical', 'stacked', 'stack', 'unstack', 'clustered'], line_chart: ['line', 'chart', 'graph'], pie_chart: ['pie', 'donut', 'chart'], area_chart: ['area', 'chart'], scatter_chart: ['scatter', 'chart'], histogram: ['histogram', 'chart'], waterfall: ['waterfall', 'chart'], funnel_chart: ['funnel', 'chart'], radar_chart: ['radar', 'spider', 'chart'], surface_plot: ['surface', '3d', 'chart'], map_bubbles: ['map', 'bubble', 'country', 'chart'], text: ['title', 'text'], vector_shape: ['icon', 'bank', 'person'], shape: ['shape', 'rectangle', 'square', 'circle', 'ellipse', 'triangle', 'diamond', 'arrow', 'star', 'decision', 'terminator', 'chevron', 'callout', 'flowchart'], sprite: ['character', 'sprite', 'walk'] }
     const mentioned = new Set()
     for (const [type, words] of Object.entries(typeWords)) {
       if (words.some((w) => new RegExp(`\\b${w}\\b`).test(p))) mentioned.add(type)
@@ -1694,7 +1729,7 @@ async function tryEngine(messages) {
 }
 
 export async function generateScene(prompt, opts = {}) {
-  const system = opts.systemGenerate || 'Return ONLY a JSON Scene Graph: {fps,durationInFrames,width,height,layers:[{id,name,type(bar_chart|line_chart|map_bubbles|pie_chart|area_chart|scatter_chart|histogram|waterfall|funnel_chart|radar_chart|surface_plot|text|vector_shape|sprite|image_layer),startFrame,endFrame,data?,text?,assetUrl?,keyframes:[{frame,properties:{x?,y?,scale?,opacity?,rotation?},easing?}]}]}. Image layers use imageName (positional x/y); charts/maps are full-canvas. orientation horizontal|vertical for bar/histogram; pie takes data.variant donut; stacked bars keep type bar_chart with data.series (array of {label, values[], color}) instead of data.values; a line chart with data.drawMode "connect" pops dots first then draws segments instead of the wipe; showTitle/showLegend false hides the title/legend.'
+  const system = opts.systemGenerate || 'Return ONLY a JSON Scene Graph: {fps,durationInFrames,width,height,layers:[{id,name,type(bar_chart|line_chart|map_bubbles|pie_chart|area_chart|scatter_chart|histogram|waterfall|funnel_chart|radar_chart|surface_plot|text|vector_shape|sprite|image_layer|shape),startFrame,endFrame,data?,text?,assetUrl?,keyframes:[{frame,properties:{x?,y?,scale?,opacity?,rotation?},easing?}]}]}. Shapes: {"type":"shape","text":"<label>","data":{"kind":"rect|roundrect|ellipse|triangle|diamond|decision|terminator|document|arrow-right|chevron|callout|ring|…","w":420,"h":260,"fill":"#hex","stroke":"#hex"}}. Image layers use imageName (positional x/y); charts/maps are full-canvas. orientation horizontal|vertical for bar/histogram; pie takes data.variant donut; stacked bars keep type bar_chart with data.series (array of {label, values[], color}) instead of data.values; a line chart with data.drawMode "connect" pops dots first then draws segments instead of the wipe; showTitle/showLegend false hides the title/legend.'
   // Attached datasets travel with the prompt: the LLM gets a compact summary,
   // the offline rules get the full tables.
   const datasets = opts.datasets || []

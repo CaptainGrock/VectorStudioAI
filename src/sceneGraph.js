@@ -15,7 +15,7 @@ export const KeyframeSchema = z.object({
 export const LayerSchema = z.object({
   id: z.string(),
   name: z.string(),
-  type: z.enum(['bar_chart', 'line_chart', 'map_bubbles', 'pie_chart', 'area_chart', 'scatter_chart', 'histogram', 'waterfall', 'funnel_chart', 'radar_chart', 'surface_plot', 'text', 'vector_shape', 'sprite', 'image_layer', 'audio_tts', 'audio_music']),
+  type: z.enum(['bar_chart', 'line_chart', 'map_bubbles', 'pie_chart', 'area_chart', 'scatter_chart', 'histogram', 'waterfall', 'funnel_chart', 'radar_chart', 'surface_plot', 'text', 'vector_shape', 'sprite', 'image_layer', 'shape', 'audio_tts', 'audio_music']),
   startFrame: z.number().int().min(0),
   endFrame: z.number().int().min(0),
   data: z.any().optional(),
@@ -98,7 +98,10 @@ const TYPE_ALIASES = {
   barchart: 'bar_chart', bar: 'bar_chart', bars: 'bar_chart',
   linechart: 'line_chart', line: 'line_chart', lines: 'line_chart', chart: 'bar_chart',
   text: 'text', title: 'text', heading: 'text', label: 'text',
-  vector: 'vector_shape', vectorshape: 'vector_shape', svg: 'vector_shape', shape: 'vector_shape', icon: 'vector_shape',
+  vector: 'vector_shape', vectorshape: 'vector_shape', svg: 'vector_shape', icon: 'vector_shape',
+  shape: 'shape', rectangle: 'shape', square: 'shape', circle: 'shape', ellipse: 'shape',
+  triangle: 'shape', diamond: 'shape', decision: 'shape', arrow: 'shape', star: 'shape',
+  flowchart: 'shape', terminator: 'shape', process: 'shape', document: 'shape', chevron: 'shape', callout: 'shape',
   sprite: 'sprite', character: 'sprite', walk: 'sprite', person: 'vector_shape',
   map: 'map_bubbles', bubble: 'map_bubbles', bubbles: 'map_bubbles', bubblemap: 'map_bubbles', geomap: 'map_bubbles',
   pie: 'pie_chart', donut: 'pie_chart', doughnut: 'pie_chart', area: 'area_chart',
@@ -170,6 +173,9 @@ export function normalizeScene(raw) {
         { frame: Math.min(startFrame + 30, endFrame), properties: { opacity: 1 } },
       ]
     }
+    // Generations (LLM or drag-committed) may carry partial property bags —
+    // complete them now so every fade/scale committed later interpolates.
+    keyframes = backfillKeyframeProps(keyframes, o.fontSize)
     return {
       id: String(o.id || `layer_${i + 1}`),
       // A deliberately blanked name ('') must survive: it means "no title".
@@ -246,6 +252,39 @@ export function applyPatch(scene, patch) {
     }
   }
   return SceneGraphSchema.parse(next)
+}
+
+// Keyframes are meant to be self-describing, but canvas drags used to commit
+// bare {x, y}-only keyframes and the LLM sometimes emits partial bags too.
+// A keyframe with no recorded opacity makes lerpKeyframes freeze the span
+// at the earlier value and pop at the keyframe — the fade you built never
+// plays, which reads as "opacity didn't save". Backfill repairs that:
+// every keyframe that is missing a known key inherits it from the nearest
+// LATER keyframe that defines it (the value the span is heading toward),
+// else the render fallback (opacity/scale 1, x/y/rotation 0, volume 1).
+// Keys no keyframe defines anywhere are left alone — every consumer already
+// falls back identically, so complete layers come back untouched.
+export function backfillKeyframeProps(keyframes, fontSizeDefault) {
+  const keys = ['x', 'y', 'scale', 'opacity', 'rotation', 'fontSize', 'volume']
+  const def = (k) => (
+    k === 'opacity' || k === 'scale' ? 1
+      : k === 'fontSize' ? (Number.isFinite(Number(fontSizeDefault)) ? Number(fontSizeDefault) : 84)
+        : k === 'volume' ? 1 : 0
+  )
+  const sorted = (Array.isArray(keyframes) ? keyframes : [])
+    .map((k) => ({ ...k, properties: { ...(k.properties || {}) } }))
+    .sort((a, b) => a.frame - b.frame)
+  for (const k of keys) {
+    if (!sorted.some((kf) => kf.properties[k] !== undefined)) continue
+    let carry
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      const v = sorted[i].properties[k]
+      if (v !== undefined) carry = v
+      else if (carry !== undefined) sorted[i].properties[k] = carry
+      else sorted[i].properties[k] = def(k)
+    }
+  }
+  return sorted
 }
 
 export function lerpKeyframes(keyframes, frame) {

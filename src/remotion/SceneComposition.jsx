@@ -3,6 +3,7 @@ import { AbsoluteFill, Audio, interpolate, useCurrentFrame, useRemotionEnvironme
 import { lerpKeyframes, effectiveTiming } from '../sceneGraph.js'
 import { webFontFamilies, fontCssUrl, addMirrorLinks, cleanFamily, customFontFaces, injectCustomFont, fontStack } from '../fonts.js'
 import { MAP_W, MAP_H, project } from '../geo.js'
+import { shapeParts } from '../shapes.js'
 
 // Headless renders use a fresh browser profile with no cached webfonts, and
 // the App-side loader never runs there — without this, every MP4 falls back
@@ -656,7 +657,7 @@ function ChartFor({ layer, frame }) {
     default: return <BarChart layer={layer} frame={frame} />
   }
 }
-const DRAGGABLE = ['text', 'image_layer', 'sprite', 'vector_shape']
+const DRAGGABLE = ['text', 'image_layer', 'sprite', 'vector_shape', 'shape']
 function LayerView({ layer, frame, onSelect, selected, preview, onDragPreview, onDragCommit }) {
   // Hooks must run before the out-of-range early return below, or
   // scrubbing past a layer boundary changes the hook count and crashes React.
@@ -778,6 +779,34 @@ function LayerView({ layer, frame, onSelect, selected, preview, onDragPreview, o
       <div style={{ ...style, outline: selectOutline, cursor: grabCursor }} {...clickProps} {...dragProps}>
         <img src={layer.assetUrl} alt={layer.name} style={{ width: 220, height: 220 }} onError={(e) => { e.currentTarget.style.display = 'none' }} />
         <div style={{ textAlign: 'center', fontSize: 20 }}>{layer.name}</div>
+      </div>
+    )
+  }
+  if (layer.type === 'shape') {
+    const d = layer.data || {}
+    const kind = typeof d.kind === 'string' && d.kind ? d.kind : 'rect'
+    const w = Math.max(20, Number(d.w) || 420)
+    const h = Math.max(20, Number(d.h) || 260)
+    const fill = d.fill || '#1d3a6e'
+    const stroke = d.stroke || '#4da3ff'
+    const sw = d.strokeWidth ?? (kind === 'ring' ? 14 : 4)
+    const paint = kind === 'ring' ? 'none' : fill
+    const parts = shapeParts(kind, w, h, d.cornerRadius)
+    const lines = String(layer.text || '').split('\n')
+    const fs = Math.max(10, Number(layer.fontSize) || 48)
+    return (
+      <div style={{ ...style, outline: selectOutline, cursor: grabCursor }} {...clickProps} {...dragProps}>
+        <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: 'block', overflow: 'visible' }}>
+          {parts.map((p, i) => {
+            const { el: Tag, ...attrs } = p
+            return <Tag key={i} {...attrs} fill={paint} stroke={stroke} strokeWidth={sw} strokeLinejoin="round" />
+          })}
+          {layer.text ? (
+            <text x={w / 2} y={h / 2} textAnchor="middle" dominantBaseline="central" fontSize={fs} fontWeight={800} letterSpacing={1} fontFamily={fontStack(cleanFamily(layer.fontFamily) || 'Inter')} fill={layer.color || '#fff'}>
+              {lines.map((ln, i) => (<tspan key={i} x={w / 2} dy={i === 0 ? -(lines.length - 1) * fs * 0.6 : fs * 1.2}>{ln}</tspan>))}
+            </text>
+          ) : null}
+        </svg>
       </div>
     )
   }

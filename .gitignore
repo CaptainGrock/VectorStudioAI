@@ -14,6 +14,7 @@ out/
 .env.*
 *.log
 scene.json
+sequence.json
 
 .vs-render-entry.jsx
 test-frame*.png

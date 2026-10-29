@@ -83,7 +83,7 @@ export default function EngineSettings({ pushLog }) {
     <div>
       {error && <div style={{ fontSize: 12, color: '#ff8080', marginBottom: 8 }}>{error}</div>}
       {/* engine strip */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#101828', borderRadius: 8, padding: '8px 10px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--vs-inset)', borderRadius: 8, padding: '8px 10px' }}>
         <span style={{ width: 10, height: 10, borderRadius: '50%', background: running ? '#3ddc84' : '#ff5252', flexShrink: 0 }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 600 }}>{running ? `Engine running · ${activeModel}` : 'No engine running'}</div>
@@ -99,7 +99,7 @@ export default function EngineSettings({ pushLog }) {
       {(engine?.models?.onDisk?.length || scan?.found?.length) ? (
         <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 4 }}>
           {[...(engine?.models?.onDisk || []), ...(scan?.found || []).filter((s) => !(engine?.models?.onDisk || []).some((o) => o.path === s.path))].map((m) => (
-            <div key={m.path} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, background: '#111a2c', borderRadius: 6, padding: '6px 8px' }}>
+            <div key={m.path} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, background: 'var(--vs-card)', borderRadius: 6, padding: '6px 8px' }}>
               <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={m.path}>{m.fileName}{m.quant ? ` · ${m.quant}` : ''} · {GB(m.sizeGB)}</span>
               <button disabled={!!busy} onClick={() => run('use', async () => {
                 await post('/api/engine/start', { modelPath: m.path })
@@ -129,7 +129,7 @@ export default function EngineSettings({ pushLog }) {
 
       {/* engine binary */}
       {!engine?.binary && (
-        <div style={{ marginTop: 10, background: '#1a1408', borderRadius: 8, padding: 8 }}>
+        <div style={{ marginTop: 10, background: 'var(--vs-inset)', borderRadius: 8, padding: 8 }}>
           <div style={{ fontSize: 12, fontWeight: 600 }}>No llama-server found — nothing can run a model yet</div>
           <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
             <button disabled={!!busy} onClick={() => run('engine-opts', async () => {
@@ -170,7 +170,7 @@ export default function EngineSettings({ pushLog }) {
               const v = VERDICT[o.verdict] || VERDICT.unknown
               const dl = downloads.find((d) => d.file === (o.file || '').split('/').pop() && (d.state === 'running' || d.state === 'done' || d.state === 'error' || d.state === 'cancelled'))
               return (
-                <div key={o.id} style={{ fontSize: 12, background: '#111a2c', borderRadius: 6, padding: '6px 8px', borderLeft: `3px solid ${v.color}` }}>
+                <div key={o.id} style={{ fontSize: 12, background: 'var(--vs-card)', borderRadius: 6, padding: '6px 8px', borderLeft: `3px solid ${v.color}` }}>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     <span style={{ flex: 1 }}>{o.recommended ? '★ ' : ''}<strong>{o.label}</strong> · {GB(o.sizeGB)} download · needs ~{GB(o.requiredGB)}</span>
                     <span style={{ color: v.color, fontSize: 11 }}>{v.label}</span>

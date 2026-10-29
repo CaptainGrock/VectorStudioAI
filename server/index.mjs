@@ -313,7 +313,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { ok: true, settings: saveSettings(body) });
     }
     if (req.method === "POST" && url.pathname === "/api/render") {
-      return send(res, 200, startRender(body.scene));
+      return send(res, 200, startRender(body));
     }
     const renderStatusMatch = url.pathname.match(/^\/api\/render\/([^/]+)$/);
     if (req.method === "GET" && renderStatusMatch) return send(res, 200, renderStatus(renderStatusMatch[1]));

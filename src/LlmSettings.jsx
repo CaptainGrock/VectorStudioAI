@@ -124,13 +124,19 @@ export default function LlmSettings({ value, onChange }) {
       </div>
       {dlState && (
         <div style={{ marginTop: 6 }}>
-          <div style={{ height: 8, background: '#1a2233', borderRadius: 4, overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: pct !== null ? `${pct}%` : '30%', background: '#4da3ff', transition: 'width .3s', opacity: pct !== null ? 1 : 0.5 }} />
+          <div style={{ height: 8, background: 'var(--vs-track)', borderRadius: 4, overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: pct !== null ? `${pct}%` : '30%', background: 'var(--vs-accent)', transition: 'width .3s', opacity: pct !== null ? 1 : 0.5 }} />
           </div>
           <div style={{ fontSize: 12, opacity: 0.7, marginTop: 2 }}>{dlState.status}{pct !== null ? ` · ${pct}%` : ''}</div>
         </div>
       )}
       {dlError && <div style={{ fontSize: 12, color: '#ff8080', marginTop: 4 }}>{dlError}</div>}
+
+      <div style={{ marginTop: 10 }}>
+        <label style={{ fontSize: 12, display: 'flex', gap: 6, alignItems: 'center' }} title="Slide previews and the sequence reel start playing as soon as they load">
+          <input type="checkbox" checked={value.autoplayPreviews !== false} onChange={(e) => set({ autoplayPreviews: e.target.checked })} /> Auto-play previews
+        </label>
+      </div>
 
       <div style={{ marginTop: 10 }}>
         <button onClick={() => setShowCloud(!showCloud)} style={{ fontSize: 12 }}>{showCloud ? '▾' : '▸'} Cloud model (OpenAI-compatible)</button>
