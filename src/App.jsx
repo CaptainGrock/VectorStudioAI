@@ -1666,6 +1666,14 @@ export default function App() {
     const t = setTimeout(() => { try { const p = playerRef.current; if (p && !p.isPlaying?.()) p.play?.() } catch {} }, 350)
     return () => clearTimeout(t)
   }, [previewConvo?.id, seqMode, llm.autoplayPreviews])
+  // Keep the active history entry's snapshot current (debounced): without
+  // this, entries go stale the moment you edit, and Duplicate/Load resurrect
+  // the stale copy — the "everything vanished" bug.
+  React.useEffect(() => {
+    if (!useStudio.getState().activeConvoId) return
+    const t = setTimeout(() => { useStudio.getState().syncActiveConvo() }, 800)
+    return () => clearTimeout(t)
+  }, [scene])
   const fileRef = React.useRef(null)
   // Space plays/pauses the preview whenever focus isn't in an editable
   // control or a button (so typing spaces and button activation keep working).
@@ -1847,7 +1855,8 @@ export default function App() {
       // the model explicitly set non-default dims (e.g. asked for vertical).
       const dimsTouched = (valid.width && valid.width !== 1280) || (valid.height && valid.height !== 720)
       setScene(dimsTouched ? valid : { ...valid, width: scene.width || 1280, height: scene.height || 720 })
-      addConversation(usedPrompt, valid)
+      const _genItem = addConversation(usedPrompt, valid)
+      useStudio.getState().setActiveConvo(_genItem.id)
       const n = valid.layers.length
       setStatus(`Done — ${n} layer${n === 1 ? '' : 's'} via ${getLastSource()}. Preview updated.`, 'done')
       pushLog(`Generated ${n} layer(s) via ${getLastSource()}.`)
@@ -1864,7 +1873,8 @@ export default function App() {
     const blank = { ...emptyScene, width: scene.width || 1280, height: scene.height || 720, fps: scene.fps || 30, layers: [] }
     setScene(blank)
     selectLayer(null); clearPreview?.(); jumpTo(0)
-    useStudio.getState().addConversation('Blank slide', blank)
+    const _blankItem = useStudio.getState().addConversation('Blank slide', blank)
+    useStudio.getState().setActiveConvo(_blankItem.id)
     setStatus('New blank slide started — saved to History.', 'done')
     pushRev('assistant', 'Started a blank slide — saved to History. Add text, shapes or media, or describe a chart in Generate.')
   }
@@ -2150,7 +2160,7 @@ export default function App() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                       <button onClick={() => { loadConversation(c.id); setStatus(`Loaded: ${c.title}`, 'done'); setGenCollapsed(true); setRevCollapsed(false); pushLog(`Loaded: ${c.title}`) }} title={c.prompt} style={{ flex: 1, textAlign: 'left', background: 'none', border: 'none', color: 'var(--vs-accent)', cursor: 'pointer', padding: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</button>
-                      <button onClick={() => { const st = useStudio.getState(); const item = st.addConversation(c.prompt, JSON.parse(JSON.stringify(c.scene))); st.renameConversation(item.id, `${c.title} (copy)`.slice(0, 80)); setStatus(`Duplicated “${c.title}” — tweak away, the original is kept.`, 'done') }} title="Duplicate — tweak/rename a new version, the original is kept" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>⧉</button>
+                      <button onClick={() => { const st = useStudio.getState(); const srcScene = c.id === st.activeConvoId ? st.scene : c.scene; const item = st.addConversation(c.prompt, JSON.parse(JSON.stringify(srcScene))); st.renameConversation(item.id, `${c.title} (copy)`.slice(0, 80)); setStatus(`Duplicated “${c.title}” — tweak away, the original is kept.`, 'done') }} title="Duplicate — tweak/rename a new version, the original is kept" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>⧉</button>
                       {!isSimple && <button onClick={() => addSeqItem(c)} title="Append to the sequence reel" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#3ddc84' }}>＋Seq</button>}
                       <button onClick={() => deleteConversation(c.id)} title="Delete conversation" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>✕</button>
                     </div>

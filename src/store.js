@@ -18,8 +18,17 @@ function persistConvos(list) {
   try { localStorage.setItem(CONV_KEY, JSON.stringify(list)) } catch { /* quota/private mode */ }
 }
 const SEQ_KEY = 'vectorstudio.sequence.v1'
+const ACTIVE_KEY = 'vectorstudio.activeConvo.v1'
 const SEQ_PERSIST_MAX = 4 * 1024 * 1024 // scenes carry data: URLs — skip disk when huge
 
+function loadActiveConvo(convos) {
+  try {
+    const id = localStorage.getItem(ACTIVE_KEY)
+    return id && convos.some((c) => c.id === id) ? id : null
+  } catch {
+    return null
+  }
+}
 function loadSequence() {
   const empty = { items: [], music: null }
   try {
@@ -185,8 +194,10 @@ export const useStudio = create((set, get) => ({
       // History — a title slide built from +Add text vanished from the rail.
       // First layer in an empty scene seeds a default history checkpoint so
       // the work is never losable; later adds ride LAST_KEY persistence.
+      // With active-entry syncing in place, a tracked slide needs no extra
+      // seed — the seed is only for untracked work.
       const wasEmpty = s.scene.layers.length === 0
-      if (!wasEmpty) {
+      if (!wasEmpty || s.activeConvoId) {
         return { scene, past: [...s.past, s.scene].slice(-50), future: [], selectedLayerId: layer.id, log: [...s.log, `Added layer: ${layer.name}`] }
       }
       const item = {
@@ -218,6 +229,26 @@ export const useStudio = create((set, get) => ({
   }),
 
   conversations: loadConvos(),
+  // The entry the live scene belongs to: its snapshot is kept current by
+  // syncActiveConvo (debounced from App), so Duplicate/Load never resurrect
+  // a stale copy. Survives restarts via ACTIVE_KEY.
+  activeConvoId: loadActiveConvo(loadConvos()),
+  setActiveConvo: (id) => set(() => {
+    try {
+      if (id) localStorage.setItem(ACTIVE_KEY, id)
+      else localStorage.removeItem(ACTIVE_KEY)
+    } catch { /* ignore */ }
+    return { activeConvoId: id || null }
+  }),
+  // Writes the live scene into the active history entry (no undo entry,
+  // no log spam — this is bookkeeping, not an edit).
+  syncActiveConvo: () => set((s) => {
+    if (!s.activeConvoId) return s
+    if (!s.conversations.some((c) => c.id === s.activeConvoId)) return s
+    const conversations = s.conversations.map((c) => (c.id === s.activeConvoId ? { ...c, scene: s.scene, layerCount: s.scene.layers.length } : c))
+    persistConvos(conversations)
+    return { conversations }
+  }),
   selectedLayerId: null,
 
   selectLayer: (id) => set({ selectedLayerId: id || null }),
@@ -271,7 +302,8 @@ export const useStudio = create((set, get) => ({
     try {
       const valid = validateScene(normalizeScene(c.scene))
       try { localStorage.setItem(LAST_KEY, JSON.stringify(valid)) } catch { /* ignore */ }
-      return { scene: valid, sceneRev: s.sceneRev + 1, past: [...s.past, s.scene].slice(-50), future: [], selectedLayerId: null, log: [...s.log, `Loaded: ${c.title}`] }
+      try { localStorage.setItem(ACTIVE_KEY, id) } catch { /* ignore */ }
+      return { scene: valid, sceneRev: s.sceneRev + 1, past: [...s.past, s.scene].slice(-50), future: [], selectedLayerId: null, activeConvoId: id, log: [...s.log, `Loaded: ${c.title}`] }
     } catch (e) {
       return { log: [...s.log, `Could not load history item: ${e.message}`] }
     }
@@ -280,7 +312,9 @@ export const useStudio = create((set, get) => ({
   deleteConversation: (id) => set((s) => {
     const conversations = s.conversations.filter((x) => x.id !== id)
     persistConvos(conversations)
-    return { conversations }
+    if (s.activeConvoId !== id) return { conversations }
+    try { localStorage.removeItem(ACTIVE_KEY) } catch { /* ignore */ }
+    return { conversations, activeConvoId: null }
   }),
 
   renameConversation: (id, title) => set((s) => {
