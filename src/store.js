@@ -217,6 +217,20 @@ export const useStudio = create((set, get) => ({
     return { scene, past: [...s.past, s.scene].slice(-50), future: [] }
   }),
 
+  // Left-edge trim of a layer's startFrame — same live/commit split.
+  // Dragging an audio layer's left edge in delays its start (TTS/music
+  // only mount while the playhead is inside [startFrame, endFrame]).
+  trimStartLayer: (id, startFrame) => set((s) => {
+    const scene = { ...s.scene, layers: s.scene.layers.map(l => (l.id === id ? { ...l, startFrame } : l)) }
+    persistScene(scene)
+    return { scene }
+  }),
+  commitStartTrim: (id, startFrame) => set((s) => {
+    const scene = { ...s.scene, layers: s.scene.layers.map(l => (l.id === id ? { ...l, startFrame } : l)) }
+    persistScene(scene)
+    return { scene, past: [...s.past, s.scene].slice(-50), future: [] }
+  }),
+
   updateSceneField: (field, value) => set((s) => {
     const scene = { ...s.scene, [field]: value }
     persistScene(scene)

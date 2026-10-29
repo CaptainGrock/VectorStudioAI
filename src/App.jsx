@@ -1482,14 +1482,17 @@ function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onSee
   const commitKeyframes = useStudio(s => s.commitKeyframes)
   const trimLayer = useStudio(s => s.trimLayer)
   const commitLayerTrim = useStudio(s => s.commitLayerTrim)
-  // Right-edge trim drag: snapshot the lane geometry + scale at grab time
-  // so the frame mapping stays stable even as the trimmed end shrinks timeMax.
+  const trimStartLayer = useStudio(s => s.trimStartLayer)
+  const commitStartTrim = useStudio(s => s.commitStartTrim)
+  // Edge-trim drags: snapshot the lane geometry + scale at grab time so
+  // the frame mapping stays stable even as the trimmed edge moves timeMax.
   const trimRef = React.useRef(null)
   const trimFrameAt = (clientX) => {
     const t = trimRef.current
     if (!t || !t.rect?.width) return null
     const ratio = Math.min(1, Math.max(0, (clientX - t.rect.left) / t.rect.width))
     const raw = Math.round(ratio * t.timeMax)
+    if (t.edge === 'start') return Math.max(0, Math.min(t.endFrame - 1, raw))
     return Math.min(t.timeMax, Math.max(t.startFrame + 1, raw))
   }
   const setScene = useStudio(s => s.setScene)
@@ -1543,26 +1546,55 @@ function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onSee
               width: `${Math.max(2, ((l.endFrame - l.startFrame) / timeMax) * 100)}%`,
               background: 'var(--vs-block)', borderRadius: 4, border: '1px solid var(--vs-block-bd)',
             }}>
+              <div title={`Drag to set when “${l.name || 'layer'}” starts (now ${l.startFrame}f${l.type === 'audio_tts' || l.type === 'audio_music' ? ' — audio plays from here' : ''})`}
+                onPointerDown={(e) => {
+                  e.stopPropagation()
+                  scrubbing.current = false
+                  try { e.currentTarget.setPointerCapture(e.pointerId) } catch {}
+                  const lane = e.currentTarget.parentElement?.parentElement
+                  trimRef.current = { id: l.id, edge: 'start', rect: lane?.getBoundingClientRect(), timeMax, endFrame: l.endFrame }
+                  const f = trimFrameAt(e.clientX)
+                  if (Number.isFinite(f)) trimStartLayer(l.id, f)
+                }}
+                onPointerMove={(e) => {
+                  const t = trimRef.current
+                  if (t && t.id === l.id && t.edge === 'start' && e.buttons) {
+                    const f = trimFrameAt(e.clientX)
+                    if (Number.isFinite(f)) trimStartLayer(l.id, f)
+                  }
+                }}
+                onPointerUp={(e) => {
+                  const t = trimRef.current
+                  if (t && t.id === l.id && t.edge === 'start') {
+                    const f = trimFrameAt(e.clientX)
+                    trimRef.current = null
+                    commitStartTrim(l.id, Number.isFinite(f) ? f : l.startFrame)
+                  }
+                }}
+                onPointerCancel={() => { trimRef.current = null }}
+                style={{ position: 'absolute', top: -3, bottom: -3, left: -7, width: 16, cursor: 'ew-resize', touchAction: 'none', display: 'flex', alignItems: 'stretch', justifyContent: 'flex-start', zIndex: 3 }}>
+                <div style={{ width: 5, borderRadius: 3, background: 'var(--vs-accent)', opacity: 0.9 }} />
+              </div>
               <div title={`Drag to trim “${l.name || 'layer'}” length (ends ${l.endFrame}f)`}
                 onPointerDown={(e) => {
                   e.stopPropagation()
                   scrubbing.current = false
                   try { e.currentTarget.setPointerCapture(e.pointerId) } catch {}
                   const lane = e.currentTarget.parentElement?.parentElement
-                  trimRef.current = { id: l.id, rect: lane?.getBoundingClientRect(), timeMax, startFrame: l.startFrame }
+                  trimRef.current = { id: l.id, edge: 'end', rect: lane?.getBoundingClientRect(), timeMax, startFrame: l.startFrame }
                   const f = trimFrameAt(e.clientX)
                   if (Number.isFinite(f)) trimLayer(l.id, f)
                 }}
                 onPointerMove={(e) => {
                   const t = trimRef.current
-                  if (t && t.id === l.id && e.buttons) {
+                  if (t && t.id === l.id && t.edge === 'end' && e.buttons) {
                     const f = trimFrameAt(e.clientX)
                     if (Number.isFinite(f)) trimLayer(l.id, f)
                   }
                 }}
                 onPointerUp={(e) => {
                   const t = trimRef.current
-                  if (t && t.id === l.id) {
+                  if (t && t.id === l.id && t.edge === 'end') {
                     const f = trimFrameAt(e.clientX)
                     trimRef.current = null
                     commitLayerTrim(l.id, Number.isFinite(f) ? f : l.endFrame)
@@ -1590,7 +1622,7 @@ function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onSee
           </>)}
         </div>
       ))}
-      <div style={{ fontSize: 12, opacity: 0.6 }}>Red line is the playhead — click or drag any track to scrub it. Drag yellow diamonds to retime keyframes. Drag a track's right-edge bar to trim its length. Drag titles, images and shapes right on the video to move them (drop saves a keyframe).</div>
+      <div style={{ fontSize: 12, opacity: 0.6 }}>Red line is the playhead — click or drag any track to scrub it. Drag yellow diamonds to retime keyframes. Drag a track's edge bars to set its start/end — dragging audio's left edge delays when it starts. Drag titles, images and shapes right on the video to move them (drop saves a keyframe).</div>
       {menu && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={() => setMenu(null)} onContextMenu={(e) => { e.preventDefault(); setMenu(null) }}>
           <div style={{ position: 'fixed', left: Math.min(menu.x, window.innerWidth - 180), top: Math.min(menu.y, window.innerHeight - 140), background: 'var(--vs-menu)', border: '1px solid var(--vs-border)', borderRadius: 8, padding: 4, minWidth: 170, boxShadow: '0 8px 24px rgba(0,0,0,0.65)' }} onClick={(e) => e.stopPropagation()}>
