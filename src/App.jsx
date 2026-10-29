@@ -1491,7 +1491,7 @@ function SequencerPanel({ getFrame, onJump, onExportSeq, rendering, playerRef })
                   <span style={{ fontSize: 12, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}><span style={{ opacity: 0.55, fontWeight: 400 }}>{i + 1} · </span>{item.name}</span>
                   <button onClick={(e) => { e.stopPropagation(); removeSeqItem(item.id) }} title="Remove from sequence (history kept)" style={{ background: '#2a1418', border: '1px solid #6e2a33', color: '#ff9a9a', cursor: 'pointer', padding: '0 5px', borderRadius: 6, fontSize: 12, lineHeight: 1.4 }}>✕</button>
                 </div>
-                <ClipThumb scene={item.scene} width={Math.min(480, Math.max(32, px - 16))} />
+                <ClipThumb scene={item.scene} width={Math.min(200, Math.max(32, px - 16))} />
                 <div style={{ fontSize: 11, opacity: 0.65 }}>{secs(dur)} · starts {secs(start)}</div>
                 <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
                   <button onClick={(e) => { e.stopPropagation(); playClipOnly(item, start, dur) }} title="Play this clip only (auto-pauses at its end) — reel ▶ plays everything">▶</button>
