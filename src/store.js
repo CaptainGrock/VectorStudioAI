@@ -500,6 +500,11 @@ export const useStudio = create((set, get) => ({
   setEditingSeqId: (id) => set({ editingSeqId: id || null }),
   seqSelectedId: null,
   setSeqSelectedId: (id) => set({ seqSelectedId: id || null }),
+  // Clip-only playback: card ▶ sets the frame where the reel auto-pauses
+  // (null = play through). Lives in the store so every play path — card,
+  // reel header, Space — arms, clears, and honors the same value.
+  seqStopAt: null,
+  setSeqStopAt: (f) => set({ seqStopAt: f == null ? null : Math.max(0, Math.round(f)) }),
   addSeqItem: (convo, atIndex) => set((s) => {
     if (!convo?.scene) return { log: [...s.log, 'That history item has no scene to sequence.'] }
     let scene = null

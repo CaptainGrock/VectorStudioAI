@@ -1239,6 +1239,7 @@ function SequencerPanel({ getFrame, onJump, onExportSeq, rendering, playerRef })
   const clearSequence = useStudio(s => s.clearSequence)
   const seqSelectedId = useStudio(s => s.seqSelectedId)
   const setSeqSelectedId = useStudio(s => s.setSeqSelectedId)
+  const setSeqStopAt = useStudio(s => s.setSeqStopAt)
   const setSeqMode = useStudio(s => s.setSeqMode)
   const setStatus = useStudio(s => s.setStatus)
   const { clips, total } = React.useMemo(() => seqLayout(sequence), [sequence])
@@ -1382,8 +1383,10 @@ function SequencerPanel({ getFrame, onJump, onExportSeq, rendering, playerRef })
     const f = bar ? seqFrameAtX(e.clientX, bar) : 0
     // Clicking / grabbing the timeline also selects the clip under the
     // cursor, so the card below highlights and the preview follows.
+    // Manual control disarms clip-only playback (see playClipOnly).
     const hit = clipAtFrame(f)
     if (hit) setSeqSelectedId(hit.id)
+    useStudio.getState().setSeqStopAt(null)
     onJump?.(f)
   }
   const rulerMove = (e) => { if (seqScrub.current && e.buttons) scrubTo(e) }
@@ -1399,16 +1402,49 @@ function SequencerPanel({ getFrame, onJump, onExportSeq, rendering, playerRef })
     }, 400)
     return () => clearInterval(t)
   }, [playerRef])
+  // Clip-only playback: card ▶ plays just that clip, then auto-pauses at
+  // its end (reel ▶ and Space play through). A 100ms watcher enforces the
+  // stop; every manual seek disarms it, so taking control never fights you.
+  React.useEffect(() => {
+    const t = setInterval(() => {
+      try {
+        const st = useStudio.getState()
+        const stop = st.seqStopAt
+        if (stop == null) return
+        const p = playerRef?.current
+        if (!p || !p.isPlaying?.()) return
+        if (Math.round(p.getCurrentFrame?.() ?? 0) >= stop) {
+          st.setSeqStopAt(null)
+          p.pause?.()
+          p.seekTo?.(stop)
+        }
+      } catch { /* player not mounted yet */ }
+    }, 100)
+    return () => clearInterval(t)
+  }, [playerRef])
+  function playClipOnly(item, start, dur) {
+    setSeqSelectedId(item.id)
+    setSeqStopAt(start + Math.max(1, Math.round(dur)) - 1)
+    onJump?.(start)
+    setStatus(`Playing “${item.name}” only — reel ▶ plays the whole sequence.`, 'info')
+    const p = playerRef?.current
+    if (!p) return
+    // Seek-then-play: the seek moves off any parked-at-end position, so
+    // unlike a bare play() this can't no-op. The delay lets the seek land.
+    setTimeout(() => { try { if (!p.isPlaying?.()) p.play?.() } catch {} }, 80)
+  }
   const togglePlay = () => {
     try {
       const p = playerRef?.current
       if (!p) return
       if (p.isPlaying?.()) { p.pause(); return }
+      useStudio.getState().setSeqStopAt(null)
       // Restart when parked on the last frame — Remotion's play() is a
       // no-op there, which read as "the play button doesn't work".
       const cur = Math.round(p.getCurrentFrame?.() ?? 0)
       if (cur >= total - 1 && total > 1) { p.seekTo?.(0); setTimeout(() => { try { p.play?.() } catch {} }, 60) }
       else p.play?.()
+      setStatus(`Playing full sequence — ${clips.length} clip${clips.length === 1 ? '' : 's'}, ${secs(total)}.`, 'info')
     } catch { /* player not mounted yet */ }
   }
   return (
@@ -1445,7 +1481,7 @@ function SequencerPanel({ getFrame, onJump, onExportSeq, rendering, playerRef })
               {grab && item.id !== grab.id && lineFor(i) && (
                 <div style={{ width: 4, background: 'var(--vs-accent)', borderRadius: 2, flexShrink: 0 }} />
               )}
-              <div data-seq-card data-seq-id={item.id} onPointerDown={() => { setSeqSelectedId(item.id); onJump?.(start) }} onContextMenu={(e) => { e.preventDefault(); jumpIntoClip(item) }} title="Click to select + seek · right-click to edit" style={{ width: px, flexShrink: 0, background: seqSelectedId === item.id ? 'var(--vs-sel)' : 'var(--vs-card)', border: seqSelectedId === item.id ? '1px solid var(--vs-accent)' : '1px solid var(--vs-border)', borderRadius: 8, padding: 6, cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 4, opacity: grab && grab.id === item.id ? 0.45 : 1, overflow: 'hidden' }}>
+              <div data-seq-card data-seq-id={item.id} onPointerDown={() => { setSeqSelectedId(item.id); setSeqStopAt(null); onJump?.(start) }} onContextMenu={(e) => { e.preventDefault(); jumpIntoClip(item) }} title="Click to select + seek · right-click to edit" style={{ width: px, flexShrink: 0, background: seqSelectedId === item.id ? 'var(--vs-sel)' : 'var(--vs-card)', border: seqSelectedId === item.id ? '1px solid var(--vs-accent)' : '1px solid var(--vs-border)', borderRadius: 8, padding: 6, cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 4, opacity: grab && grab.id === item.id ? 0.45 : 1, overflow: 'hidden' }}>
                 <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                   <span onPointerDown={(e) => { e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); grabRef.current = item.id; setGrab({ id: item.id, over: railIndexFromEvent(e, item.id) }) }}
                     onPointerMove={(e) => { if (grabRef.current === item.id) setGrab({ id: item.id, over: railIndexFromEvent(e, item.id) }) }}
@@ -1458,7 +1494,7 @@ function SequencerPanel({ getFrame, onJump, onExportSeq, rendering, playerRef })
                 <ClipThumb scene={item.scene} width={Math.min(480, Math.max(32, px - 16))} />
                 <div style={{ fontSize: 11, opacity: 0.65 }}>{secs(dur)} · starts {secs(start)}</div>
                 <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <button onClick={(e) => { e.stopPropagation(); setSeqSelectedId(item.id); onJump?.(start); const p = playerRef?.current; if (p) setTimeout(() => { try { if (!p.isPlaying?.()) p.play?.() } catch {} }, 80) }} title="Seek here and play">▶</button>
+                  <button onClick={(e) => { e.stopPropagation(); playClipOnly(item, start, dur) }} title="Play this clip only (auto-pauses at its end) — reel ▶ plays everything">▶</button>
                   <button onClick={(e) => { e.stopPropagation(); jumpIntoClip(item) }} title="Edit this clip (loads it into the scene editor)">✎</button>
                   <button onClick={(e) => { e.stopPropagation(); duplicateVariation(item, i) }} title="Duplicate this clip into a renamed copy right after itself">⧉</button>
                 </div>
@@ -1483,7 +1519,7 @@ function SequencerPanel({ getFrame, onJump, onExportSeq, rendering, playerRef })
         <div style={{ fontSize: 12, opacity: 0.65, padding: '8px 0' }}>Empty reel — drag history items here, or press ＋Seq on any history conversation. The sequence preview above plays clips back-to-back.</div>
       )}
       <SeqMusicLane getFrame={getFrame} onJump={onJump} fps={canvas.fps} />
-      <div style={{ fontSize: 11, opacity: 0.6, marginTop: 6 }}>Right-click a clip to edit it in the scene editor · Delete key removes the selected clip · gap badges ⇥ close the gap and pull later clips in.</div>
+      <div style={{ fontSize: 11, opacity: 0.6, marginTop: 6 }}>▶ on a card plays that clip only · reel ▶ (or Space) plays everything · right-click a clip to edit it · Delete removes the selected clip · gap badges ⇥ close the gap.</div>
     </div>
   )
 }
@@ -1775,6 +1811,12 @@ export default function App() {
   const previewConvoRef = React.useRef(null)
   React.useEffect(() => { previewConvoRef.current = previewConvo }, [previewConvo])
   function previewConvoScene(c) {
+    // The single-slide preview owns the center player — in Sequence mode
+    // that player belongs to the reel, so previewing a slide would leave
+    // the rail seeking/playing a player it can't see (seeks clamp to the
+    // slide length, the ruler playhead parks partway, play appears dead).
+    // The History buttons are hidden in seq mode; this is belt-and-braces.
+    if (useStudio.getState().seqMode) { setStatus('Exit Sequence mode (top bar) to preview single slides.', 'info'); return }
     if (!c?.scene) { setStatus('That history item has no scene to preview.', 'error'); return }
     try { setPreviewConvo({ id: c.id, title: c.title, scene: validateScene(normalizeScene(c.scene)) }) }
     catch (e) { setStatus(`Could not preview: ${e.message}`, 'error') }
@@ -1878,8 +1920,18 @@ export default function App() {
       if (tag === 'BUTTON') t?.blur?.()
       e.preventDefault()
       try {
-        if (playerRef.current?.isPlaying?.()) playerRef.current.pause()
-        else playerRef.current?.play?.()
+        const p = playerRef.current
+        if (!p) return
+        if (p.isPlaying?.()) { p.pause(); return }
+        const st = useStudio.getState()
+        // Sequence reel parked at the end: a bare play() no-ops, so
+        // restart from the top (and disarm any clip-only stop).
+        if (st.seqMode && !previewConvoRef.current) {
+          const lay = seqLayout(st.sequence)
+          const cur = Math.round(p.getCurrentFrame?.() ?? 0)
+          if (lay.total > 1 && cur >= lay.total - 1) { p.seekTo?.(0); st.setSeqStopAt(null) }
+        }
+        p.play?.()
       } catch { /* player not mounted yet */ }
     }
     window.addEventListener('keydown', onKey)
@@ -2331,7 +2383,7 @@ export default function App() {
         <a href="https://www.paypal.com/ncp/payment/29EH6KL5B37UU" target="_blank" rel="noreferrer" title="Support VectorStudio AI — opens PayPal in a new tab" style={{ background: '#b5651d', color: '#fff', borderRadius: 7, padding: '4px 12px', fontSize: 12.5, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>Donate Today</a>
         <span style={{ flex: 1 }} />
         <button onClick={toggleMode} title={isSimple ? 'Switch to Power Mode — unlock sequencing, media assets, JSON export and TTS' : 'Switch to Simple Mode — essentials only'} style={isSimple ? undefined : { fontWeight: 700, background: '#6d3fd1', border: '1px solid #6d3fd1', color: '#fff' }}>{isSimple ? 'Simple Mode' : 'Power Mode'}</button>
-        {!isSimple && <button onClick={() => { setSeqMode(!seqMode); if (!seqMode) { selectLayer(null); clearPreview?.() } }} title={seqMode ? 'Back to the single-scene editor' : 'Sequence mode: chain history clips into one reel'} style={seqMode ? { fontWeight: 700, background: 'var(--vs-accent-solid)', border: '1px solid var(--vs-accent-solid)', color: '#fff' } : undefined}>🎬 Sequence</button>}
+        {!isSimple && <button onClick={() => { if (!seqMode) { setPreviewConvo(null); selectLayer(null); clearPreview?.() } setSeqMode(!seqMode) }} title={seqMode ? 'Back to the single-scene editor' : 'Sequence mode: chain history clips into one reel'} style={seqMode ? { fontWeight: 700, background: 'var(--vs-accent-solid)', border: '1px solid var(--vs-accent-solid)', color: '#fff' } : undefined}>🎬 Sequence</button>}
         <button onClick={undo} disabled={!pastLen || seqMode} title="Undo (Ctrl+Z)" style={{ fontSize: 15, padding: '2px 8px' }}>↶</button>
         <button onClick={redo} disabled={!futureLen || seqMode} title="Redo (Ctrl+Y / Ctrl+Shift+Z)" style={{ fontSize: 15, padding: '2px 8px' }}>↷</button>
         <div style={{ position: 'relative' }}>
@@ -2417,7 +2469,7 @@ export default function App() {
                       <button onClick={() => { if (window.confirm(`Delete “${c.title}” from History? (A copy is kept in Trash.)`)) deleteConversation(c.id) }} title="Delete conversation (kept in Trash)" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>✕</button>
                     </div>
                     <div style={{ opacity: 0.55, fontSize: 11 }}>{new Date(c.createdAt).toLocaleString()} · {c.layerCount} layer{c.layerCount === 1 ? '' : 's'}</div>
-                    <button onClick={() => { previewConvoScene(c) }} title="Watch this slide in the big preview (your current work is kept — press Back to return)" style={{ fontSize: 11, marginTop: 2 }}>▶ Preview slide</button>
+                    {!seqMode && (<button onClick={() => { previewConvoScene(c) }} title="Watch this slide in the big preview (your current work is kept — press Back to return)" style={{ fontSize: 11, marginTop: 2 }}>▶ Preview slide</button>)}
                   </div>
                 </div>
               ))}
