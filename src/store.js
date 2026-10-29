@@ -172,6 +172,22 @@ export const useStudio = create((set, get) => ({
     return { scene, past: [...s.past, s.scene].slice(-50), future: [] }
   }),
 
+  // Right-edge trim of a layer's endFrame. trimLayer is the live drag
+  // (no undo spam — same pattern as moveKeyframe); commitLayerTrim writes
+  // the final value with one undo entry and grows the scene if the new
+  // end runs past it. Shrinking the scene itself stays explicit via Trim.
+  trimLayer: (id, endFrame) => set((s) => {
+    const scene = { ...s.scene, layers: s.scene.layers.map(l => (l.id === id ? { ...l, endFrame } : l)) }
+    persistScene(scene)
+    return { scene }
+  }),
+  commitLayerTrim: (id, endFrame) => set((s) => {
+    const layers = s.scene.layers.map(l => (l.id === id ? { ...l, endFrame } : l))
+    const scene = fitDurationOut({ ...s.scene, layers })
+    persistScene(scene)
+    return { scene, past: [...s.past, s.scene].slice(-50), future: [] }
+  }),
+
   updateSceneField: (field, value) => set((s) => {
     const scene = { ...s.scene, [field]: value }
     persistScene(scene)

@@ -1476,6 +1476,18 @@ function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onSee
   const updateLayer = useStudio(s => s.updateLayer)
   const moveKeyframe = useStudio(s => s.moveKeyframe)
   const commitKeyframes = useStudio(s => s.commitKeyframes)
+  const trimLayer = useStudio(s => s.trimLayer)
+  const commitLayerTrim = useStudio(s => s.commitLayerTrim)
+  // Right-edge trim drag: snapshot the lane geometry + scale at grab time
+  // so the frame mapping stays stable even as the trimmed end shrinks timeMax.
+  const trimRef = React.useRef(null)
+  const trimFrameAt = (clientX) => {
+    const t = trimRef.current
+    if (!t || !t.rect?.width) return null
+    const ratio = Math.min(1, Math.max(0, (clientX - t.rect.left) / t.rect.width))
+    const raw = Math.round(ratio * t.timeMax)
+    return Math.min(t.timeMax, Math.max(t.startFrame + 1, raw))
+  }
   const setScene = useStudio(s => s.setScene)
   const setStatus = useStudio(s => s.setStatus)
   // Snap the scene length to the longest layer. Stray keyframes past the
@@ -1526,7 +1538,37 @@ function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onSee
               left: `${(l.startFrame / timeMax) * 100}%`,
               width: `${Math.max(2, ((l.endFrame - l.startFrame) / timeMax) * 100)}%`,
               background: 'var(--vs-block)', borderRadius: 4, border: '1px solid var(--vs-block-bd)',
-            }} />
+            }}>
+              <div title={`Drag to trim “${l.name || 'layer'}” length (ends ${l.endFrame}f)`}
+                onPointerDown={(e) => {
+                  e.stopPropagation()
+                  scrubbing.current = false
+                  try { e.currentTarget.setPointerCapture(e.pointerId) } catch {}
+                  const lane = e.currentTarget.parentElement?.parentElement
+                  trimRef.current = { id: l.id, rect: lane?.getBoundingClientRect(), timeMax, startFrame: l.startFrame }
+                  const f = trimFrameAt(e.clientX)
+                  if (Number.isFinite(f)) trimLayer(l.id, f)
+                }}
+                onPointerMove={(e) => {
+                  const t = trimRef.current
+                  if (t && t.id === l.id && e.buttons) {
+                    const f = trimFrameAt(e.clientX)
+                    if (Number.isFinite(f)) trimLayer(l.id, f)
+                  }
+                }}
+                onPointerUp={(e) => {
+                  const t = trimRef.current
+                  if (t && t.id === l.id) {
+                    const f = trimFrameAt(e.clientX)
+                    trimRef.current = null
+                    commitLayerTrim(l.id, Number.isFinite(f) ? f : l.endFrame)
+                  }
+                }}
+                onPointerCancel={() => { trimRef.current = null }}
+                style={{ position: 'absolute', top: -3, bottom: -3, right: -7, width: 16, cursor: 'ew-resize', touchAction: 'none', display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end', zIndex: 3 }}>
+                <div style={{ width: 5, borderRadius: 3, background: 'var(--vs-accent)', opacity: 0.9 }} />
+              </div>
+            </div>
             {timeMax > scene.durationInFrames && (
               <div title={`Scene end — ${scene.durationInFrames}f`} style={{ position: 'absolute', top: 0, bottom: 0, left: `${(scene.durationInFrames / timeMax) * 100}%`, borderLeft: '2px dashed #8a93a8', pointerEvents: 'none' }} />
             )}
@@ -1544,7 +1586,7 @@ function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onSee
           </>)}
         </div>
       ))}
-      <div style={{ fontSize: 12, opacity: 0.6 }}>Red line is the playhead — click or drag any track to scrub it. Drag yellow diamonds to retime keyframes. Drag titles, images and shapes right on the video to move them (drop saves a keyframe).</div>
+      <div style={{ fontSize: 12, opacity: 0.6 }}>Red line is the playhead — click or drag any track to scrub it. Drag yellow diamonds to retime keyframes. Drag a track's right-edge bar to trim its length. Drag titles, images and shapes right on the video to move them (drop saves a keyframe).</div>
       {menu && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={() => setMenu(null)} onContextMenu={(e) => { e.preventDefault(); setMenu(null) }}>
           <div style={{ position: 'fixed', left: Math.min(menu.x, window.innerWidth - 180), top: Math.min(menu.y, window.innerHeight - 140), background: 'var(--vs-menu)', border: '1px solid var(--vs-border)', borderRadius: 8, padding: 4, minWidth: 170, boxShadow: '0 8px 24px rgba(0,0,0,0.65)' }} onClick={(e) => e.stopPropagation()}>
