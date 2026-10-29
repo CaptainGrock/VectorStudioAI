@@ -1198,7 +1198,10 @@ function ClipThumb({ scene, width = 132 }) {
 
 // Grabbable sequence playhead: a wide invisible strip centered on the red
 // line, so grabbing the playhead never hits a clip block underneath.
-function SeqPlayhead({ getFrame, duration, onScrub }) {
+// Positioned in PIXELS via frameToX (same layout as the ruler blocks and
+// cards), so zoom changes re-seat it instantly — the old % positioning
+// drifted whenever CARD_MIN/GAP_MIN clamps kicked in at low zoom.
+function SeqPlayhead({ getFrame, duration, onScrub, frameToX }) {
   const [frame, setFrame] = React.useState(0)
   React.useEffect(() => {
     let raf = 0
@@ -1211,16 +1214,17 @@ function SeqPlayhead({ getFrame, duration, onScrub }) {
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
   }, [getFrame])
-  const pct = (Math.min(Math.max(0, frame), Math.max(1, duration)) / Math.max(1, duration)) * 100
+  const clamped = Math.min(Math.max(0, frame), Math.max(1, duration))
+  const left = Math.max(0, Math.round(typeof frameToX === 'function' ? frameToX(clamped) : 0))
   return (
     <>
-      <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${pct}%`, width: 2, background: '#ff5252', pointerEvents: 'none', zIndex: 3 }} />
+      <div style={{ position: 'absolute', top: 0, bottom: 0, left, width: 2, background: '#ff5252', pointerEvents: 'none', zIndex: 3 }} />
       <div onPointerDown={(e) => { e.stopPropagation(); onScrub?.(true); try { e.currentTarget.setPointerCapture(e.pointerId) } catch {} }}
         onPointerMove={(e) => { if (e.buttons) onScrub?.(e) }}
         onPointerUp={() => onScrub?.(false)}
         onPointerCancel={() => onScrub?.(false)}
         onLostPointerCapture={() => onScrub?.(false)}
-        title="Drag the red line to scrub (wide grab strip — top/bottom handles included)" style={{ position: 'absolute', top: -12, bottom: -12, left: `calc(${pct}% - 40px)`, width: 80, cursor: 'ew-resize', zIndex: 5, touchAction: 'none', background: 'rgba(255,82,82,0.14)', border: '1px solid rgba(255,82,82,0.6)', borderRadius: 6 }}>
+        title="Drag the red line to scrub (wide grab strip — top/bottom handles included)" style={{ position: 'absolute', top: -12, bottom: -12, left: Math.max(0, left - 40), width: 80, cursor: 'ew-resize', zIndex: 5, touchAction: 'none', background: 'rgba(255,82,82,0.14)', border: '1px solid rgba(255,82,82,0.6)', borderRadius: 6 }}>
           <span style={{ position: 'absolute', top: -1, left: '50%', transform: 'translateX(-50%)', width: 26, height: 10, background: '#ff5252', borderRadius: '0 0 6px 6px' }} />
           <span style={{ position: 'absolute', bottom: -1, left: '50%', transform: 'translateX(-50%)', width: 26, height: 10, background: '#ff5252', borderRadius: '6px 6px 0 0' }} />
         </div>
@@ -1353,11 +1357,57 @@ function SequencerPanel({ getFrame, onJump, onExportSeq, rendering, playerRef })
     return { rows, railW: Math.max(1, Math.round(x + 60)) } // + drop zone
   }, [clips, ppf])
   const railW = railLayout.railW
+  // Pixel-exact frame <-> x mapping, derived from the SAME railLayout as
+  // the ruler blocks and cards (min-widths, gaps and flex spacing
+  // included). Both directions re-derive from `ppf`, so zoom changes
+  // re-calibrate the playhead and scrubbing instantly on the next render —
+  // the old proportional (% of rail width) math drifted into the wrong
+  // clip / blank space whenever CARD_MIN/GAP_MIN clamps kicked in.
+  const frameToX = React.useCallback((f) => {
+    const rows = railLayout.rows
+    if (!rows.length || !total) return 0
+    const ff = Math.min(Math.max(0, Math.round(Number(f) || 0)), total)
+    for (const row of rows) {
+      const gap = Math.max(0, Math.round(Number(row.item.gapAfter) || 0))
+      if (ff < row.start + row.dur) {
+        const t = row.dur > 0 ? (ff - row.start) / row.dur : 0
+        return row.x + t * row.px
+      }
+      if (gap > 0 && ff < row.start + row.dur + gap) {
+        const gapW = 4 + row.gapPx + 4
+        return row.x + row.px + ((ff - row.start - row.dur) / gap) * gapW
+      }
+      if (gap <= 0 && ff < row.start + row.dur) return row.x + row.px
+    }
+    const last = rows[rows.length - 1]
+    const lastGap = Math.max(0, Math.round(Number(last.item.gapAfter) || 0))
+    return last.x + last.px + (lastGap > 0 ? 4 + last.gapPx + 4 : 0)
+  }, [railLayout, total])
+  const xToFrame = React.useCallback((dx) => {
+    const rows = railLayout.rows
+    if (!rows.length || !total) return 0
+    if (dx <= 0) return 0
+    for (const row of rows) {
+      const gap = Math.max(0, Math.round(Number(row.item.gapAfter) || 0))
+      const cardEnd = row.x + row.px
+      if (dx < cardEnd) {
+        const t = row.px > 0 ? (dx - row.x) / row.px : 0
+        return Math.round(row.start + Math.min(Math.max(0, t), 1) * row.dur)
+      }
+      const gapEnd = cardEnd + 4 + row.gapPx + 4
+      if (dx < gapEnd) {
+        // Visual-only padding around a zero gap snaps to the boundary;
+        // a real gap interpolates across its full visual span.
+        if (gap <= 0) return Math.min(total, row.start + row.dur)
+        const t = (dx - cardEnd) / Math.max(1, gapEnd - cardEnd)
+        return Math.round(row.start + row.dur + Math.min(Math.max(0, t), 1) * gap)
+      }
+    }
+    return total
+  }, [railLayout, total])
   const seqFrameAtX = (clientX, bar) => {
-    if (!bar || !bar.width || !total) return 0
-    if (clientX <= bar.left + 8) return 0
-    if (clientX >= bar.right - 8) return total
-    return Math.round(Math.min(1, Math.max(0, (clientX - bar.left) / bar.width)) * total)
+    if (!bar || !total) return 0
+    return xToFrame(clientX - bar.left)
   }
   const seqScrub = React.useRef(false)
   const clipAtFrame = (f) => clips.find(({ start, dur }) => f >= start && f < start + dur)?.item || null
@@ -1469,11 +1519,11 @@ function SequencerPanel({ getFrame, onJump, onExportSeq, rendering, playerRef })
           <div data-seq-ruler ref={rulerRef} style={{ position: 'relative', height: 40, background: 'var(--vs-ruler)', borderRadius: 6, cursor: 'ew-resize', touchAction: 'none', marginBottom: 8, overflow: 'hidden' }} title="Click or drag to scrub the sequence (edges snap; grab the red line to scrub)"
             onPointerDown={rulerDown} onPointerMove={rulerMove} onPointerUp={rulerUp} onPointerCancel={rulerUp} onLostPointerCapture={rulerUp}>
             {railLayout.rows.map(({ item, start, dur, px, x }, i) => (
-              <div key={item.id} style={{ position: 'absolute', top: 5, bottom: 5, left: x + 4, width: Math.max(2, px), background: seqSelectedId === item.id ? '#2f5da8' : 'var(--vs-block)', border: seqSelectedId === item.id ? '1px solid var(--vs-accent)' : '1px solid var(--vs-block-bd)', borderRadius: 4, overflow: 'hidden', pointerEvents: 'none' }}>
+              <div key={item.id} style={{ position: 'absolute', top: 5, bottom: 5, left: x, width: Math.max(2, px), background: seqSelectedId === item.id ? '#2f5da8' : 'var(--vs-block)', border: seqSelectedId === item.id ? '1px solid var(--vs-accent)' : '1px solid var(--vs-block-bd)', borderRadius: 4, overflow: 'hidden', pointerEvents: 'none' }}>
                 <span style={{ fontSize: 10, padding: '0 4px', whiteSpace: 'nowrap', color: 'var(--vs-text)' }}>{i + 1} · {item.name} · {secs(dur)}</span>
               </div>
             ))}
-            <SeqPlayhead getFrame={getFrame} duration={Math.max(1, total)} onScrub={scrubTo} />
+            <SeqPlayhead getFrame={getFrame} duration={Math.max(1, total)} onScrub={scrubTo} frameToX={frameToX} />
           </div>
           <div onDragOver={(e) => e.preventDefault()} onDrop={onRailDrop} style={{ display: 'flex', alignItems: 'stretch', gap: 4 }} title="Drag the ⋮⋮ grip left/right to reorder · Delete key removes the selected clip">
           {railLayout.rows.map(({ item, start, dur, px, gapPx }, i) => (
@@ -2453,7 +2503,7 @@ export default function App() {
           <button onClick={() => setAssetsCollapsed((c) => !c)} title={assetsCollapsed ? 'Expand the Assets section' : 'Collapse the Assets section'} style={{ width: '100%', marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, background: assetsCollapsed ? '#4a2e8a' : '#6d3fd1', border: '1px solid #7c5cd6', borderLeft: assetsCollapsed ? '1px solid #7c5cd6' : '3px solid #ffd166', borderRadius: 8, padding: '9px 10px', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: '#fff' }}><span style={{ background: 'var(--vs-accent-solid)', color: '#fff', borderRadius: 6, padding: '1px 7px', fontSize: 11 }}>3</span><span style={{ flex: 1, textAlign: 'left' }}>Assets</span><span style={{ fontSize: 11, fontWeight: 400, opacity: 0.7 }}>{assetsCollapsed ? 'expand ▸' : '▾'}</span></button>
           {assetsCollapsed && (<div style={{ fontSize: 11, opacity: 0.6, margin: '4px 2px 6px' }}>Backgrounds, images & audio — expand to manage.</div>)}
           {!assetsCollapsed && <AssetsStage simple={isSimple} onAddImage={(m) => onAddImage(m)} onAddTts={(id) => onAddAudioLayer('audio_tts', id)} onAddMusic={(id) => onAddAudioLayer('audio_music', id)} onAddShape={(id) => onAddShape(id)} />}
-          <button onClick={() => setHistCollapsed((c) => !c)} title={histCollapsed ? 'Expand the History section' : 'Collapse the History section'} style={{ width: '100%', marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, background: histCollapsed ? '#4a2e8a' : '#6d3fd1', border: '1px solid #7c5cd6', borderLeft: histCollapsed ? '1px solid #7c5cd6' : '3px solid #ffd166', borderRadius: 8, padding: '9px 10px', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: '#fff' }}><span style={{ background: 'var(--vs-accent-solid)', color: '#fff', borderRadius: 6, padding: '1px 7px', fontSize: 11 }}>{conversations.length}</span><span style={{ flex: 1, textAlign: 'left' }}>History</span><span style={{ fontSize: 11, fontWeight: 400, opacity: 0.7 }}>{histCollapsed ? 'expand ▸' : '▾'}</span></button>
+          <button onClick={() => setHistCollapsed((c) => !c)} title={histCollapsed ? 'Expand the History section' : 'Collapse the History section'} style={{ width: '100%', marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, background: histCollapsed ? '#4a2e8a' : '#6d3fd1', border: '1px solid #7c5cd6', borderLeft: histCollapsed ? '1px solid #7c5cd6' : '3px solid #ffd166', borderRadius: 8, padding: '9px 10px', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: '#fff' }}><span style={{ flex: 1, textAlign: 'left' }}>History</span><span style={{ fontSize: 11, fontWeight: 400, opacity: 0.7 }}>{histCollapsed ? 'expand ▸' : '▾'}</span></button>
           {!histCollapsed && (<>
           <div style={{ fontSize: 11, opacity: 0.55, margin: '6px 2px 4px' }}>⧉ duplicates a version to tweak · right-click to rename/delete.</div>
           {conversations.length ? (
