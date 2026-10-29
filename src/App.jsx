@@ -74,6 +74,26 @@ function KeyframeDiamond({ frame, duration, onScrub, onCommit }) {
   )
 }
 
+// Persistent storage-health chip: silent while every save lands, loud
+// (amber/red) the moment auto-save degrades or fails — so a quota wall
+// warns DURING the session, never as a surprise after a refresh.
+function SaveHealth() {
+  const health = useStudio(s => s.saveHealth)
+  if (!health || (health.ok && !health.degraded)) return null
+  const failing = !health.ok
+  return (
+    <span title={`${health.detail || 'Auto-save trouble.'} Back up via Export → JSON.`}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700,
+        color: failing ? '#ff9090' : '#ffd166', whiteSpace: 'nowrap',
+        border: `1px solid ${failing ? '#6e2a33' : '#6e5a1e'}`, borderRadius: 7,
+        padding: '3px 10px', background: failing ? '#2a1418' : '#2a2114', flexShrink: 0,
+      }}>
+      {failing ? '⚠ Auto-save FAILING' : '⚠ Auto-save degraded'}
+    </span>
+  )
+}
+
 function StatusBar({ status, busy }) {
   const color = status.kind === 'error' ? '#ff8080' : status.kind === 'done' ? '#3ddc84' : '#9fb3d8'
   return (
@@ -1756,6 +1776,16 @@ export default function App() {
     const t = setTimeout(() => { useStudio.getState().syncActiveConvo() }, 800)
     return () => clearTimeout(t)
   }, [scene])
+  // Refresh/close insurance: flush the pending autosync synchronously on
+  // pagehide so the trailing ~800ms of edits survive a reload. Plus a
+  // one-time storage-footprint check — TTS audio + images can fill the
+  // ~5MB localStorage budget, and a full budget used to fail silently.
+  React.useEffect(() => {
+    const flush = () => { try { useStudio.getState().flushSync() } catch {} }
+    window.addEventListener('pagehide', flush)
+    try { useStudio.getState().probeStorageHealth() } catch {}
+    return () => window.removeEventListener('pagehide', flush)
+  }, [])
   const fileRef = React.useRef(null)
   // Space plays/pauses the preview whenever focus isn't in an editable
   // control or a button (so typing spaces and button activation keep working).
@@ -2158,6 +2188,7 @@ export default function App() {
       <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--vs-line)', display: 'flex', gap: 10, alignItems: 'center' }}>
         <strong>VectorStudio AI</strong>
         <StatusBar status={status} busy={busy} />
+        <SaveHealth />
         <span style={{ flex: 1 }} />
         <span title={quip} style={{ fontSize: 12, fontStyle: 'italic', opacity: 0.75, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 420 }}>{quip}</span>
         <a href="https://www.paypal.com/ncp/payment/29EH6KL5B37UU" target="_blank" rel="noreferrer" title="Support VectorStudio AI — opens PayPal in a new tab" style={{ background: '#b5651d', color: '#fff', borderRadius: 7, padding: '4px 12px', fontSize: 12.5, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>Donate Today</a>

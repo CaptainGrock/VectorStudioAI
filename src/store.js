@@ -14,8 +14,63 @@ function loadConvos() {
     return []
   }
 }
+// Durable saves: localStorage is ~5MB and scenes carry audio/image data
+// URLs (a TTS narration alone can be megabytes), so a full write can fail
+// with quota — which used to fail SILENTLY, freezing disk state at some
+// old slide while the user kept working. Every write below now goes
+// through saveDurable: on quota failure it retries with heavy media
+// stripped (layers, text, keyframes and TTS scripts always survive;
+// regenerable media is session-only) and reports it via saveHealth so
+// the header warns LOUDLY instead of losing work quietly.
+const HEAVY_URL_MIN = 128 * 1024 // data URLs bigger than this are media, not config
+let lastHealthSig = '__init__'
+function noteHealth(patch) {
+  // Dedupe: routine successful saves report once, new problems always.
+  const sig = `${patch.ok}|${patch.degraded}|${patch.stripped}|${patch.detail}`
+  if (sig === lastHealthSig) return
+  lastHealthSig = sig
+  // Deferred: persist helpers run inside zustand updaters, so never
+  // setState synchronously here — that would nest a set inside a set.
+  try { setTimeout(() => { try { useStudio.setState({ saveHealth: { ...patch, at: new Date().toISOString() } }) } catch {} }, 0) } catch {}
+}
+function stripHeavyMedia(value) {
+  let stripped = 0
+  let copy = value
+  try {
+    copy = JSON.parse(JSON.stringify(value, (k, v) => {
+      if (typeof v === 'string' && v.length > HEAVY_URL_MIN &&
+        (k === 'assetUrl' || k === 'backgroundImage' || k === 'dataUrl' || k === 'refAudio')) { stripped++; return '' }
+      return v
+    }))
+  } catch { copy = value; stripped = 0 }
+  return { copy, stripped }
+}
+function saveDurable(key, value, what) {
+  let raw = ''
+  try { raw = JSON.stringify(value) } catch {
+    noteHealth({ ok: false, degraded: false, stripped: 0, detail: `${what} could not be saved (could not serialize). Export JSON now to back up.` })
+    return false
+  }
+  try {
+    localStorage.setItem(key, raw)
+    noteHealth({ ok: true, degraded: false, stripped: 0, detail: '' })
+    return true
+  } catch { /* quota — fall through to the compact retry */ }
+  const { copy, stripped } = stripHeavyMedia(value)
+  try {
+    localStorage.setItem(key, JSON.stringify(copy))
+    noteHealth({
+      ok: true, degraded: true, stripped,
+      detail: `${what} too large for auto-save — kept everything except ${stripped} audio/image file(s), which survive for this session only. Export JSON to back them up, then re-attach or regenerate media after reload.`,
+    })
+    return true
+  } catch {
+    noteHealth({ ok: false, degraded: false, stripped, detail: `${what} could not auto-save (browser storage full). Export JSON now to back up — a refresh WILL lose recent work.` })
+    return false
+  }
+}
 function persistConvos(list) {
-  try { localStorage.setItem(CONV_KEY, JSON.stringify(list)) } catch { /* quota/private mode */ }
+  saveDurable(CONV_KEY, list, 'History')
 }
 const SEQ_KEY = 'vectorstudio.sequence.v1'
 const ACTIVE_KEY = 'vectorstudio.activeConvo.v1'
@@ -35,11 +90,10 @@ function loadTrash() {
   }
 }
 function persistTrash(list) {
-  try {
-    localStorage.setItem(TRASH_KEY, JSON.stringify(list))
-  } catch {
-    // Quota (scenes carry image data-URLs): keep the newest half, retry once.
-    try { localStorage.setItem(TRASH_KEY, JSON.stringify(list.slice(0, Math.max(1, Math.floor(MAX_TRASH / 2))))) } catch { /* give up */ }
+  if (!saveDurable(TRASH_KEY, list, 'Trash')) {
+    // Last resort: the newest half, compacted — a partial safety net
+    // beats none when storage is completely exhausted.
+    saveDurable(TRASH_KEY, list.slice(0, Math.max(1, Math.floor(MAX_TRASH / 2))), 'Trash')
   }
 }
 function stashTrashItem(list, item) {
@@ -72,19 +126,23 @@ function loadSequence() {
   }
 }
 function persistSequence(sequence) {
-  try {
-    const raw = JSON.stringify(sequence)
-    if (raw.length > SEQ_PERSIST_MAX) return // keep in memory only
-    localStorage.setItem(SEQ_KEY, raw)
-  } catch { /* quota/private mode — session keeps it */ }
+  let raw = ''
+  try { raw = JSON.stringify(sequence) } catch { return }
+  if (raw.length > SEQ_PERSIST_MAX) {
+    // Pre-existing rule (huge sequences stay session-only), now visible:
+    // without this the reel silently vanishes on reload.
+    noteHealth({ ok: true, degraded: true, stripped: 0, detail: 'Sequence too large for auto-save — it survives for this session only. Export JSON to back it up.' })
+    return
+  }
+  saveDurable(SEQ_KEY, sequence, 'Sequence')
 }
 
-// Every scene mutation must survive a browser close / server restart.
-// setScene/addLayer persisted; the rest did not — text tweaks, renames,
-// keyframe moves and patch edits silently vanished on reload. Central
-// helper: best-effort disk write, session always keeps the full scene.
+// Every committed scene mutation must survive a browser close / server
+// restart. Transient drag previews (moveKeyframe/trim*) stay memory-only
+// and persist on commit — re-stringifying megabytes per pointer-move is
+// pure write amplification. Session always keeps the full scene.
 function persistScene(scene) {
-  try { localStorage.setItem(LAST_KEY, JSON.stringify(scene)) } catch { /* quota/private mode */ }
+  saveDurable(LAST_KEY, scene, 'Slide')
 }
 
 // Clip timing: trims cut head/tail, gapAfter is trailing silence before
@@ -168,6 +226,31 @@ export const useStudio = create((set, get) => ({
 
   setStatus: (text, kind = 'info') => set({ status: { text, kind } }),
 
+  // Null = every save so far succeeded. {ok:false} or {degraded:true}
+  // drives the persistent header chip — separate from the transient
+  // status line so later actions can't overwrite the warning.
+  saveHealth: null,
+  // Startup footprint check: warns early when the ~5MB localStorage
+  // budget is nearly spent (TTS audio + images add up fast). Runs once
+  // at launch; every mutation re-reports via saveDurable after that.
+  probeStorageHealth: () => {
+    let bytes = 0
+    for (const k of [LAST_KEY, CONV_KEY, TRASH_KEY, SEQ_KEY, ACTIVE_KEY]) {
+      try { bytes += (localStorage.getItem(k) || '').length } catch { /* ignore */ }
+    }
+    if (bytes > 4 * 1024 * 1024) {
+      noteHealth({
+        ok: true, degraded: true, stripped: 0,
+        detail: `Browser storage is nearly full (~${(bytes / 1048576).toFixed(1)} MB of ~5 MB). New audio/images may stop auto-saving — Export JSON to back up.`,
+      })
+    }
+    return bytes
+  },
+  // Last-second synchronous flush for pagehide: the debounced autosync
+  // can otherwise leave up to ~800ms of edits unsaved across a
+  // refresh/close. localStorage writes are synchronous, so this lands.
+  flushSync: () => { try { get().syncActiveConvo() } catch { /* ignore */ } },
+
   setScene: (scene) => set((s) => {
     try {
       const valid = validateScene(normalizeScene(scene))
@@ -189,9 +272,10 @@ export const useStudio = create((set, get) => ({
     }
   }),
 
+  // Live drag preview: memory-only on purpose (see persistScene) — the
+  // matching commit* writes disk once with a single undo entry.
   moveKeyframe: (id, ki, frame) => set((s) => {
     const scene = { ...s.scene, layers: s.scene.layers.map(l => (l.id === id ? { ...l, keyframes: l.keyframes.map((kk, j) => (j === ki ? { ...kk, frame } : kk)) } : l)) }
-    persistScene(scene)
     return { scene }
   }),
   commitKeyframes: (id, ki, frame) => set((s) => {
@@ -207,7 +291,6 @@ export const useStudio = create((set, get) => ({
   // end runs past it. Shrinking the scene itself stays explicit via Trim.
   trimLayer: (id, endFrame) => set((s) => {
     const scene = { ...s.scene, layers: s.scene.layers.map(l => (l.id === id ? { ...l, endFrame } : l)) }
-    persistScene(scene)
     return { scene }
   }),
   commitLayerTrim: (id, endFrame) => set((s) => {
@@ -222,7 +305,6 @@ export const useStudio = create((set, get) => ({
   // only mount while the playhead is inside [startFrame, endFrame]).
   trimStartLayer: (id, startFrame) => set((s) => {
     const scene = { ...s.scene, layers: s.scene.layers.map(l => (l.id === id ? { ...l, startFrame } : l)) }
-    persistScene(scene)
     return { scene }
   }),
   commitStartTrim: (id, startFrame) => set((s) => {
