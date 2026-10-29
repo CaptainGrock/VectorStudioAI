@@ -45,6 +45,59 @@ function stripHeavyMedia(value) {
   } catch { copy = value; stripped = 0 }
   return { copy, stripped }
 }
+// Deferred Activity-Log writer (same no-nested-set rule as noteHealth).
+function noteLog(text) {
+  try { setTimeout(() => { try { useStudio.setState((s) => ({ log: [...s.log, text].slice(-300) })) } catch {} }, 0) }
+  catch {}
+}
+function fmtMB(n) { try { return `${(Number(n) / 1048576).toFixed(1)}MB` } catch { return '?MB' } }
+// Names the heavy media a value carries, so a compact save can say
+// exactly WHAT went session-only ("01-title › voice Intro VO ~2.1MB")
+// instead of leaving a mysteriously media-less slide after reload.
+function scanHeavyMedia(value, out = [], ctx = '') {
+  try {
+    if (!value || typeof value !== 'object') return out
+    if (Array.isArray(value)) { value.forEach((v) => scanHeavyMedia(v, out, ctx)); return out }
+    if (value.scene && typeof value.scene === 'object') {
+      const label = value.title || value.name || ''
+      scanHeavyMedia(value.scene, out, ctx ? `${ctx} › ${label}` : String(label))
+      return out
+    }
+    if (Array.isArray(value.items)) {
+      value.items.forEach((it) => scanHeavyMedia(it, out, ctx || 'Sequence'))
+      if (value.music && typeof value.music.assetUrl === 'string' && value.music.assetUrl.length > HEAVY_URL_MIN) {
+        out.push(`${ctx || 'Sequence'} › bed music “${value.music.name || 'music'}” audio ~${fmtMB(value.music.assetUrl.length)}`)
+      }
+      return out
+    }
+    if (Array.isArray(value.layers)) {
+      const where = ctx || 'Slide'
+      value.layers.forEach((l) => {
+        if (l && typeof l.assetUrl === 'string' && l.assetUrl.length > HEAVY_URL_MIN) {
+          const kind = l.type === 'audio_tts' ? 'voice' : l.type === 'audio_music' ? 'music' : l.type === 'image_layer' ? 'image' : 'media'
+          out.push(`${where} › ${kind} “${l.name || l.type}” ~${fmtMB(l.assetUrl.length)}`)
+        }
+      })
+      if (typeof value.backgroundImage === 'string' && value.backgroundImage.length > HEAVY_URL_MIN) {
+        out.push(`${where} › background image ~${fmtMB(value.backgroundImage.length)}`)
+      }
+      return out
+    }
+  } catch { /* best effort — never break a save for a label */ }
+  return out
+}
+let lastStrippedSig = ''
+function logStripped(what, value) {
+  let labels = []
+  try { labels = scanHeavyMedia(value) } catch { labels = [] }
+  if (!labels.length) return
+  const sig = `${what}|${labels.join('|')}`
+  if (sig === lastStrippedSig) return // same session, same media — no spam
+  lastStrippedSig = sig
+  noteLog(`${what} auto-saved without media (kept for this session only) — re-attach or regenerate after reload:`)
+  labels.slice(0, 8).forEach((l) => noteLog(`· ${l}`))
+  if (labels.length > 8) noteLog(`· …and ${labels.length - 8} more`)
+}
 function saveDurable(key, value, what) {
   let raw = ''
   try { raw = JSON.stringify(value) } catch {
@@ -53,12 +106,14 @@ function saveDurable(key, value, what) {
   }
   try {
     localStorage.setItem(key, raw)
+    lastStrippedSig = ''
     noteHealth({ ok: true, degraded: false, stripped: 0, detail: '' })
     return true
   } catch { /* quota — fall through to the compact retry */ }
   const { copy, stripped } = stripHeavyMedia(value)
   try {
     localStorage.setItem(key, JSON.stringify(copy))
+    logStripped(what, value)
     noteHealth({
       ok: true, degraded: true, stripped,
       detail: `${what} too large for auto-save — kept everything except ${stripped} audio/image file(s), which survive for this session only. Export JSON to back them up, then re-attach or regenerate media after reload.`,
@@ -129,9 +184,15 @@ function persistSequence(sequence) {
   let raw = ''
   try { raw = JSON.stringify(sequence) } catch { return }
   if (raw.length > SEQ_PERSIST_MAX) {
-    // Pre-existing rule (huge sequences stay session-only), now visible:
-    // without this the reel silently vanishes on reload.
-    noteHealth({ ok: true, degraded: true, stripped: 0, detail: 'Sequence too large for auto-save — it survives for this session only. Export JSON to back it up.' })
+    // Two audio-heavy clips exceed the cap — the old code abandoned the
+    // whole reel on disk here, so reload fell back to an older 1-clip
+    // version. Compact instead: clip order, trims and gaps are saved,
+    // media goes session-only (named in the log), scripts survive.
+    logStripped('Sequence', sequence)
+    const { copy } = stripHeavyMedia(sequence)
+    if (saveDurable(SEQ_KEY, copy, 'Sequence')) {
+      noteHealth({ ok: true, degraded: true, stripped: 0, detail: 'Sequence too large for auto-save with media — order, trims and gaps saved; audio/images survive for this session only. Export JSON to back up.' })
+    }
     return
   }
   saveDurable(SEQ_KEY, sequence, 'Sequence')

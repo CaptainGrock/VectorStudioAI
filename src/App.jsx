@@ -2387,7 +2387,7 @@ export default function App() {
         <button onClick={undo} disabled={!pastLen || seqMode} title="Undo (Ctrl+Z)" style={{ fontSize: 15, padding: '2px 8px' }}>↶</button>
         <button onClick={redo} disabled={!futureLen || seqMode} title="Redo (Ctrl+Y / Ctrl+Shift+Z)" style={{ fontSize: 15, padding: '2px 8px' }}>↷</button>
         <div style={{ position: 'relative' }}>
-          <button onClick={() => setExportOpen((o) => !o)} disabled={rendering || busy} title="Download the video or the scene file" style={{ fontWeight: 700 }}>Export ▾</button>
+          <button onClick={() => setExportOpen((o) => !o)} disabled={rendering || busy} title="File — export video/JSON, import a JSON backup" style={{ fontWeight: 700 }}>File ▾</button>
           {exportOpen && (
             <>
               <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={() => setExportOpen(false)} />

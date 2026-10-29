@@ -58,7 +58,7 @@ Press **🎬 Sequence** to chain saved history conversations into one reel:
 - A **sequence-wide music bed** (attach MP3/WAV/OGG/M4A in Stage 3 or pick attached audio) plays under the whole reel with volume keyframes.
 - **Right-click a clip to jump back into the scene editor** for that clip.
 - Global **▶/⏸**, Space, and Home/End drive the reel; the red-line grab strip scrubs like the scene timeline.
-- The reel auto-saves to the browser (up to 40 clips) and exports via **Export ▾ → Export sequence MP4**.
+- The reel auto-saves to the browser (up to 40 clips) and exports via **File ▾ → Export sequence MP4**.
 
 ## Shapes
 
@@ -73,7 +73,7 @@ Top bar:
 
 - **🎬 Sequence** toggles the multi-clip Sequencer (see below).
 - **⚙ Settings**: model/engine setup plus Appearance (dark default, light optional) and **Auto-play previews** (slide and reel previews start playing on load).
-- Single **Export ▾** menu:
+- Single **File ▾** menu:
   - **Export MP4** renders the current scene on the local server (`/api/render`) and downloads `vectorstudio.mp4`. First render may download a headless browser and take several minutes. Export resolution follows the scene’s width/height.
   - **Export sequence MP4** (in Sequence mode) renders the whole reel — clips, gaps, and bed music — to one MP4.
   - **Export JSON** downloads the re-importable `scene.json` (or `sequence.json` in Sequence mode).
