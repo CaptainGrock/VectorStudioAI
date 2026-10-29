@@ -20,6 +20,35 @@ function persistConvos(list) {
 const SEQ_KEY = 'vectorstudio.sequence.v1'
 const ACTIVE_KEY = 'vectorstudio.activeConvo.v1'
 const SEQ_PERSIST_MAX = 4 * 1024 * 1024 // scenes carry data: URLs — skip disk when huge
+const TRASH_KEY = 'vectorstudio.trash.v1'
+const MAX_TRASH = 10
+
+// Safety net for lost slides: every deleted history entry and every
+// history snapshot replaced by the autosync lands here (newest first),
+// so an overwrite or accidental delete is one Restore click away.
+function loadTrash() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(TRASH_KEY) || '[]')
+    return Array.isArray(arr) ? arr.filter((c) => c && c.id && c.scene).slice(0, MAX_TRASH) : []
+  } catch {
+    return []
+  }
+}
+function persistTrash(list) {
+  try {
+    localStorage.setItem(TRASH_KEY, JSON.stringify(list))
+  } catch {
+    // Quota (scenes carry image data-URLs): keep the newest half, retry once.
+    try { localStorage.setItem(TRASH_KEY, JSON.stringify(list.slice(0, Math.max(1, Math.floor(MAX_TRASH / 2))))) } catch { /* give up */ }
+  }
+}
+function stashTrashItem(list, item) {
+  if (!item || !item.scene) return list
+  try {
+    if (list.length && JSON.stringify(list[0].scene) === JSON.stringify(item.scene)) return list // no dup spam
+  } catch { /* fall through and stash */ }
+  return [{ ...item, trashedAt: new Date().toISOString() }, ...list].slice(0, MAX_TRASH)
+}
 
 function loadActiveConvo(convos) {
   try {
@@ -257,14 +286,35 @@ export const useStudio = create((set, get) => ({
     return { activeConvoId: id || null }
   }),
   // Writes the live scene into the active history entry (no undo entry,
-  // no log spam — this is bookkeeping, not an edit).
+  // no log spam — this is bookkeeping, not an edit). The replaced snapshot
+  // is stashed in Trash first, so a mis-targeted sync never destroys work.
   syncActiveConvo: () => set((s) => {
     if (!s.activeConvoId) return s
-    if (!s.conversations.some((c) => c.id === s.activeConvoId)) return s
+    const cur = s.conversations.find((c) => c.id === s.activeConvoId)
+    if (!cur) return s
+    let same = false
+    try { same = JSON.stringify(cur.scene) === JSON.stringify(s.scene) } catch { same = false }
+    if (same) return s
+    const trash = stashTrashItem(s.trash || [], cur)
+    persistTrash(trash)
     const conversations = s.conversations.map((c) => (c.id === s.activeConvoId ? { ...c, scene: s.scene, layerCount: s.scene.layers.length } : c))
     persistConvos(conversations)
-    return { conversations }
+    return { conversations, trash }
   }),
+  trash: loadTrash(),
+  restoreTrash: (id) => set((s) => {
+    const item = (s.trash || []).find((x) => x.id === id)
+    if (!item) return s
+    const takeId = s.conversations.some((x) => x.id === item.id)
+      ? `c_${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}` : item.id
+    const restored = { id: takeId, title: item.title, prompt: item.prompt, scene: item.scene, createdAt: item.createdAt || new Date().toISOString(), layerCount: item.layerCount }
+    const conversations = [restored, ...s.conversations].slice(0, MAX_CONVOS)
+    persistConvos(conversations)
+    const trash = (s.trash || []).filter((x) => x.id !== id)
+    persistTrash(trash)
+    return { conversations, trash, log: [...s.log, `Restored from trash: ${restored.title}`] }
+  }),
+  emptyTrash: () => set((s) => { persistTrash([]); return { trash: [] } }),
   selectedLayerId: null,
 
   selectLayer: (id) => set({ selectedLayerId: id || null }),
@@ -326,11 +376,14 @@ export const useStudio = create((set, get) => ({
   }),
 
   deleteConversation: (id) => set((s) => {
+    const gone = s.conversations.find((x) => x.id === id)
     const conversations = s.conversations.filter((x) => x.id !== id)
     persistConvos(conversations)
-    if (s.activeConvoId !== id) return { conversations }
+    let trash = s.trash || []
+    if (gone) { trash = stashTrashItem(trash, gone); persistTrash(trash) }
+    if (s.activeConvoId !== id) return { conversations, trash }
     try { localStorage.removeItem(ACTIVE_KEY) } catch { /* ignore */ }
-    return { conversations, activeConvoId: null }
+    return { conversations, trash, activeConvoId: null }
   }),
 
   renameConversation: (id, title) => set((s) => {

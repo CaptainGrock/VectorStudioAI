@@ -1231,6 +1231,10 @@ function SequencerPanel({ getFrame, onJump, onExportSeq, rendering, playerRef })
     try {
       st.setScene(validateScene(normalizeScene(item.scene)))
     } catch (e) { st.setStatus(`Could not open clip: ${e.message}`, 'error'); return }
+    // Detach from History: this is a sequence clip, not a history slide —
+    // without this the 800ms autosync would write the clip (and its edits)
+    // into whichever history entry was active, destroying that slide.
+    st.setActiveConvo(null)
     st.selectLayer(null)
     st.setSeqMode(false)
     st.setEditingSeqId(item.id)
@@ -1618,6 +1622,10 @@ export default function App() {
   const loadConversation = useStudio(s => s.loadConversation)
   const deleteConversation = useStudio(s => s.deleteConversation)
   const renameConversation = useStudio(s => s.renameConversation)
+  const trash = useStudio(s => s.trash)
+  const restoreTrash = useStudio(s => s.restoreTrash)
+  const emptyTrash = useStudio(s => s.emptyTrash)
+  const [trashOpen, setTrashOpen] = React.useState(false)
   const selectedLayerId = useStudio(s => s.selectedLayerId)
   const selectLayer = useStudio(s => s.selectLayer)
   const updateLayer = useStudio(s => s.updateLayer)
@@ -2204,7 +2212,7 @@ export default function App() {
                       <button onClick={() => { loadConversation(c.id); setStatus(`Loaded: ${c.title}`, 'done'); setGenCollapsed(true); setRevCollapsed(false); pushLog(`Loaded: ${c.title}`) }} title={c.prompt} style={{ flex: 1, textAlign: 'left', background: 'none', border: 'none', color: 'var(--vs-accent)', cursor: 'pointer', padding: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</button>
                       <button onClick={() => { const st = useStudio.getState(); const srcScene = c.id === st.activeConvoId ? st.scene : c.scene; const item = st.addConversation(c.prompt, JSON.parse(JSON.stringify(srcScene))); st.renameConversation(item.id, `${c.title} (copy)`.slice(0, 80)); setStatus(`Duplicated “${c.title}” — tweak away, the original is kept.`, 'done') }} title="Duplicate — tweak/rename a new version, the original is kept" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>⧉</button>
                       {!isSimple && <button onClick={() => addSeqItem(c)} title="Append to the sequence reel" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#3ddc84' }}>＋Seq</button>}
-                      <button onClick={() => deleteConversation(c.id)} title="Delete conversation" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>✕</button>
+                      <button onClick={() => { if (window.confirm(`Delete “${c.title}” from History? (A copy is kept in Trash.)`)) deleteConversation(c.id) }} title="Delete conversation (kept in Trash)" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>✕</button>
                     </div>
                     <div style={{ opacity: 0.55, fontSize: 11 }}>{new Date(c.createdAt).toLocaleString()} · {c.layerCount} layer{c.layerCount === 1 ? '' : 's'}</div>
                     <button onClick={() => { previewConvoScene(c) }} title="Watch this slide in the big preview (your current work is kept — press Back to return)" style={{ fontSize: 11, marginTop: 2 }}>▶ Preview slide</button>
@@ -2214,6 +2222,22 @@ export default function App() {
             </div>
           ) : (
             <div style={{ fontSize: 12, opacity: 0.6 }}>No saved generations yet — each Generate lands here.</div>
+          )}
+          {!!trash.length && (
+          <div style={{ marginTop: 4 }}>
+            <button onClick={() => setTrashOpen((v) => !v)} title="Deleted and overwritten slides — Restore brings them back to History" style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: '8px 2px 2px', fontSize: 12, opacity: 0.75, width: '100%', textAlign: 'left' }}>{trashOpen ? '▾' : '▸'} 🗑 Trash ({trash.length})</button>
+            {trashOpen && (
+            <div style={{ fontSize: 12, maxHeight: 160, overflowY: 'auto', background: 'var(--vs-panel)', padding: 8, borderRadius: 6, marginTop: 4, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {trash.map((t) => (
+                <div key={t.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`${t.title} · trashed ${t.trashedAt ? new Date(t.trashedAt).toLocaleString() : ''}`}>{t.title} <span style={{ opacity: 0.55 }}>· {t.layerCount} layer{t.layerCount === 1 ? '' : 's'}</span></span>
+                  <button onClick={() => { restoreTrash(t.id); setStatus(`Restored “${t.title}” to History.`, 'done') }} title="Bring this slide back to History">Restore</button>
+                </div>
+              ))}
+              <button onClick={() => { if (window.confirm('Permanently empty the Trash? This cannot be undone.')) emptyTrash() }} title="Permanently delete everything in Trash" style={{ alignSelf: 'flex-start', fontSize: 11, opacity: 0.7 }}>Empty trash</button>
+            </div>
+            )}
+          </div>
           )}
           <button onClick={() => setActivityCollapsed((c) => !c)} title={activityCollapsed ? 'Expand the Activity Log' : 'Collapse the Activity Log'} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: '8px 2px 2px', fontSize: 12, opacity: 0.75, width: '100%', textAlign: 'left' }}>{activityCollapsed ? '▸' : '▾'} Activity Log</button>
           {!activityCollapsed && (
@@ -2280,7 +2304,7 @@ export default function App() {
         <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={() => setCtxMenu(null)} onContextMenu={(e) => { e.preventDefault(); setCtxMenu(null) }}>
           <div style={{ position: 'fixed', left: Math.min(ctxMenu.x, window.innerWidth - 170), top: Math.min(ctxMenu.y, window.innerHeight - 110), background: 'var(--vs-pop)', border: '1px solid var(--vs-border)', borderRadius: 8, padding: 4, minWidth: 150, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }} onClick={(e) => e.stopPropagation()}>
             <button onClick={() => { const c = conversations.find(x => x.id === ctxMenu.id); const name = window.prompt('Rename conversation', c?.title || ''); if (name && name.trim()) renameConversation(ctxMenu.id, name.trim()); setCtxMenu(null) }} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-text)' }}>✏️ Rename</button>
-            <button onClick={() => { deleteConversation(ctxMenu.id); setCtxMenu(null) }} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: '#ff9090' }}>🗑 Delete</button>
+            <button onClick={() => { const c = conversations.find(x => x.id === ctxMenu.id); if (window.confirm(`Delete “${c?.title || 'this slide'}” from History? (A copy is kept in Trash.)`)) deleteConversation(ctxMenu.id); setCtxMenu(null) }} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: '#ff9090' }}>🗑 Delete</button>
           </div>
         </div>
       )}
