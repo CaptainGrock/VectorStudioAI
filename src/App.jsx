@@ -2149,9 +2149,14 @@ export default function App() {
           ) : (
             <Player key={`${sceneRev}-${scene.width || 1280}x${scene.height || 720}`} ref={playerRef} component={SceneComposition} inputProps={inputProps} durationInFrames={scene.durationInFrames} fps={scene.fps} compositionWidth={scene.width || 1280} compositionHeight={scene.height || 720} controls autoPlay={false} clickToPlay={false} loop style={{ width: '100%', maxWidth: (scene.width || 1280) >= (scene.height || 720) ? 900 : 460 }} />
           )}
-          {!scene.layers.length && (
+          {!scene.layers.length && !scene.backgroundImage && (
             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
               <div style={{ fontSize: 15, opacity: 0.75, background: 'rgba(10,14,24,0.8)', padding: '12px 20px', borderRadius: 8, border: '1px dashed var(--vs-block-bd)' }}>No scene yet — describe your video on the left, then Generate.</div>
+            </div>
+          )}
+          {!scene.layers.length && !!scene.backgroundImage && (
+            <div style={{ position: 'absolute', left: 0, right: 0, bottom: 12, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
+              <div style={{ fontSize: 13, opacity: 0.9, background: 'rgba(10,14,24,0.8)', padding: '8px 14px', borderRadius: 8, border: '1px dashed var(--vs-block-bd)' }}>Backdrop set — add text, shapes or media to build your slide.</div>
             </div>
           )}
           {selectedLayer && !seqMode && <LayerInspector key={selectedLayer.id} layer={selectedLayer} getFrame={getFrame} onJump={jumpTo} onClose={() => { clearPreview(); selectLayer(null) }} onPreview={(props) => onPreview(selectedLayer.id, props)} clearPreview={clearPreview} fps={scene.fps} />}
