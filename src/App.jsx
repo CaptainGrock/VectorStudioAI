@@ -591,7 +591,7 @@ function AudioSection({ layer, v, push, fps }) {
           {maxOff != null && maxOff > 0 ? (
             <input type="range" min={0} max={Math.round(maxOff * 10) / 10} step={0.1} value={Math.min(maxOff, offSec)} onChange={(e) => setOffSec(Number(e.target.value))} style={{ flex: 1 }} title="Where in the source file this track starts — the track plays its full length from there" />
           ) : (
-            <input type="number" min={0} step={0.5} value={Math.round(offSec * 10) / 10} onChange={(e) => setOffSec(Number(e.target.value))} style={{ width: 64 }} title="Seconds into the source file where this track starts" />
+            <input type="number" min={0} step={0.5} value={Math.round(offSec * 10) / 10} disabled title="Locked at 0 — the source exactly fills this track, so there is nothing further in to start from" style={{ width: 64, opacity: 0.5 }} />
           )}
         </label>
       )}
@@ -613,7 +613,7 @@ function AudioSection({ layer, v, push, fps }) {
           <input type="number" value={layer.endFrame} onChange={(e) => updateLayer(layer.id, (o) => ({ ...o, endFrame: Math.max(0, Math.round(Number(e.target.value) || 0)) }))} style={{ width: 60 }} title="Last frame the audio plays" />
         </label>
       </div>
-      <div style={{ fontSize: 11, opacity: 0.55 }}>Start/stop are the track bounds — volume keyframes fade or duck between them.</div>
+      <div style={{ fontSize: 11, opacity: 0.55 }}>Start delays the whole track (audio plays from Play-from at Start) — Stop ends it. Drag the track's edge bars on the timeline, or type frames here. Volume keyframes fade or duck between them.</div>
     </div>
   )
 }

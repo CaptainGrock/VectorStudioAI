@@ -1,5 +1,5 @@
 import React from 'react'
-import { AbsoluteFill, Audio, interpolate, useCurrentFrame, useRemotionEnvironment, delayRender, continueRender } from 'remotion'
+import { AbsoluteFill, Audio, Sequence, interpolate, useCurrentFrame, useRemotionEnvironment, delayRender, continueRender } from 'remotion'
 import { lerpKeyframes, effectiveTiming } from '../sceneGraph.js'
 import { webFontFamilies, fontCssUrl, addMirrorLinks, cleanFamily, customFontFaces, injectCustomFont, fontStack } from '../fonts.js'
 import { MAP_W, MAP_H, project } from '../geo.js'
@@ -675,11 +675,17 @@ function LayerView({ layer, frame, onSelect, selected, preview, onDragPreview, o
       : (lerpKeyframes(layer.keyframes, frame).volume ?? layer.data?.volume ?? 1)
     // offsetFrames trims long sources (3-minute song under a 4-second
     // clip): the track plays (endFrame - startFrame) from that point in.
+    // The Sequence re-bases the clock so startFrame is a true shift:
+    // without it Remotion times audio off the composition frame and a
+    // startFrame of 15 would skip the first half-second instead of
+    // delaying playback (play-from-the-top at frame 15 needs file time 0).
     const off = Math.max(0, Math.round(Number(layer.data?.offsetFrames) || 0))
     const len = Math.max(1, layer.endFrame - layer.startFrame)
     return (
       <>
+        <Sequence from={layer.startFrame} durationInFrames={len} name={layer.name || 'Audio'}>
         <Audio src={layer.assetUrl} volume={Math.min(2, Math.max(0, Number(vol) || 0))} startFrom={off} endAt={off + len} />
+        </Sequence>
         {!env.isRendering && (
           <div onClick={(e) => { e.stopPropagation(); onSelect?.(layer.id) }}
             title="Click to select the audio track"
