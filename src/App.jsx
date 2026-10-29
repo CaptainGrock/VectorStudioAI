@@ -1318,19 +1318,40 @@ function SequencerPanel({ getFrame, onJump, onExportSeq, rendering, playerRef })
   const [seqZoom, setSeqZoom] = React.useState(1)
   const [seqAutoFit, setSeqAutoFit] = React.useState(true)
   const BASE_PPF = 2.2
+  const SEQ_ZOOM_MIN = 0.05
   const ppf = BASE_PPF * seqZoom
-  React.useEffect(() => {
-    if (!seqAutoFit) return
+  function seqFitZoom() {
     try {
       const wrap = railRef.current?.parentElement
       const avail = (wrap?.clientWidth || 900) - 8
       const need = Math.max(1, total * BASE_PPF)
-      const fit = Math.min(1, avail / need)
-      setSeqZoom(Math.max(0.2, Math.round(fit * 100) / 100))
-    } catch { setSeqZoom(1) }
+      return Math.max(SEQ_ZOOM_MIN, Math.round(Math.min(1, avail / need) * 100) / 100)
+    } catch { return 1 }
+  }
+  React.useEffect(() => {
+    if (!seqAutoFit) return
+    setSeqZoom(seqFitZoom())
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [total, clips.length])
-  const railW = Math.max(1, Math.round(total * ppf))
+  // Shared pixel layout: ruler segments and cards derive from the same
+  // per-clip widths, so the two stay pixel-aligned at every zoom (the old
+  // code sized the ruler in % of the viewport and the rail in px, so they
+  // diverged the moment anything scrolled). Card minimums are included in
+  // the offsets, so over-long reels still line up when min-widths kick in.
+  const CARD_MIN = 48
+  const GAP_MIN = 26
+  const railLayout = React.useMemo(() => {
+    let x = 0
+    const rows = clips.map(({ item, start, dur }) => {
+      const px = Math.max(CARD_MIN, Math.round(dur * ppf))
+      const gapPx = Math.max(GAP_MIN, Math.round(Number(item.gapAfter || 0) * ppf))
+      const row = { item, start, dur, px, gapPx, x }
+      x += px + 4 + gapPx + 4 // card + flex gaps on both sides
+      return row
+    })
+    return { rows, railW: Math.max(1, Math.round(x + 60)) } // + drop zone
+  }, [clips, ppf])
+  const railW = railLayout.railW
   const seqFrameAtX = (clientX, bar) => {
     if (!bar || !bar.width || !total) return 0
     if (clientX <= bar.left + 8) return 0
@@ -1391,40 +1412,40 @@ function SequencerPanel({ getFrame, onJump, onExportSeq, rendering, playerRef })
     } catch { /* player not mounted yet */ }
   }
   return (
-    <div style={{ borderTop: '1px solid var(--vs-line)', padding: 12, overflowX: 'auto', overflowY: 'auto', minHeight: 150, maxHeight: 420, background: 'var(--vs-rail)' }}>
+    <div style={{ borderTop: '1px solid var(--vs-line)', padding: 12, overflowX: 'hidden', overflowY: 'auto', minHeight: 150, maxHeight: 420, background: 'var(--vs-rail)' }}>
       <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, opacity: 0.9, display: 'flex', alignItems: 'center', gap: 8 }}>
         <button onClick={togglePlay} disabled={!clips.length} title={playing ? 'Pause the sequence (Space)' : 'Play the whole sequence (Space)'} style={{ fontSize: 14, padding: '2px 10px', fontWeight: 700 }}>{playing ? '⏸' : '▶'}</button>
         <span>Sequence · {clips.length} clip{clips.length === 1 ? '' : 's'} · {secs(total)}</span>
         <span style={{ fontWeight: 400, opacity: 0.55 }}>{canvas.width}×{canvas.height} · first clip sets the canvas</span>
         <span style={{ flex: 1 }} />
         <span style={{ fontWeight: 400, display: 'flex', gap: 4, alignItems: 'center' }} title="Timeline zoom — zooming in scrolls horizontally">
-          <button onClick={() => { setSeqAutoFit(false); setSeqZoom((z) => Math.max(0.2, Math.round((z - 0.25) * 100) / 100)) }} disabled={seqZoom <= 0.2} title="Zoom out">−</button>
+          <button onClick={() => { setSeqAutoFit(false); setSeqZoom((z) => Math.max(SEQ_ZOOM_MIN, Math.round((z - 0.25) * 100) / 100)) }} disabled={seqZoom <= SEQ_ZOOM_MIN} title="Zoom out">−</button>
           <span style={{ fontSize: 11, minWidth: 44, textAlign: 'center' }}>{Math.round(seqZoom * 100)}%</span>
           <button onClick={() => { setSeqAutoFit(false); setSeqZoom((z) => Math.min(6, Math.round((z + 0.25) * 100) / 100)) }} title="Zoom in">+</button>
-          <button onClick={() => { setSeqAutoFit(true); try { const wrap = railRef.current?.parentElement; const avail = (wrap?.clientWidth || 900) - 8; const need = Math.max(1, total * BASE_PPF); setSeqZoom(Math.max(0.2, Math.round(Math.min(1, avail / need) * 100) / 100)) } catch { setSeqZoom(1) } }} title="Fit the whole reel">Fit</button>
+          <button onClick={() => { setSeqAutoFit(true); setSeqZoom(seqFitZoom()) }} title="Fit the whole reel">Fit</button>
         </span>
         <button onClick={() => setSeqMode(false)} title="Back to the single-scene editor">Scene editor</button>
         <button onClick={() => { if (window.confirm('Clear the whole sequence? (History is kept.)')) clearSequence() }} disabled={!clips.length} title="Remove all clips — history is kept">Clear</button>
       </div>
       {clips.length ? (
         <div style={{ overflowX: 'auto', paddingBottom: 4 }}>
-          <div style={{ width: '100%', minWidth: 300 }}>
-          <div data-seq-ruler ref={rulerRef} style={{ position: 'relative', height: 40, background: 'var(--vs-ruler)', borderRadius: 6, cursor: 'ew-resize', touchAction: 'none', marginBottom: 8, overflow: 'visible' }} title="Click or drag to scrub the sequence (edges snap; grab the red line to scrub)"
+          <div ref={railRef} style={{ width: Math.max(railW, 300), minWidth: '100%' }}>
+          <div data-seq-ruler ref={rulerRef} style={{ position: 'relative', height: 40, background: 'var(--vs-ruler)', borderRadius: 6, cursor: 'ew-resize', touchAction: 'none', marginBottom: 8, overflow: 'hidden' }} title="Click or drag to scrub the sequence (edges snap; grab the red line to scrub)"
             onPointerDown={rulerDown} onPointerMove={rulerMove} onPointerUp={rulerUp} onPointerCancel={rulerUp} onLostPointerCapture={rulerUp}>
-            {clips.map(({ item, start, dur }, i) => (
-              <div key={item.id} style={{ position: 'absolute', top: 5, bottom: 5, left: `${(start / Math.max(1, total)) * 100}%`, width: `${Math.max(1.5, (dur / Math.max(1, total)) * 100)}%`, background: seqSelectedId === item.id ? '#2f5da8' : 'var(--vs-block)', border: seqSelectedId === item.id ? '1px solid var(--vs-accent)' : '1px solid var(--vs-block-bd)', borderRadius: 4, overflow: 'hidden', pointerEvents: 'none' }}>
-                <span style={{ fontSize: 10, padding: '0 4px', whiteSpace: 'nowrap', color: 'var(--vs-text)' }}>{i + 1} · {item.name}</span>
+            {railLayout.rows.map(({ item, start, dur, px, x }, i) => (
+              <div key={item.id} style={{ position: 'absolute', top: 5, bottom: 5, left: x + 4, width: Math.max(2, px), background: seqSelectedId === item.id ? '#2f5da8' : 'var(--vs-block)', border: seqSelectedId === item.id ? '1px solid var(--vs-accent)' : '1px solid var(--vs-block-bd)', borderRadius: 4, overflow: 'hidden', pointerEvents: 'none' }}>
+                <span style={{ fontSize: 10, padding: '0 4px', whiteSpace: 'nowrap', color: 'var(--vs-text)' }}>{i + 1} · {item.name} · {secs(dur)}</span>
               </div>
             ))}
             <SeqPlayhead getFrame={getFrame} duration={Math.max(1, total)} onScrub={scrubTo} />
           </div>
-          <div ref={railRef} onDragOver={(e) => e.preventDefault()} onDrop={onRailDrop} style={{ display: 'flex', alignItems: 'stretch', gap: 4 }} title="Drag the ⋮⋮ grip left/right to reorder · Delete key removes the selected clip">
-          {clips.map(({ item, start, dur }, i) => (
+          <div onDragOver={(e) => e.preventDefault()} onDrop={onRailDrop} style={{ display: 'flex', alignItems: 'stretch', gap: 4 }} title="Drag the ⋮⋮ grip left/right to reorder · Delete key removes the selected clip">
+          {railLayout.rows.map(({ item, start, dur, px, gapPx }, i) => (
             <React.Fragment key={item.id}>
               {grab && item.id !== grab.id && lineFor(i) && (
                 <div style={{ width: 4, background: 'var(--vs-accent)', borderRadius: 2, flexShrink: 0 }} />
               )}
-              <div data-seq-card data-seq-id={item.id} onPointerDown={() => { setSeqSelectedId(item.id); onJump?.(start) }} onContextMenu={(e) => { e.preventDefault(); jumpIntoClip(item) }} title="Click to select + seek · right-click to edit" style={{ width: Math.max(96, Math.round(dur * ppf)), flexShrink: 0, background: seqSelectedId === item.id ? 'var(--vs-sel)' : 'var(--vs-card)', border: seqSelectedId === item.id ? '1px solid var(--vs-accent)' : '1px solid var(--vs-border)', borderRadius: 8, padding: 6, cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 4, opacity: grab && grab.id === item.id ? 0.45 : 1 }}>
+              <div data-seq-card data-seq-id={item.id} onPointerDown={() => { setSeqSelectedId(item.id); onJump?.(start) }} onContextMenu={(e) => { e.preventDefault(); jumpIntoClip(item) }} title="Click to select + seek · right-click to edit" style={{ width: px, flexShrink: 0, background: seqSelectedId === item.id ? 'var(--vs-sel)' : 'var(--vs-card)', border: seqSelectedId === item.id ? '1px solid var(--vs-accent)' : '1px solid var(--vs-border)', borderRadius: 8, padding: 6, cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 4, opacity: grab && grab.id === item.id ? 0.45 : 1, overflow: 'hidden' }}>
                 <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                   <span onPointerDown={(e) => { e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); grabRef.current = item.id; setGrab({ id: item.id, over: railIndexFromEvent(e, item.id) }) }}
                     onPointerMove={(e) => { if (grabRef.current === item.id) setGrab({ id: item.id, over: railIndexFromEvent(e, item.id) }) }}
@@ -1434,7 +1455,7 @@ function SequencerPanel({ getFrame, onJump, onExportSeq, rendering, playerRef })
                   <span style={{ fontSize: 12, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}><span style={{ opacity: 0.55, fontWeight: 400 }}>{i + 1} · </span>{item.name}</span>
                   <button onClick={(e) => { e.stopPropagation(); removeSeqItem(item.id) }} title="Remove from sequence (history kept)" style={{ background: '#2a1418', border: '1px solid #6e2a33', color: '#ff9a9a', cursor: 'pointer', padding: '0 5px', borderRadius: 6, fontSize: 12, lineHeight: 1.4 }}>✕</button>
                 </div>
-                <ClipThumb scene={item.scene} width={Math.max(64, Math.max(96, Math.round(dur * ppf)) - 16)} />
+                <ClipThumb scene={item.scene} width={Math.min(480, Math.max(32, px - 16))} />
                 <div style={{ fontSize: 11, opacity: 0.65 }}>{secs(dur)} · starts {secs(start)}</div>
                 <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
                   <button onClick={(e) => { e.stopPropagation(); setSeqSelectedId(item.id); onJump?.(start); const p = playerRef?.current; if (p) setTimeout(() => { try { if (!p.isPlaying?.()) p.play?.() } catch {} }, 80) }} title="Seek here and play">▶</button>
@@ -1442,7 +1463,7 @@ function SequencerPanel({ getFrame, onJump, onExportSeq, rendering, playerRef })
                   <button onClick={(e) => { e.stopPropagation(); duplicateVariation(item, i) }} title="Duplicate this clip into a renamed copy right after itself">⧉</button>
                 </div>
               </div>
-              <div style={{ width: Math.max(26, Math.round(Number(item.gapAfter) || 0) * ppf), flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: gapPx, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {Math.round(Number(item.gapAfter) || 0) > 0 ? (
                   <button onClick={() => updateSeqItem(item.id, { gapAfter: 0 })} title={`Close the ${Math.round(Number(item.gapAfter) || 0)}f gap — later clips pull in`} style={{ fontSize: 11, border: '1px dashed var(--vs-accent)', borderRadius: 6, padding: '4px 6px', background: 'none', color: 'var(--vs-accent)', cursor: 'pointer' }}>⇥ {Math.round(Number(item.gapAfter) || 0)}f</button>
                 ) : (
