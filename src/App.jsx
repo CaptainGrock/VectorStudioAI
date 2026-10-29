@@ -1787,6 +1787,7 @@ export default function App() {
     return () => window.removeEventListener('pagehide', flush)
   }, [])
   const fileRef = React.useRef(null)
+  const importJsonRef = React.useRef(null)
   // Space plays/pauses the preview whenever focus isn't in an editable
   // control or a button (so typing spaces and button activation keep working).
   React.useEffect(() => {
@@ -2127,6 +2128,121 @@ export default function App() {
     pushLog('Exported scene.json. Export MP4 renders video straight from the current scene.')
   }
 
+  function blobToDataUrl(blob) {
+    return new Promise((res, rej) => {
+      const r = new FileReader()
+      r.onload = () => res(r.result)
+      r.onerror = () => rej(new Error('could not read file bytes'))
+      r.readAsDataURL(blob)
+    })
+  }
+  async function fetchAsDataUrl(url, timeoutMs = 20000) {
+    const ctl = new AbortController()
+    const t = setTimeout(() => ctl.abort(), timeoutMs)
+    try {
+      const r = await fetch(url, { signal: ctl.signal })
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      const b = await r.blob()
+      if (b.size > 20 * 1024 * 1024) throw new Error('over 20 MB — kept as a link')
+      const d = await blobToDataUrl(b)
+      if (typeof d !== 'string' || !d.startsWith('data:')) throw new Error('unreadable bytes')
+      return d
+    } finally { clearTimeout(t) }
+  }
+  // Smart JSON import: validates BEFORE touching live state (a bad file
+  // changes nothing), then resolves every media reference it can —
+  // embedded data: URLs work as-is, http(s) URLs are fetched + embedded
+  // so the slide is self-contained (kept as a link + warned on failure),
+  // image_layers re-link against currently-attached files by imageName,
+  // and dead refs (local paths, expired blob: URLs, empties from a
+  // degraded auto-save) are cleared with a per-layer re-attach list.
+  // The result checkpoints into History as its own entry — current work
+  // is never overwritten, and the import itself is one click from Trash.
+  async function onImportFile(file) {
+    if (!file) return
+    setBusy(true)
+    setStatus(`Reading “${file.name}”…`)
+    try {
+      const text = await file.text()
+      let parsed = null
+      try { parsed = JSON.parse(text) } catch { throw new Error(`“${file.name}” is not valid JSON.`) }
+      const raw = parsed && parsed.scene && typeof parsed.scene === 'object' && !Array.isArray(parsed.scene) ? parsed.scene : parsed
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw) || !Array.isArray(raw.layers)) {
+        throw new Error(`“${file.name}” doesn't look like a VectorStudio slide (no layers array). Export JSON from a slide to get the right shape.`) }
+      let scene = null
+      try { scene = validateScene(normalizeScene(raw)) }
+      catch (e) { throw new Error(`Import failed validation: ${e.message}`) }
+      const registry = useStudio.getState().images || []
+      const byName = new Map(registry.map((m) => [String(m.name || '').toLowerCase(), m]))
+      const fetched = new Map() // remote URL -> embedded dataUrl (bg + layers often share)
+      let embedded = 0, linked = 0, relinked = 0
+      const missing = []
+      async function resolveRef(url, layerLabel, kind) {
+        if (!url) return { url: '', missing: true }
+        if (url.startsWith('data:')) { embedded++; return { url } }
+        if (/^https?:\/\//i.test(url)) {
+          if (fetched.has(url)) { linked++; return { url: fetched.get(url) } }
+          try {
+            const d = await fetchAsDataUrl(url)
+            fetched.set(url, d)
+            linked++
+            return { url: d }
+          } catch (e) {
+            missing.push(`${layerLabel}: remote ${kind} unreachable (${e.message}) — kept as a link, needs network`) 
+            return { url, remote: true }
+          }
+        }
+        return { url, missing: true } // blob: (dead session URL) or local path — unreadable here
+      }
+      for (const l of scene.layers) {
+        const label = `“${l.name || l.type}” (${l.type === 'audio_tts' ? 'voice' : l.type === 'audio_music' ? 'music' : l.type === 'image_layer' ? 'image' : l.type})`
+        const needsMedia = l.type === 'audio_tts' || l.type === 'audio_music' || l.type === 'image_layer' || l.type === 'sprite' || l.type === 'vector_shape'
+        if (!needsMedia || l.assetUrl) {
+          if (needsMedia && l.assetUrl) {
+            const r = await resolveRef(l.assetUrl, label, 'file')
+            l.assetUrl = r.url
+            if (r.missing) missing.push(`${label}: file “${l.assetUrl}” not readable here — re-attach it`)
+          }
+          continue
+        }
+        // No usable bytes: try the attached-files registry by imageName…
+        const hit = l.data?.imageName && byName.get(String(l.data.imageName).toLowerCase())
+        if (hit?.dataUrl) { l.assetUrl = hit.dataUrl; relinked++; continue }
+        // …then leave it empty with a targeted next step.
+        if (l.type === 'audio_tts') {
+          const chars = String(l.data?.text || '').length
+          missing.push(`${label}: no audio${chars ? ` — script kept (${chars} chars), select the track and Generate speech` : ' — type the script, then Generate speech'}`)
+        } else if (l.type === 'audio_music') {
+          missing.push(`${label}: no audio file — pick one in the inspector's File box`)
+        } else {
+          missing.push(`${label}: image not attached — re-attach “${l.data?.imageName || l.name}” in Stage 3`)
+        }
+      }
+      if (scene.backgroundImage) {
+        const r = await resolveRef(scene.backgroundImage, 'Background', 'image')
+        scene.backgroundImage = r.url
+        if (r.missing) missing.push('Background image not readable here — re-pick it in Stage 3')
+      }
+      const title = `Imported: ${String(file.name).replace(/\.json$/i, '')}`.slice(0, 80)
+      const item = useStudio.getState().addConversation(title, scene)
+      useStudio.getState().setActiveConvo(item.id)
+      setScene(scene)
+      selectLayer(null); clearPreview?.(); jumpTo(0)
+      const bits = [`${scene.layers.length} layer${scene.layers.length === 1 ? '' : 's'}`]
+      if (linked) bits.push(`${linked} remote file${linked === 1 ? '' : 's'} embedded`)
+      if (relinked) bits.push(`${relinked} re-linked from attached files`)
+      if (!missing.length) {
+        setStatus(`Imported “${title}” — ${bits.join(', ')}. Saved to History.`, 'done')
+        pushLog(`Imported “${title}” (${bits.join(', ')}).`)
+      } else {
+        setStatus(`Imported “${title}” with ${missing.length} file${missing.length === 1 ? '' : 's'} to re-attach — see Activity Log.`, 'done')
+        pushLog(`Imported “${title}” (${bits.join(', ')}) — needs attention:`)
+        missing.forEach((m) => pushLog(`· ${m}`))
+      }
+    } catch (e) { setStatus(`Import failed: ${e.message}`, 'error'); pushLog(`Import failed: ${e.message}`) }
+    setBusy(false)
+  }
+
   // One-click MP4: the local server writes scene.json and runs the Remotion
   // CLI, we poll until done, then the finished file downloads. First render
   // also fetches a headless browser, so it can take several minutes.
@@ -2205,11 +2321,13 @@ export default function App() {
               <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 4px)', background: 'var(--vs-pop)', border: '1px solid var(--vs-border)', borderRadius: 8, padding: 4, minWidth: 190, zIndex: 61, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
                 <button onClick={() => { setExportOpen(false); onExportMp4() }} disabled={rendering || busy} title={seqMode ? 'Render the whole sequence reel to one MP4 on the local server, then download it' : 'Render the current scene to MP4 on the local server, then download it (first render fetches a headless browser and takes a few minutes)'} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-text)' }}>{rendering ? 'Rendering MP4…' : seqMode ? '🎬 Export sequence MP4' : '🎬 Export MP4'}</button>
                 {!isSimple && <button onClick={() => { setExportOpen(false); onExport() }} title="Download scene.json (re-importable project file)" style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-text)' }}>📄 Export JSON</button>}
+                {!isSimple && <button onClick={() => { setExportOpen(false); importJsonRef.current?.click() }} title="Load a scene.json backup — validates first, embeds what it can, lists files to re-attach" style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-text)' }}>📥 Import JSON</button>}
               </div>
             </>
           )}
         </div>
         <button onClick={() => { setSettingsTab('models'); setShowSettings(true) }} title="Settings — models, text-to-speech, engine" style={{ fontSize: 15, padding: '2px 8px' }}>⚙</button>
+        <input ref={importJsonRef} type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onImportFile(f) }} />
       </div>
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
         <div style={{ width: 340, borderRight: '1px solid var(--vs-line)', padding: 12, overflowY: 'auto', background: 'var(--vs-rail)' }}>

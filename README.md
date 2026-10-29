@@ -77,6 +77,7 @@ Top bar:
   - **Export MP4** renders the current scene on the local server (`/api/render`) and downloads `vectorstudio.mp4`. First render may download a headless browser and take several minutes. Export resolution follows the scene’s width/height.
   - **Export sequence MP4** (in Sequence mode) renders the whole reel — clips, gaps, and bed music — to one MP4.
   - **Export JSON** downloads the re-importable `scene.json` (or `sequence.json` in Sequence mode).
+  - **Import JSON** loads a `scene.json` backup as a new History entry (current work is kept). It validates first — a bad file changes nothing — embeds `data:` assets as-is, fetches + embeds `http(s)` URLs so the slide is self-contained (unreachable ones stay linked with a warning), re-links images against currently-attached files by name, and lists anything it couldn't resolve (local paths, expired `blob:` URLs) per layer with the next step: re-attach the file, or for narration just Generate speech from the preserved script.
 
 ## Voice narration with BreezeTTS-2
 
