@@ -41,6 +41,14 @@ function persistSequence(sequence) {
   } catch { /* quota/private mode — session keeps it */ }
 }
 
+// Every scene mutation must survive a browser close / server restart.
+// setScene/addLayer persisted; the rest did not — text tweaks, renames,
+// keyframe moves and patch edits silently vanished on reload. Central
+// helper: best-effort disk write, session always keeps the full scene.
+function persistScene(scene) {
+  try { localStorage.setItem(LAST_KEY, JSON.stringify(scene)) } catch { /* quota/private mode */ }
+}
+
 // Clip timing: trims cut head/tail, gapAfter is trailing silence before
 // the next clip. Positions ripple automatically since every start is
 // derived — deleting or closing a gap pulls the rest of the rail in.
@@ -136,36 +144,62 @@ export const useStudio = create((set, get) => ({
   patchScene: (patch) => set((s) => {
     try {
       const next = applyPatch(s.scene, patch)
+      persistScene(next)
       return { scene: next, past: [...s.past, s.scene].slice(-50), future: [], log: [...s.log, `Applied ${patch.length} patch op(s).`] }
     } catch (e) {
       return { log: [...s.log, `Patch failed: ${e.message}`] }
     }
   }),
 
-  moveKeyframe: (id, ki, frame) => set((s) => ({
-    scene: { ...s.scene, layers: s.scene.layers.map(l => (l.id === id ? { ...l, keyframes: l.keyframes.map((kk, j) => (j === ki ? { ...kk, frame } : kk)) } : l)) },
-  })),
+  moveKeyframe: (id, ki, frame) => set((s) => {
+    const scene = { ...s.scene, layers: s.scene.layers.map(l => (l.id === id ? { ...l, keyframes: l.keyframes.map((kk, j) => (j === ki ? { ...kk, frame } : kk)) } : l)) }
+    persistScene(scene)
+    return { scene }
+  }),
   commitKeyframes: (id, ki, frame) => set((s) => {
     const layers = s.scene.layers.map(l => (l.id === id ? { ...l, keyframes: l.keyframes.map((kk, j) => (j === ki ? { ...kk, frame } : kk)) } : l))
-    return { scene: fitDurationOut({ ...s.scene, layers }), past: [...s.past, s.scene].slice(-50), future: [] }
+    const scene = fitDurationOut({ ...s.scene, layers })
+    persistScene(scene)
+    return { scene, past: [...s.past, s.scene].slice(-50), future: [] }
   }),
 
-  updateSceneField: (field, value) => set((s) => ({
-    scene: { ...s.scene, [field]: value },
-    past: [...s.past, s.scene].slice(-50),
-    future: [],
-  })),
+  updateSceneField: (field, value) => set((s) => {
+    const scene = { ...s.scene, [field]: value }
+    persistScene(scene)
+    return { scene, past: [...s.past, s.scene].slice(-50), future: [] }
+  }),
 
   updateLayer: (id, fn) => set((s) => {
     const layers = s.scene.layers.map(l => (l.id === id ? fn(l) : l))
-    return { scene: fitDurationOut({ ...s.scene, layers }), past: [...s.past, s.scene].slice(-50), future: [] }
+    const scene = fitDurationOut({ ...s.scene, layers })
+    persistScene(scene)
+    return { scene, past: [...s.past, s.scene].slice(-50), future: [] }
   }),
 
   addLayer: (layer) => set((s) => {
     try {
       const clean = validateScene(normalizeScene({ ...s.scene, layers: [...s.scene.layers, layer] }))
-      try { localStorage.setItem(LAST_KEY, JSON.stringify(clean)) } catch { /* ignore */ }
-      return { scene: fitDurationOut(clean), past: [...s.past, s.scene].slice(-50), future: [], selectedLayerId: layer.id, log: [...s.log, `Added layer: ${layer.name}`] }
+      const scene = fitDurationOut(clean)
+      persistScene(scene)
+      // Manual slides never went through Generate, so they never landed in
+      // History — a title slide built from +Add text vanished from the rail.
+      // First layer in an empty scene seeds a default history checkpoint so
+      // the work is never losable; later adds ride LAST_KEY persistence.
+      const wasEmpty = s.scene.layers.length === 0
+      if (!wasEmpty) {
+        return { scene, past: [...s.past, s.scene].slice(-50), future: [], selectedLayerId: layer.id, log: [...s.log, `Added layer: ${layer.name}`] }
+      }
+      const item = {
+        id: `c_${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`,
+        title: convoTitle(`Manual slide — ${layer.name || 'title animation'}`),
+        prompt: `Manual slide — ${layer.name || 'title animation'}`,
+        scene,
+        createdAt: new Date().toISOString(),
+        layerCount: scene.layers.length,
+      }
+      const conversations = [item, ...s.conversations].slice(0, MAX_CONVOS)
+      persistConvos(conversations)
+      return { scene, conversations, past: [...s.past, s.scene].slice(-50), future: [], selectedLayerId: layer.id, log: [...s.log, `Added layer: ${layer.name}`, `Saved to history: ${item.title}`] }
     } catch (e) {
       return { log: [...s.log, `Could not add layer: ${e.message}`] }
     }
@@ -194,14 +228,18 @@ export const useStudio = create((set, get) => ({
     if (name === null || name === undefined) return s
     const clean = String(name).trim().slice(0, 80)
     const layers = s.scene.layers.map((l) => (l.id === id ? { ...l, name: clean } : l))
-    return { scene: { ...s.scene, layers }, past: [...s.past, s.scene].slice(-50), future: [] }
+    const scene = { ...s.scene, layers }
+    persistScene(scene)
+    return { scene, past: [...s.past, s.scene].slice(-50), future: [] }
   }),
 
   deleteLayer: (id) => set((s) => {
     if (!s.scene.layers.some((l) => l.id === id)) return s
     const layers = s.scene.layers.filter((l) => l.id !== id)
+    const scene = { ...s.scene, layers }
+    persistScene(scene)
     return {
-      scene: { ...s.scene, layers },
+      scene,
       past: [...s.past, s.scene].slice(-50),
       future: [],
       selectedLayerId: s.selectedLayerId === id ? null : s.selectedLayerId,
@@ -342,7 +380,9 @@ export const useStudio = create((set, get) => ({
         : [...l.keyframes, { frame, properties: props }].sort((a, b) => a.frame - b.frame)
       return { ...l, keyframes }
     })
-    return { scene: { ...s.scene, layers }, past: [...s.past, s.scene].slice(-50), future: [] }
+    const scene = { ...s.scene, layers }
+    persistScene(scene)
+    return { scene, past: [...s.past, s.scene].slice(-50), future: [] }
   }),
 
   deleteKeyframe: (id, ki) => set((s) => {
@@ -350,7 +390,9 @@ export const useStudio = create((set, get) => ({
     if (!layer) return s
     if (layer.keyframes.length <= 1) return { log: [...s.log, 'A layer needs at least one keyframe.'] }
     const layers = s.scene.layers.map((l) => (l.id === id ? { ...l, keyframes: l.keyframes.filter((_, j) => j !== ki) } : l))
-    return { scene: { ...s.scene, layers }, past: [...s.past, s.scene].slice(-50), future: [] }
+    const scene = { ...s.scene, layers }
+    persistScene(scene)
+    return { scene, past: [...s.past, s.scene].slice(-50), future: [] }
   }),
 
   datasets: [],

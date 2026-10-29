@@ -623,63 +623,97 @@ function LayerInspector({ layer, getFrame, onJump, onClose, onPreview, clearPrev
   const deleteKeyframe = useStudio(s => s.deleteKeyframe)
   const setStatus = useStudio(s => s.setStatus)
   const [frame, setFrame] = React.useState(() => Math.round(getFrame?.() ?? 0))
-  // Follow the Player playhead so "Set keyframe at frame N" always targets
-  // where you actually are. Uncommitted slider values travel with the frame —
-  // scrubbing never discards them, Set/Revert does.
+  // Follow the Player playhead. Slider moves auto-save to the frame where
+  // they were made (no Set button): a pending edit is flushed to the old
+  // frame before the playhead moves on, so scrubbing never loses work.
+  const [live, setLive] = React.useState(null)
+  const [savedAt, setSavedAt] = React.useState(null)
+  const liveRef = React.useRef(null)
+  const frameRef = React.useRef(frame)
+  const timerRef = React.useRef(0)
+  const easeRef = React.useRef(null)
+  const [easePick, setEasePick] = React.useState(null)
+  React.useEffect(() => { easeRef.current = easePick }, [easePick])
+  React.useEffect(() => { frameRef.current = frame }, [frame])
+  const commitLive = React.useCallback((nextVals, atFrame, easeId) => {
+    const ease = EASE_OPTS.find((o) => o.id === (easeId ?? easeRef.current))?.ease || layer.keyframes.find((k) => k.frame === atFrame)?.easing || 'linear'
+    const isAudio = layer.type === 'audio_tts' || layer.type === 'audio_music'
+    const props = isAudio
+      ? { volume: nextVals.volume ?? 1 }
+      : { x: nextVals.x, y: nextVals.y, scale: nextVals.scale, opacity: nextVals.opacity, ...(layer.type === 'text' ? { fontSize: Math.round(nextVals.fontSize) } : {}) }
+    const existed = layer.keyframes.some((k) => k.frame === atFrame)
+    updateLayer(layer.id, (o) => {
+      const kf = o.keyframes.map((k) => ({ ...k, properties: { ...k.properties } }))
+      const ki = kf.findIndex((k) => k.frame === atFrame)
+      if (ki >= 0) kf[ki] = { ...kf[ki], properties: { ...kf[ki].properties, ...props }, easing: ease }
+      else kf.push({ frame: atFrame, properties: props, easing: ease })
+      kf.sort((a, b) => a.frame - b.frame)
+      return { ...o, keyframes: backfillKeyframeProps(kf, o.fontSize) }
+    })
+    setSavedAt(atFrame)
+    setStatus(`${existed ? 'Updated' : 'Set'} keyframe on ${layer.name} at frame ${atFrame} — auto-saved.`, 'done')
+  }, [layer.id, layer.keyframes, layer.type, layer.name, updateLayer, setStatus])
+  const flushPending = React.useCallback(() => {
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = 0 }
+    if (liveRef.current) {
+      const { vals, atFrame } = liveRef.current
+      liveRef.current = null
+      setLive(null)
+      clearPreview?.()
+      commitLive(vals, atFrame, easeRef.current)
+    }
+  }, [clearPreview, commitLive])
   React.useEffect(() => {
     let raf = 0
     let last = Math.round(getFrame?.() ?? 0)
     const tick = () => {
       const f = Math.round(getFrame?.() ?? 0)
       if (f !== last) {
+        // Playhead moved with an unsaved edit: pin it to the frame where
+        // the edit happened before following the playhead.
+        if (liveRef.current) {
+          const { vals, atFrame } = liveRef.current
+          liveRef.current = null
+          if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = 0 }
+          setLive(null)
+          clearPreview?.()
+          commitLive(vals, atFrame, easeRef.current)
+        }
         last = f
         setFrame(f)
       }
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [getFrame])
+    return () => { cancelAnimationFrame(raf); if (timerRef.current) clearTimeout(timerRef.current) }
+  }, [getFrame, commitLive, clearPreview])
+  React.useEffect(() => { setLive(null); liveRef.current = null; setEasePick(null); easeRef.current = null; setSavedAt(null); clearPreview?.() }, [layer.id])
   const cur = lerpKeyframes(layer.keyframes, frame)
-  // Live values: every slider/number move re-renders the Player instantly
-  // (via onPreview) so you see the transform before committing a keyframe.
-  const [live, setLive] = React.useState(null)
-  React.useEffect(() => { setLive(null); clearPreview?.() }, [layer.id])
   const v = live || { x: cur.x ?? 0, y: cur.y ?? 0, scale: cur.scale ?? 1, opacity: cur.opacity ?? 1, fontSize: cur.fontSize ?? layer.fontSize ?? 84, volume: cur.volume ?? layer.data?.volume ?? 1 }
   const push = (patch) => {
     const next = { ...v, ...patch }
     setLive(next)
+    liveRef.current = { vals: next, atFrame: frameRef.current }
     onPreview?.({ x: next.x, y: next.y, scale: next.scale, opacity: next.opacity, fontSize: next.fontSize, volume: next.volume })
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => {
+      timerRef.current = 0
+      if (!liveRef.current) return
+      const { vals, atFrame } = liveRef.current
+      liveRef.current = null
+      setLive(null)
+      clearPreview?.()
+      commitLive(vals, atFrame, easeRef.current)
+    }, 700)
   }
-  const dropPreview = () => { setLive(null); clearPreview?.() }
+  const dropPreview = () => {
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = 0 }
+    liveRef.current = null
+    setLive(null); clearPreview?.()
+  }
   const kfAt = layer.keyframes.find((k) => k.frame === frame)
-  const [easePick, setEasePick] = React.useState(null)
-  React.useEffect(() => { setEasePick(null) }, [layer.id, frame])
+  React.useEffect(() => { setEasePick(null); easeRef.current = null }, [layer.id, frame])
   const easeOpt = easePick ?? easeToOpt(kfAt?.easing)
-  function apply() {
-    const ease = EASE_OPTS.find((o) => o.id === easeOpt)?.ease || 'linear'
-    const isAudio = layer.type === 'audio_tts' || layer.type === 'audio_music'
-    const props = isAudio
-      ? { volume: v.volume ?? 1 }
-      : { x: v.x, y: v.y, scale: v.scale, opacity: v.opacity, ...(layer.type === 'text' ? { fontSize: Math.round(v.fontSize) } : {}) }
-    const existed = !!kfAt
-    // One history entry: properties and motion feel land together.
-    updateLayer(layer.id, (o) => {
-      const kf = o.keyframes.map((k) => ({ ...k, properties: { ...k.properties } }))
-      const ki = kf.findIndex((k) => k.frame === frame)
-      if (ki >= 0) kf[ki] = { ...kf[ki], properties: { ...kf[ki].properties, ...props }, easing: ease }
-      else kf.push({ frame, properties: props, easing: ease })
-      kf.sort((a, b) => a.frame - b.frame)
-      // Saving is the repair moment: any legacy bare keyframe on this layer
-      // (e.g. an old {x, y}-only drag commit) inherits its missing keys so
-      // the span into/out of this keyframe interpolates instead of popping.
-      return { ...o, keyframes: backfillKeyframeProps(kf, o.fontSize) }
-    })
-    setEasePick(null)
-    clearPreview?.()
-    setLive(null)
-    setStatus(`${existed ? 'Updated' : 'Set'} keyframe on ${layer.name} at frame ${frame} (${easeOpt.toUpperCase()}).`, 'done')
-  }
   const hasKf = layer.keyframes.some((k) => k.frame === frame)
   const hasChart = !!(layer.data?.values || layer.data?.series || layer.data?.bubbles)
   const hasFonts = layer.type === 'text' || layer.type === 'shape' || hasChart
@@ -687,7 +721,7 @@ function LayerInspector({ layer, getFrame, onJump, onClose, onPreview, clearPrev
   const field = (label, key, step, min, max, fmt = (x) => Math.round(x * 100) / 100) => (
     <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}> {label}
       <input type="number" step={step} value={fmt(v[key])} onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) push({ [key]: Math.min(max, Math.max(min, key === 'opacity' ? n / 100 : n)) }) }} style={{ width: 56 }} />
-      <input type="range" min={key === 'opacity' ? 0 : min} max={key === 'opacity' ? 100 : max} step={key === 'opacity' ? 1 : step} value={key === 'opacity' ? Math.round(v.opacity * 100) : Math.min(max, Math.max(min, v[key]))} onChange={(e) => push({ [key]: key === 'opacity' ? Number(e.target.value) / 100 : Number(e.target.value) })} style={{ flex: 1 }} title={`Slide ${label} — live in preview`} />
+      <input type="range" min={key === 'opacity' ? 0 : min} max={key === 'opacity' ? 100 : max} step={key === 'opacity' ? 1 : step} value={key === 'opacity' ? Math.round(v.opacity * 100) : Math.min(max, Math.max(min, v[key]))} onChange={(e) => push({ [key]: key === 'opacity' ? Number(e.target.value) / 100 : Number(e.target.value) })} style={{ flex: 1 }} title={`Slide ${label} — auto-saves`} />
     </label>
   )
   return (
@@ -697,13 +731,13 @@ function LayerInspector({ layer, getFrame, onJump, onClose, onPreview, clearPrev
         <span style={{ flex: 1 }} />
         <button onClick={onClose} title="Deselect">✕</button>
       </div>
-      <div style={{ fontSize: 11, opacity: 0.65, marginBottom: 8 }}>{layer.type} · frame <strong>{frame}</strong> <button onClick={() => setFrame(Math.round(getFrame?.() ?? 0))} title="Read current playhead frame">↻</button>{live && <span style={{ color: '#ffcf40' }}> · previewing — Set keyframe to keep</span>}</div>
+      <div style={{ fontSize: 11, opacity: 0.65, marginBottom: 8 }}>{layer.type} · frame <strong>{frame}</strong> <button onClick={() => setFrame(Math.round(getFrame?.() ?? 0))} title="Read current playhead frame">↻</button>{live ? <span style={{ color: '#ffcf40' }}> · editing… auto-saving…</span> : savedAt !== null ? <span style={{ color: '#3ddc84' }}> · ✓ auto-saved at {savedAt}</span> : <span> · edits auto-save here</span>}</div>
       {!isAudio && (<Section title="Transform" defaultOpen>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {field('X', 'x', 1, -1500, 1500)}{field('Y', 'y', 1, -1000, 1000)}{field('Scale', 'scale', 0.05, 0, 3)}{field('Opacity %', 'opacity', 1, 0, 1, () => Math.round(v.opacity * 100))}
           {layer.type === 'text' && (
             <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>Size {Math.round(v.fontSize ?? 84)}
-              <input type="range" min={12} max={200} step={1} value={Math.min(200, Math.max(12, v.fontSize ?? 84))} onChange={(e) => push({ fontSize: Math.min(200, Math.max(12, Number(e.target.value))) })} style={{ flex: 1 }} title="Font size — live in preview, Set keyframe to animate it" />
+              <input type="range" min={12} max={200} step={1} value={Math.min(200, Math.max(12, v.fontSize ?? 84))} onChange={(e) => push({ fontSize: Math.min(200, Math.max(12, Number(e.target.value))) })} style={{ flex: 1 }} title="Font size — auto-saves, move playhead to animate it" />
             </label>
           )}
         </div>
@@ -733,13 +767,13 @@ function LayerInspector({ layer, getFrame, onJump, onClose, onPreview, clearPrev
         <div style={{ fontSize: 11, opacity: 0.65 }}>Motion feel into frame {frame}</div>
         <div style={{ display: 'flex', gap: 4 }}>
           {EASE_OPTS.map((o) => (
-            <button key={o.id} onClick={() => setEasePick(o.id)} title={o.tip} style={{ flex: 1, background: easeOpt === o.id ? 'var(--vs-sel)' : undefined, border: easeOpt === o.id ? '1px solid var(--vs-accent)' : undefined }}>{o.short}</button>
+            <button key={o.id} onClick={() => { setEasePick(o.id); easeRef.current = o.id; push({}) }} title={`${o.tip} — auto-saves`} style={{ flex: 1, background: easeOpt === o.id ? 'var(--vs-sel)' : undefined, border: easeOpt === o.id ? '1px solid var(--vs-accent)' : undefined }}>{o.short}</button>
           ))}
         </div>
         {hasChart && <AnimTiming layer={layer} fps={fps} />}
       </Section>
-      {live && <button onClick={dropPreview} style={{ marginTop: 6, width: '100%' }} title="Discard uncommitted slider moves">Revert preview</button>}
-      <button onClick={apply} style={{ marginTop: 8, width: '100%' }}>{hasKf ? `Update keyframe at frame ${frame}` : `Set keyframe at frame ${frame}`}</button>
+      {live && <button onClick={dropPreview} style={{ marginTop: 6, width: '100%' }} title="Discard the pending edit before it auto-saves">Cancel pending edit</button>}
+      <div style={{ marginTop: 8, fontSize: 11, opacity: 0.6, textAlign: 'center' }}>Keyframes save automatically at frame {frame} — move the playhead to animate elsewhere.</div>
       <div style={{ fontSize: 11, opacity: 0.65, margin: '8px 0 4px' }}>Keyframes — click a frame to jump, ✕ to delete</div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
         {layer.keyframes.map((k, ki) => (
@@ -794,7 +828,7 @@ function ShapeSection({ layer }) {
   )
 }
 
-function AssetsStage({ onAddImage, onAddTts, onAddMusic, onAddShape }) {
+function AssetsStage({ onAddImage, onAddTts, onAddMusic, onAddShape, simple }) {
   const scene = useStudio(s => s.scene)
   const updateSceneField = useStudio(s => s.updateSceneField)
   const images = useStudio(s => s.images)
@@ -848,6 +882,7 @@ function AssetsStage({ onAddImage, onAddTts, onAddMusic, onAddShape }) {
         <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>Color
           <input type="color" value={bg} onChange={(e) => updateSceneField('background', e.target.value)} title="Video background color" />
         </label>
+        {!simple && (
         <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>Image
           <select value={images.find((m) => m.dataUrl === scene.backgroundImage)?.name || ''} onChange={(e) => { const m = images.find((x) => x.name === e.target.value); updateSceneField('backgroundImage', m ? m.dataUrl : '') }} title="Background image (transparent PNGs work too)" style={{ flex: 1, minWidth: 0 }}>
             <option value="">None</option>
@@ -856,12 +891,14 @@ function AssetsStage({ onAddImage, onAddTts, onAddMusic, onAddShape }) {
           <button onClick={() => bgFileRef.current?.click()} title="Upload a new background image (stored with the scene)">＋ Upload</button>
           <input ref={bgFileRef} type="file" accept=".png,.jpg,.jpeg,.webp,.gif,.svg" style={{ display: 'none' }} onChange={onBgUpload} />
         </label>
+        )}
         {!!scene.backgroundImage && (
           <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }} title="Background image opacity">Opacity {Math.round((scene.backgroundImageOpacity ?? 1) * 100)}%
             <input type="range" min={5} max={100} step={1} value={Math.round((scene.backgroundImageOpacity ?? 1) * 100)} onChange={(e) => updateSceneField('backgroundImageOpacity', Number(e.target.value) / 100)} style={{ flex: 1 }} />
           </label>
         )}
       </div>
+      {!simple && (
       <div style={box}>
         <div style={{ fontSize: 11, opacity: 0.65 }}>Images — reference by name in prompts, or add as layers</div>
         {images.map((m) => (
@@ -878,6 +915,8 @@ function AssetsStage({ onAddImage, onAddTts, onAddMusic, onAddShape }) {
           <input ref={imgFileRef} type="file" accept=".png,.jpg,.jpeg,.webp,.gif,.svg" multiple style={{ display: 'none' }} onChange={onImgUpload} />
         </div>
       </div>
+      )}
+      {!simple && (
       <div style={box}>
         <div style={{ fontSize: 11, opacity: 0.65 }}>Shapes — click to add, then style the label, paint, and keyframes on the right</div>
         {SHAPE_GROUPS.map((g) => (
@@ -899,6 +938,8 @@ function AssetsStage({ onAddImage, onAddTts, onAddMusic, onAddShape }) {
           </div>
         ))}
       </div>
+      )}
+      {!simple && (
       <div style={box}>
         <div style={{ fontSize: 11, opacity: 0.65 }}>Audio — narration (TTS) & music tracks</div>
         {audios.map((a) => (
@@ -922,6 +963,7 @@ function AssetsStage({ onAddImage, onAddTts, onAddMusic, onAddShape }) {
           <button onClick={() => onAddMusic(audioChoice || undefined)} title="Add the selected attached audio as a music track">＋ Music</button>
         </div>
       </div>
+      )}
     </div>
   )
 }
@@ -1433,7 +1475,7 @@ function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onSee
   const toggleTrack = (id) => setCollapsed((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
   return (
     <div style={{ borderTop: '1px solid var(--vs-line)', padding: 12, overflowX: 'auto', overflowY: 'auto', minHeight: 96, maxHeight: 360, background: 'var(--vs-rail)' }}>
-      <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, opacity: 0.8, display: 'flex', alignItems: 'center', gap: 8 }}>Timeline · {scene.layers.length} track{scene.layers.length === 1 ? '' : 's'} · {scene.durationInFrames} frames<span style={{ flex: 1 }} /><div style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 400 }} title="Timeline zoom — 100% fits the whole scene, zooming in scrolls"><button onClick={() => setZoom((z) => Math.max(1, Math.round((z - 0.25) * 100) / 100))} disabled={zoom <= 1} title="Zoom out">−</button><span style={{ fontSize: 11, minWidth: 38, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span><button onClick={() => setZoom((z) => Math.min(3, Math.round((z + 0.25) * 100) / 100))} title="Zoom in">+</button><button onClick={() => setZoom(1)} disabled={zoom === 1} title="Fit the whole scene">Fit</button><button onClick={trimToContent} disabled={!scene.layers.length} title="Snap scene length to the longest layer (stray keyframes pulled in too)">Trim</button></div>{scene.layers.length > 1 && (<><button onClick={() => setCollapsed(new Set(scene.layers.map((l) => l.id)))} title="Collapse all tracks">Collapse all</button><button onClick={() => setCollapsed(new Set())} title="Expand all tracks">Expand all</button></>)}<span style={{ fontWeight: 400, opacity: 0.55 }} title="Backgrounds, images and audio live in Stage 3 · Assets (left rail)">BG + media → Stage 3</span></div>
+      <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, opacity: 0.8, display: 'flex', alignItems: 'center', gap: 8 }}>Timeline · {scene.layers.length} track{scene.layers.length === 1 ? '' : 's'} · {scene.durationInFrames} frames<span style={{ flex: 1 }} /><div style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 400 }} title="Timeline zoom — 100% fits the whole scene, zooming in scrolls"><button onClick={() => setZoom((z) => Math.max(1, Math.round((z - 0.25) * 100) / 100))} disabled={zoom <= 1} title="Zoom out">−</button><span style={{ fontSize: 11, minWidth: 38, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span><button onClick={() => setZoom((z) => Math.min(3, Math.round((z + 0.25) * 100) / 100))} title="Zoom in">+</button><button onClick={() => setZoom(1)} disabled={zoom === 1} title="Fit the whole scene">Fit</button><button onClick={trimToContent} disabled={!scene.layers.length} title="Snap scene length to the longest layer (stray keyframes pulled in too)">Trim</button></div>{scene.layers.length > 1 && (<><button onClick={() => setCollapsed(new Set(scene.layers.map((l) => l.id)))} title="Collapse all tracks">Collapse all</button><button onClick={() => setCollapsed(new Set())} title="Expand all tracks">Expand all</button></>)}</div>
       {!scene.layers.length && (
         <div style={{ fontSize: 13, opacity: 0.65, padding: '8px 0' }}>No tracks yet — generate a scene and its layers, clips and keyframe diamonds will appear here.</div>
       )}
@@ -1548,6 +1590,19 @@ export default function App() {
   // Stage 2 open, Stage 3 stays manual.
   const [revCollapsed, setRevCollapsed] = useState(true)
   const [assetsCollapsed, setAssetsCollapsed] = useState(true)
+  const [activityCollapsed, setActivityCollapsed] = useState(true)
+  const [histCollapsed, setHistCollapsed] = useState(false)
+  // Simple trims the UI to the essentials; Power unlocks sequencing,
+  // media assets, JSON export and TTS. Persisted — default Simple.
+  const [mode, setMode] = useState(() => { try { return localStorage.getItem('vectorstudio.mode.v1') || 'simple' } catch { return 'simple' } })
+  const isSimple = mode !== 'power'
+  function toggleMode() {
+    const next = isSimple ? 'power' : 'simple'
+    setMode(next)
+    try { localStorage.setItem('vectorstudio.mode.v1', next) } catch { /* ignore */ }
+    if (next === 'simple') setSeqMode(false)
+    setStatus(next === 'simple' ? 'Simple Mode — essentials only.' : 'Power Mode — sequencing, media, JSON export and TTS unlocked.', 'done')
+  }
   const [revThread, setRevThread] = useState([])
   const threadBoxRef = React.useRef(null)
   const pushRev = React.useCallback((role, text) => {
@@ -1969,7 +2024,8 @@ export default function App() {
         <strong>VectorStudio AI</strong>
         <StatusBar status={status} busy={busy} />
         <span style={{ flex: 1 }} />
-        <button onClick={() => { setSeqMode(!seqMode); if (!seqMode) { selectLayer(null); clearPreview?.() } }} title={seqMode ? 'Back to the single-scene editor' : 'Sequence mode: chain history clips into one reel'} style={seqMode ? { fontWeight: 700, background: 'var(--vs-accent-solid)', border: '1px solid var(--vs-accent-solid)', color: '#fff' } : undefined}>🎬 Sequence</button>
+        <button onClick={toggleMode} title={isSimple ? 'Switch to Power Mode — unlock sequencing, media assets, JSON export and TTS' : 'Switch to Simple Mode — essentials only'} style={isSimple ? undefined : { fontWeight: 700, background: '#6d3fd1', border: '1px solid #6d3fd1', color: '#fff' }}>{isSimple ? 'Simple Mode' : 'Power Mode'}</button>
+        {!isSimple && <button onClick={() => { setSeqMode(!seqMode); if (!seqMode) { selectLayer(null); clearPreview?.() } }} title={seqMode ? 'Back to the single-scene editor' : 'Sequence mode: chain history clips into one reel'} style={seqMode ? { fontWeight: 700, background: 'var(--vs-accent-solid)', border: '1px solid var(--vs-accent-solid)', color: '#fff' } : undefined}>🎬 Sequence</button>}
         <button onClick={undo} disabled={!pastLen || seqMode} title="Undo (Ctrl+Z)" style={{ fontSize: 15, padding: '2px 8px' }}>↶</button>
         <button onClick={redo} disabled={!futureLen || seqMode} title="Redo (Ctrl+Y / Ctrl+Shift+Z)" style={{ fontSize: 15, padding: '2px 8px' }}>↷</button>
         <div style={{ position: 'relative' }}>
@@ -1979,7 +2035,7 @@ export default function App() {
               <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={() => setExportOpen(false)} />
               <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 4px)', background: 'var(--vs-pop)', border: '1px solid var(--vs-border)', borderRadius: 8, padding: 4, minWidth: 190, zIndex: 61, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
                 <button onClick={() => { setExportOpen(false); onExportMp4() }} disabled={rendering || busy} title={seqMode ? 'Render the whole sequence reel to one MP4 on the local server, then download it' : 'Render the current scene to MP4 on the local server, then download it (first render fetches a headless browser and takes a few minutes)'} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-text)' }}>{rendering ? 'Rendering MP4…' : seqMode ? '🎬 Export sequence MP4' : '🎬 Export MP4'}</button>
-                <button onClick={() => { setExportOpen(false); onExport() }} title="Download scene.json (re-importable project file)" style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-text)' }}>📄 Export JSON</button>
+                {!isSimple && <button onClick={() => { setExportOpen(false); onExport() }} title="Download scene.json (re-importable project file)" style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-text)' }}>📄 Export JSON</button>}
               </div>
             </>
           )}
@@ -1987,9 +2043,9 @@ export default function App() {
         <button onClick={() => { setSettingsTab('models'); setShowSettings(true) }} title="Settings — models, text-to-speech, engine" style={{ fontSize: 15, padding: '2px 8px' }}>⚙</button>
       </div>
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-        <div style={{ width: 340, borderRight: '1px solid var(--vs-line)', padding: 12, overflowY: 'auto' }}>
-          <h3 style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}><button onClick={() => setGenCollapsed((c) => !c)} title={genCollapsed ? 'Expand the Generate section' : 'Collapse to give the revision chat more room'} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0 }}>{genCollapsed ? '▸' : '▾'}</button><span>1 · Generate</span></h3>
-          {genCollapsed && (<div style={{ fontSize: 11, opacity: 0.6, marginBottom: 6 }}>{scene.layers.length} layer{scene.layers.length === 1 ? '' : 's'} ready — expand to start over, or revise below.</div>)}
+        <div style={{ width: 340, borderRight: '1px solid var(--vs-line)', padding: 12, overflowY: 'auto', background: 'var(--vs-rail)' }}>
+          <button onClick={() => setGenCollapsed((c) => !c)} title={genCollapsed ? 'Expand the Generate section' : 'Collapse to give the revision chat more room'} style={{ width: '100%', marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, background: genCollapsed ? '#4a2e8a' : '#6d3fd1', border: '1px solid #7c5cd6', borderLeft: genCollapsed ? '1px solid #7c5cd6' : '3px solid #ffd166', borderRadius: 8, padding: '9px 10px', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: '#fff' }}><span style={{ background: 'var(--vs-accent-solid)', color: '#fff', borderRadius: 6, padding: '1px 7px', fontSize: 11 }}>1</span><span style={{ flex: 1, textAlign: 'left' }}>Generate</span><span style={{ fontSize: 11, fontWeight: 400, opacity: 0.7 }}>{genCollapsed ? `${scene.layers.length} layer${scene.layers.length === 1 ? '' : 's'} · expand ▸` : '▾'}</span></button>
+          {genCollapsed && (<div style={{ fontSize: 11, opacity: 0.6, margin: '4px 2px 6px' }}>{scene.layers.length} layer{scene.layers.length === 1 ? '' : 's'} ready — expand to start over, or revise below.</div>)}
           {!genCollapsed && (<>
           <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={4} style={{ width: '100%', background: 'var(--vs-deep)', color: 'var(--vs-text)', border: '1px solid var(--vs-border)', borderRadius: 6, padding: 8 }} placeholder="Create infographic: title 'Q3 Review', bar chart 10k to 50k, bank slides in from left" />
           <div style={{ display: 'flex', gap: 6, marginTop: 6, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -2013,8 +2069,8 @@ export default function App() {
           <CanvasSize />
           </>)}
           <button onClick={onAddText} style={{ marginTop: 6, width: '100%' }} title="Add an animatable text layer (font, size, color, keyframes)">＋ Add text layer</button>
-          <h3 style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 6 }}><button onClick={() => setRevCollapsed((c) => !c)} title={revCollapsed ? 'Expand the Revise section' : 'Collapse the Revise section'} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0 }}>{revCollapsed ? '▸' : '▾'}</button><span>2 · Revise chart</span></h3>
-          {revCollapsed && (<div style={{ fontSize: 11, opacity: 0.6, marginBottom: 6 }}>{revThread.length ? `${revThread.length} message${revThread.length === 1 ? '' : 's'} in the revision chat — expand to continue.` : 'Generate first — then revise here.'}</div>)}
+          <button onClick={() => setRevCollapsed((c) => !c)} title={revCollapsed ? 'Expand the Revise section' : 'Collapse the Revise section'} style={{ width: '100%', marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, background: revCollapsed ? '#4a2e8a' : '#6d3fd1', border: '1px solid #7c5cd6', borderLeft: revCollapsed ? '1px solid #7c5cd6' : '3px solid #ffd166', borderRadius: 8, padding: '9px 10px', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: '#fff' }}><span style={{ background: 'var(--vs-accent-solid)', color: '#fff', borderRadius: 6, padding: '1px 7px', fontSize: 11 }}>2</span><span style={{ flex: 1, textAlign: 'left' }}>Revise chart</span><span style={{ fontSize: 11, fontWeight: 400, opacity: 0.7 }}>{revCollapsed ? (revThread.length ? `${revThread.length} msgs · expand ▸` : 'expand ▸') : '▾'}</span></button>
+          {revCollapsed && (<div style={{ fontSize: 11, opacity: 0.6, margin: '4px 2px 6px' }}>{revThread.length ? `${revThread.length} message${revThread.length === 1 ? '' : 's'} in the revision chat — expand to continue.` : 'Generate first — then revise here.'}</div>)}
           {!revCollapsed && (<>
           <textarea value={editPrompt} onChange={(e) => setEditPrompt(e.target.value)} rows={3} style={{ width: '100%', background: 'var(--vs-deep)', color: 'var(--vs-text)', border: '1px solid var(--vs-border)', borderRadius: 6, padding: 8 }} placeholder="Describe the change conversationally — I'll ask if I need details…" />
           <button disabled={busy} onClick={onEdit} style={{ marginTop: 8, width: '100%' }}>Revise chart</button>
@@ -2031,13 +2087,14 @@ export default function App() {
               ))}
             </div>
           )}
-          <div style={{ fontSize: 12, opacity: 0.6, marginTop: 6 }}>No model? Offline rules handle charts, titles, shapes, colors, fonts and retimes.</div>
+
           </>)}
-          <h3 style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 6 }}><button onClick={() => setAssetsCollapsed((c) => !c)} title={assetsCollapsed ? 'Expand the Assets section' : 'Collapse the Assets section'} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0 }}>{assetsCollapsed ? '▸' : '▾'}</button><span>3 · Assets</span></h3>
-          {assetsCollapsed && (<div style={{ fontSize: 11, opacity: 0.6, marginBottom: 6 }}>Backgrounds, images & audio — expand to manage.</div>)}
-          {!assetsCollapsed && <AssetsStage onAddImage={(m) => onAddImage(m)} onAddTts={(id) => onAddAudioLayer('audio_tts', id)} onAddMusic={(id) => onAddAudioLayer('audio_music', id)} onAddShape={(id) => onAddShape(id)} />}
-          <h4>History</h4>
-          <div style={{ fontSize: 11, opacity: 0.55, marginBottom: 4 }}>Right-click a conversation to rename or delete.</div>
+          <button onClick={() => setAssetsCollapsed((c) => !c)} title={assetsCollapsed ? 'Expand the Assets section' : 'Collapse the Assets section'} style={{ width: '100%', marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, background: assetsCollapsed ? '#4a2e8a' : '#6d3fd1', border: '1px solid #7c5cd6', borderLeft: assetsCollapsed ? '1px solid #7c5cd6' : '3px solid #ffd166', borderRadius: 8, padding: '9px 10px', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: '#fff' }}><span style={{ background: 'var(--vs-accent-solid)', color: '#fff', borderRadius: 6, padding: '1px 7px', fontSize: 11 }}>3</span><span style={{ flex: 1, textAlign: 'left' }}>Assets</span><span style={{ fontSize: 11, fontWeight: 400, opacity: 0.7 }}>{assetsCollapsed ? 'expand ▸' : '▾'}</span></button>
+          {assetsCollapsed && (<div style={{ fontSize: 11, opacity: 0.6, margin: '4px 2px 6px' }}>Backgrounds, images & audio — expand to manage.</div>)}
+          {!assetsCollapsed && <AssetsStage simple={isSimple} onAddImage={(m) => onAddImage(m)} onAddTts={(id) => onAddAudioLayer('audio_tts', id)} onAddMusic={(id) => onAddAudioLayer('audio_music', id)} onAddShape={(id) => onAddShape(id)} />}
+          <button onClick={() => setHistCollapsed((c) => !c)} title={histCollapsed ? 'Expand the History section' : 'Collapse the History section'} style={{ width: '100%', marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, background: histCollapsed ? '#4a2e8a' : '#6d3fd1', border: '1px solid #7c5cd6', borderLeft: histCollapsed ? '1px solid #7c5cd6' : '3px solid #ffd166', borderRadius: 8, padding: '9px 10px', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: '#fff' }}><span style={{ background: 'var(--vs-accent-solid)', color: '#fff', borderRadius: 6, padding: '1px 7px', fontSize: 11 }}>{conversations.length}</span><span style={{ flex: 1, textAlign: 'left' }}>History</span><span style={{ fontSize: 11, fontWeight: 400, opacity: 0.7 }}>{histCollapsed ? 'expand ▸' : '▾'}</span></button>
+          {!histCollapsed && (<>
+          <div style={{ fontSize: 11, opacity: 0.55, margin: '6px 2px 4px' }}>Right-click a conversation to rename or delete.</div>
           {conversations.length ? (
             <div style={{ fontSize: 12, maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
               {conversations.map((c) => (
@@ -2058,10 +2115,13 @@ export default function App() {
           ) : (
             <div style={{ fontSize: 12, opacity: 0.6 }}>No saved generations yet — each Generate lands here.</div>
           )}
-          <h4>Activity</h4>
-          <div style={{ fontSize: 12, maxHeight: 120, overflowY: 'auto', background: 'var(--vs-panel)', padding: 8, borderRadius: 6 }}>
+          <button onClick={() => setActivityCollapsed((c) => !c)} title={activityCollapsed ? 'Expand the Activity Log' : 'Collapse the Activity Log'} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: '8px 2px 2px', fontSize: 12, opacity: 0.75, width: '100%', textAlign: 'left' }}>{activityCollapsed ? '▸' : '▾'} Activity Log</button>
+          {!activityCollapsed && (
+          <div style={{ fontSize: 12, maxHeight: 120, overflowY: 'auto', background: 'var(--vs-panel)', padding: 8, borderRadius: 6, marginTop: 4 }}>
             {log.slice(-8).map((m, i) => <div key={i}>· {m}</div>)}
           </div>
+          )}
+          </>)}
         </div>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--vs-stage)', minWidth: 0, position: 'relative' }}>
           {previewConvo ? (
@@ -2131,12 +2191,12 @@ export default function App() {
               <button onClick={() => setShowSettings(false)}>✕ Close</button>
             </div>
             <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
-              {[['models', '🧠 Models'], ['tts', '🎙 Text-to-Speech'], ['engine', '🖥 Engine']].map(([id, label]) => (
+              {(isSimple ? [['models', '🧠 Models'], ['engine', '🖥 Engine']] : [['models', '🧠 Models'], ['tts', '🎙 Text-to-Speech'], ['engine', '🖥 Engine']]).map(([id, label]) => (
                 <button key={id} onClick={() => setSettingsTab(id)} title={`${label} settings`} style={settingsTab === id ? { flex: 1, fontWeight: 700, background: 'var(--vs-accent-solid)', border: '1px solid var(--vs-accent-solid)', color: '#fff' } : { flex: 1 }}>{label}</button>
               ))}
             </div>
             {settingsTab === 'models' && <LlmSettings value={llm} onChange={setLlm} />}
-            {settingsTab === 'tts' && <TtsSettings />}
+            {(settingsTab === 'tts' && !isSimple) && <TtsSettings />}
             {settingsTab === 'engine' && <EngineSettings pushLog={pushLog} />}
           </div>
         </div>
