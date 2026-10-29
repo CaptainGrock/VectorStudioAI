@@ -721,7 +721,7 @@ function LayerInspector({ layer, getFrame, onJump, onClose, onPreview, clearPrev
   const field = (label, key, step, min, max, fmt = (x) => Math.round(x * 100) / 100) => (
     <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}> {label}
       <input type="number" step={step} value={fmt(v[key])} onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) push({ [key]: Math.min(max, Math.max(min, key === 'opacity' ? n / 100 : n)) }) }} style={{ width: 56 }} />
-      <input type="range" min={key === 'opacity' ? 0 : min} max={key === 'opacity' ? 100 : max} step={key === 'opacity' ? 1 : step} value={key === 'opacity' ? Math.round(v.opacity * 100) : Math.min(max, Math.max(min, v[key]))} onChange={(e) => push({ [key]: key === 'opacity' ? Number(e.target.value) / 100 : Number(e.target.value) })} style={{ flex: 1 }} title={`Slide ${label} — auto-saves`} />
+      <input type="range" min={key === 'opacity' ? 0 : min} max={key === 'opacity' ? 100 : max} step={key === 'opacity' ? 1 : step} value={key === 'opacity' ? Math.round(v.opacity * 100) : Math.min(max, Math.max(min, v[key]))} onChange={(e) => push({ [key]: key === 'opacity' ? Number(e.target.value) / 100 : Number(e.target.value) })} style={{ flex: 1, minWidth: 0 }} title={`Slide ${label} — auto-saves`} />
     </label>
   )
   return (
@@ -737,7 +737,7 @@ function LayerInspector({ layer, getFrame, onJump, onClose, onPreview, clearPrev
           {field('X', 'x', 1, -1500, 1500)}{field('Y', 'y', 1, -1000, 1000)}{field('Scale', 'scale', 0.05, 0, 3)}{field('Opacity %', 'opacity', 1, 0, 1, () => Math.round(v.opacity * 100))}
           {layer.type === 'text' && (
             <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>Size {Math.round(v.fontSize ?? 84)}
-              <input type="range" min={12} max={200} step={1} value={Math.min(200, Math.max(12, v.fontSize ?? 84))} onChange={(e) => push({ fontSize: Math.min(200, Math.max(12, Number(e.target.value))) })} style={{ flex: 1 }} title="Font size — auto-saves, move playhead to animate it" />
+              <input type="range" min={12} max={200} step={1} value={Math.min(200, Math.max(12, v.fontSize ?? 84))} onChange={(e) => push({ fontSize: Math.min(200, Math.max(12, Number(e.target.value))) })} style={{ flex: 1, minWidth: 0 }} title="Font size — auto-saves, move playhead to animate it" />
             </label>
           )}
         </div>
