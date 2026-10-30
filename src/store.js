@@ -524,6 +524,19 @@ export const useStudio = create((set, get) => ({
     return { scene, past: [...s.past, s.scene].slice(-50), future: [] }
   }),
 
+  // Drag-and-drop landing: `to` is the array index AFTER the dragged layer
+  // is out (what the insertion line shows). Clamped, undoable, persisted.
+  moveLayerTo: (id, to) => set((s) => {
+    const from = s.scene.layers.findIndex((l) => l.id === id)
+    if (from < 0) return s
+    const layers = [...s.scene.layers]
+    const [layer] = layers.splice(from, 1)
+    layers.splice(Math.min(Math.max(0, Math.round(Number(to))), layers.length), 0, layer)
+    const scene = { ...s.scene, layers }
+    persistScene(scene)
+    return { scene, past: [...s.past, s.scene].slice(-50), future: [] }
+  }),
+
   // Returns the new item (callers fork sequence clips from it).
   addConversation: (prompt, scene) => {
     const item = {

@@ -1618,7 +1618,7 @@ function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onSee
   const addLayer = useStudio(s => s.addLayer)
   const renameLayer = useStudio(s => s.renameLayer)
   const deleteLayer = useStudio(s => s.deleteLayer)
-  const moveLayer = useStudio(s => s.moveLayer)
+  const moveLayerTo = useStudio(s => s.moveLayerTo)
   const updateLayer = useStudio(s => s.updateLayer)
   const moveKeyframe = useStudio(s => s.moveKeyframe)
   const commitKeyframes = useStudio(s => s.commitKeyframes)
@@ -1665,15 +1665,53 @@ function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onSee
   }
   const [collapsed, setCollapsed] = React.useState(() => new Set())
   const toggleTrack = (id) => setCollapsed((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  // Track reorder by drag: press-and-hold the ⋮⋮ grip, drag up/down,
+  // release to drop — with a live insertion line. Pointer-based (same as
+  // the sequencer rail), so it works on every track size. Display order
+  // is front-on-top (reversed array): display position `over` among the
+  // remaining rows converts to array index (n-1) - over.
+  const trackListRef = React.useRef(null)
+  const [dragLayer, setDragLayer] = React.useState(null) // {id, over}
+  const dragLayerRef = React.useRef(null)
+  function layerIndexFromEvent(e, excludeId) {
+    const el = trackListRef.current
+    const rest = el ? [...el.querySelectorAll('[data-layer-row]')].filter((c) => c.dataset.layerId !== (excludeId || dragLayerRef.current)) : []
+    for (let i = 0; i < rest.length; i++) {
+      const r = rest[i].getBoundingClientRect()
+      if (e.clientY < r.top + r.height / 2) return i
+    }
+    return rest.length
+  }
+  const dragFrom = dragLayer ? scene.layers.findIndex((l) => l.id === dragLayer.id) : -1
+  const dragDisplay = dragFrom >= 0 ? (scene.layers.length - 1 - dragFrom) : -1
+  const lineForLayer = (di) => dragLayer && dragFrom >= 0 && (di > dragDisplay ? di - 1 : di) === dragLayer.over
+  function dropLayer(e, id) {
+    e.stopPropagation()
+    const over = layerIndexFromEvent(e, id)
+    dragLayerRef.current = null
+    setDragLayer(null)
+    const n = scene.layers.length
+    const to = (n - 1) - over // display position -> post-removal array index
+    const l = scene.layers.find((x) => x.id === id)
+    moveLayerTo(id, to)
+    setStatus(`Moved “${l?.name || 'layer'}” to track ${over + 1} of ${n} (top = front).`, 'done')
+  }
   return (
     <div style={{ borderTop: '1px solid var(--vs-line)', padding: 12, overflowX: 'auto', overflowY: 'auto', minHeight: 96, maxHeight: 360, background: 'var(--vs-rail)' }}>
-      <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, opacity: 0.8, display: 'flex', alignItems: 'center', gap: 8 }}>Timeline · {scene.layers.length} track{scene.layers.length === 1 ? '' : 's'} · {scene.durationInFrames} frames <span title="Tracks paint back-to-front: the top track covers tracks below it. Use ▲▼ to reorder." style={{ fontWeight: 400, opacity: 0.6 }}>(top = front)</span><span style={{ flex: 1 }} /><div style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 400 }} title="Timeline zoom — 100% fits the whole scene, zooming in scrolls"><button onClick={() => setZoom((z) => Math.max(1, Math.round((z - 0.25) * 100) / 100))} disabled={zoom <= 1} title="Zoom out">−</button><span style={{ fontSize: 11, minWidth: 38, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span><button onClick={() => setZoom((z) => Math.min(3, Math.round((z + 0.25) * 100) / 100))} title="Zoom in">+</button><button onClick={() => setZoom(1)} disabled={zoom === 1} title="Fit the whole scene">Fit</button><button onClick={trimToContent} disabled={!scene.layers.length} title="Snap scene length to the longest layer (stray keyframes pulled in too)">Trim</button></div>{scene.layers.length > 1 && (<><button onClick={() => setCollapsed(new Set(scene.layers.map((l) => l.id)))} title="Collapse all tracks">Collapse all</button><button onClick={() => setCollapsed(new Set())} title="Expand all tracks">Expand all</button></>)}</div>
+      <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, opacity: 0.8, display: 'flex', alignItems: 'center', gap: 8 }}>Timeline · {scene.layers.length} track{scene.layers.length === 1 ? '' : 's'} · {scene.durationInFrames} frames <span title="Tracks paint back-to-front: the top track covers tracks below it. Drag the ⋮⋮ grip to reorder." style={{ fontWeight: 400, opacity: 0.6 }}>(top = front)</span><span style={{ flex: 1 }} /><div style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 400 }} title="Timeline zoom — 100% fits the whole scene, zooming in scrolls"><button onClick={() => setZoom((z) => Math.max(1, Math.round((z - 0.25) * 100) / 100))} disabled={zoom <= 1} title="Zoom out">−</button><span style={{ fontSize: 11, minWidth: 38, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span><button onClick={() => setZoom((z) => Math.min(3, Math.round((z + 0.25) * 100) / 100))} title="Zoom in">+</button><button onClick={() => setZoom(1)} disabled={zoom === 1} title="Fit the whole scene">Fit</button><button onClick={trimToContent} disabled={!scene.layers.length} title="Snap scene length to the longest layer (stray keyframes pulled in too)">Trim</button></div>{scene.layers.length > 1 && (<><button onClick={() => setCollapsed(new Set(scene.layers.map((l) => l.id)))} title="Collapse all tracks">Collapse all</button><button onClick={() => setCollapsed(new Set())} title="Expand all tracks">Expand all</button></>)}</div>
       {!scene.layers.length && (
         <div style={{ fontSize: 13, opacity: 0.65, padding: '8px 0' }}>No tracks yet — generate a scene and its layers, clips and keyframe diamonds will appear here.</div>
       )}
-      {[...scene.layers].map((l, i) => ({ l, i })).reverse().map(({ l, i }) => (
-        <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: collapsed.has(l.id) ? 4 : 10 }}>
-          <div onClick={() => onSelectTrack?.(l.id)} title="Select layer — right-click to rename / reorder / delete (top track paints in front)" onContextMenu={(e) => { e.preventDefault(); setMenu({ id: l.id, x: e.clientX, y: e.clientY }) }} style={{ width: 180, fontSize: 13, cursor: 'pointer', color: 'var(--vs-bright)', background: selectedId === l.id ? 'var(--vs-sel)' : 'var(--vs-card)', border: selectedId === l.id ? '1px solid var(--vs-accent)' : '1px solid var(--vs-border)', borderRadius: 4, padding: '3px 6px', display: 'flex', alignItems: 'center', gap: 4 }}><button onClick={(e) => { e.stopPropagation(); toggleTrack(l.id) }} title={collapsed.has(l.id) ? 'Expand track' : 'Collapse track'} style={{ background: 'none', border: 'none', color: '#9fb3d8', cursor: 'pointer', padding: 0, fontSize: 12 }}>{collapsed.has(l.id) ? '▸' : '▾'}</button><button onClick={(e) => { e.stopPropagation(); moveLayer(l.id, 1); }} disabled={i === scene.layers.length - 1} title="Bring forward — paints in front of the track above" style={{ background: 'none', border: 'none', color: i === scene.layers.length - 1 ? '#4a5266' : '#9fb3d8', cursor: i === scene.layers.length - 1 ? 'default' : 'pointer', padding: 0, fontSize: 12 }}>▲</button><button onClick={(e) => { e.stopPropagation(); moveLayer(l.id, -1); }} disabled={i === 0} title="Send backward — paints behind the track below" style={{ background: 'none', border: 'none', color: i === 0 ? '#4a5266' : '#9fb3d8', cursor: i === 0 ? 'default' : 'pointer', padding: 0, fontSize: 12 }}>▼</button><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(l.name || '').trim() ? l.name : <i style={{ opacity: 0.6 }}>Untitled</i>} <span style={{ color: '#9fb3d8' }}>({l.type === 'audio_tts' ? 'voice' : l.type === 'audio_music' ? 'music' : l.type})</span></span></div>
+      <div ref={trackListRef}>
+      {[...scene.layers].reverse().map((l, di) => (
+        <React.Fragment key={l.id}>
+        {lineForLayer(di) && <div style={{ height: 3, background: 'var(--vs-accent)', borderRadius: 2, marginBottom: 4 }} />}
+        <div data-layer-row data-layer-id={l.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: collapsed.has(l.id) ? 4 : 10, opacity: dragLayer && dragLayer.id === l.id ? 0.45 : 1 }}>
+          <div onClick={() => onSelectTrack?.(l.id)} title="Select layer — drag ⋮⋮ to reorder, right-click for more (top track paints in front)" onContextMenu={(e) => { e.preventDefault(); setMenu({ id: l.id, x: e.clientX, y: e.clientY }) }} style={{ width: 180, fontSize: 13, cursor: 'pointer', color: 'var(--vs-bright)', background: selectedId === l.id ? 'var(--vs-sel)' : 'var(--vs-card)', border: selectedId === l.id ? '1px solid var(--vs-accent)' : '1px solid var(--vs-border)', borderRadius: 4, padding: '3px 6px', display: 'flex', alignItems: 'center', gap: 4 }}><button onClick={(e) => { e.stopPropagation(); toggleTrack(l.id) }} title={collapsed.has(l.id) ? 'Expand track' : 'Collapse track'} style={{ background: 'none', border: 'none', color: '#9fb3d8', cursor: 'pointer', padding: 0, fontSize: 12 }}>{collapsed.has(l.id) ? '▸' : '▾'}</button><span onPointerDown={(e) => { e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); dragLayerRef.current = l.id; setDragLayer({ id: l.id, over: layerIndexFromEvent(e, l.id) }) }}
+              onPointerMove={(e) => { if (dragLayerRef.current === l.id) setDragLayer({ id: l.id, over: layerIndexFromEvent(e, l.id) }) }}
+              onPointerUp={(e) => { if (dragLayerRef.current === l.id) dropLayer(e, l.id) }}
+              onPointerCancel={() => { dragLayerRef.current = null; setDragLayer(null) }}
+              title="Drag up/down to reorder (top track paints in front)" style={{ cursor: 'grab', color: '#8a93a8', fontSize: 13, padding: '0 2px', touchAction: 'none' }}>⋮⋮</span><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(l.name || '').trim() ? l.name : <i style={{ opacity: 0.6 }}>Untitled</i>} <span style={{ color: '#9fb3d8' }}>({l.type === 'audio_tts' ? 'voice' : l.type === 'audio_music' ? 'music' : l.type})</span></span></div>
           {!collapsed.has(l.id) && (<>
           <div style={{ position: 'relative', flex: zoom === 1 ? 1 : 'none', width: zoom === 1 ? undefined : `${Math.round(zoom * 100)}%`, height: 34, background: 'var(--vs-ruler)', borderRadius: 6, cursor: 'ew-resize', touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none' }} title="Click or drag to scrub the playhead (edges snap; Home/End jump to start/end)"
             onPointerDown={(e) => { scrubbing.current = true; try { e.currentTarget.setPointerCapture(e.pointerId) } catch {} ; seekFrame(frameFromEvent(e)) }}
@@ -1763,7 +1801,10 @@ function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onSee
           </div>
           </>)}
         </div>
+        </React.Fragment>
       ))}
+      {dragLayer && dragLayer.over === scene.layers.length - 1 && <div style={{ height: 3, background: 'var(--vs-accent)', borderRadius: 2, marginBottom: 4 }} />}
+      </div>
       <div style={{ fontSize: 12, opacity: 0.6 }}>Red line is the playhead — click or drag any track to scrub it. Drag yellow diamonds to retime keyframes. Drag a track's edge bars to set its start/end — dragging audio's left edge delays when it starts. Drag titles, images and shapes right on the video to move them (drop saves a keyframe).</div>
       {menu && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={() => setMenu(null)} onContextMenu={(e) => { e.preventDefault(); setMenu(null) }}>
