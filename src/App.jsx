@@ -50,6 +50,35 @@ function Playhead({ getFrame, duration, onGrabDown, onGrabMove, onGrabUp }) {
   )
 }
 
+// Viewport-aware context menu: renders at the cursor, then re-seats itself
+// before paint so it never bleeds off-screen. When there isn't room
+// below the cursor it pops HIGHER (opens upward); horizontal and edge
+// cases clamp with an 8px margin. Both the layer and history menus use it.
+function SmartMenu({ x, y, minWidth = 170, children, style }) {
+  const ref = React.useRef(null)
+  const [pos, setPos] = React.useState(() => ({
+    left: Math.max(8, Math.min(x ?? 8, (typeof window !== 'undefined' ? window.innerWidth : 1024) - minWidth - 8)),
+    top: Math.max(8, y ?? 8),
+  }))
+  React.useLayoutEffect(() => {
+    const el = ref.current
+    if (!el || typeof window === 'undefined') return
+    const r = el.getBoundingClientRect()
+    let left = x ?? 8
+    let top = y ?? 8
+    if (left + r.width > window.innerWidth - 8) left = Math.max(8, window.innerWidth - r.width - 8)
+    if (top + r.height > window.innerHeight - 8) top = Math.max(8, top - r.height - 4)
+    if (top < 8) top = 8
+    if (left < 8) left = 8
+    setPos((p) => (p.left === left && p.top === top ? p : { left, top }))
+  }, [x, y])
+  return (
+    <div ref={ref} style={{ position: 'fixed', left: pos.left, top: pos.top, minWidth, maxHeight: typeof window !== 'undefined' ? window.innerHeight - 16 : undefined, overflowY: 'auto', ...(style || {}) }}>
+      {children}
+    </div>
+  )
+}
+
 function KeyframeDiamond({ frame, duration, onScrub, onCommit }) {
   const ref = React.useRef(null)
   const dragging = React.useRef(false)
@@ -1808,7 +1837,7 @@ function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onSee
       <div style={{ fontSize: 12, opacity: 0.6 }}>Red line is the playhead — click or drag any track to scrub it. Drag yellow diamonds to retime keyframes. Drag a track's edge bars to set its start/end — dragging audio's left edge delays when it starts. Drag titles, images and shapes right on the video to move them (drop saves a keyframe).</div>
       {menu && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={() => setMenu(null)} onContextMenu={(e) => { e.preventDefault(); setMenu(null) }}>
-          <div style={{ position: 'fixed', left: Math.min(menu.x, window.innerWidth - 180), top: Math.min(menu.y, window.innerHeight - 140), background: 'var(--vs-menu)', border: '1px solid var(--vs-border)', borderRadius: 8, padding: 4, minWidth: 170, boxShadow: '0 8px 24px rgba(0,0,0,0.65)' }} onClick={(e) => e.stopPropagation()}>
+          <SmartMenu x={menu.x} y={menu.y} minWidth={170} style={{ background: 'var(--vs-menu)', border: '1px solid var(--vs-border)', borderRadius: 8, padding: 4, boxShadow: '0 8px 24px rgba(0,0,0,0.65)', zIndex: 61 }}><div onClick={(e) => e.stopPropagation()}>
             <button onClick={() => { const l = scene.layers.find((x) => x.id === menu.id); const name = window.prompt('Rename layer (empty = blank title)', l?.name || ''); if (name !== null) renameLayer(menu.id, name.trim()); setMenu(null) }} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-bright)', fontSize: 13 }}>✏️ Rename layer</button>
             <button onClick={() => { const l = scene.layers.find((x) => x.id === menu.id); if (l) { const copy = JSON.parse(JSON.stringify(l)); copy.id = `layer_copy_${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`; copy.name = `${l.name || 'Layer'} copy`; addLayer(copy); setStatus(`Duplicated “${l.name}” with its keyframes.`, 'done') } setMenu(null) }} title="Copy this layer with all its keyframes — the copy selects so you can move it" style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-bright)', fontSize: 13 }}>⧉ Duplicate layer</button>
             <button onClick={() => { moveLayer(menu.id, 1); setStatus('Brought forward — paints in front of the track above.', 'done'); setMenu(null) }} title="Paint in front of the track above" style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-bright)', fontSize: 13 }}>▲ Bring forward</button>
@@ -1817,7 +1846,7 @@ function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onSee
             <button onClick={() => { moveLayer(menu.id, -Number.MAX_SAFE_INTEGER); setStatus('Sent to back — paints behind everything.', 'done'); setMenu(null) }} title="Paint behind everything" style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-bright)', fontSize: 13 }}>⤓ Send to back</button>
             {onAddText && <button onClick={() => { onAddText(); setMenu(null) }} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-bright)', fontSize: 13 }}>＋ Insert text layer</button>}
             <button onClick={() => { if (window.confirm(`Delete layer "${scene.layers.find((x) => x.id === menu.id)?.name}"?`)) deleteLayer(menu.id); setMenu(null) }} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: '#ffb3b3', fontSize: 13 }}>🗑 Delete layer</button>
-          </div>
+          </div></SmartMenu>
         </div>
       )}
     </div>
@@ -2820,11 +2849,11 @@ export default function App() {
         : <Timeline scene={scene} getFrame={getFrame} selectedId={selectedLayerId} onSelectTrack={handleSelect} onAddText={onAddText} onSeek={jumpTo} />}
       {ctxMenu && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={() => setCtxMenu(null)} onContextMenu={(e) => { e.preventDefault(); setCtxMenu(null) }}>
-          <div style={{ position: 'fixed', left: Math.min(ctxMenu.x, window.innerWidth - 170), top: Math.min(ctxMenu.y, window.innerHeight - 110), background: 'var(--vs-pop)', border: '1px solid var(--vs-border)', borderRadius: 8, padding: 4, minWidth: 150, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }} onClick={(e) => e.stopPropagation()}>
+          <SmartMenu x={ctxMenu.x} y={ctxMenu.y} minWidth={190} style={{ background: 'var(--vs-pop)', border: '1px solid var(--vs-border)', borderRadius: 8, padding: 4, boxShadow: '0 8px 24px rgba(0,0,0,0.5)', zIndex: 61 }}><div onClick={(e) => e.stopPropagation()}>
             <button onClick={() => { const c = conversations.find(x => x.id === ctxMenu.id); const name = window.prompt('Rename conversation', c?.title || ''); if (name && name.trim()) renameConversation(ctxMenu.id, name.trim()); setCtxMenu(null) }} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-text)' }}>✏️ Rename</button>
             <button onClick={() => { const c = conversations.find(x => x.id === ctxMenu.id); const cur = (Array.isArray(c?.tags) ? c.tags : []).join(', '); const next = window.prompt('Tags (comma-separated, e.g. intro, q3-review). Empty clears.', cur); if (next !== null) { setConversationTags(ctxMenu.id, next); setStatus(next.trim() ? `Tagged “${c?.title || 'slide'}”: ${next.trim()}.` : `Cleared tags on “${c?.title || 'slide'}”.`, 'done') } setCtxMenu(null) }} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-text)' }}>🏷 Tag…</button>
             <button onClick={() => { const c = conversations.find(x => x.id === ctxMenu.id); if (window.confirm(`Delete “${c?.title || 'this slide'}” from History? (A copy is kept in Trash.)`)) deleteConversation(ctxMenu.id); setCtxMenu(null) }} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: '#ff9090' }}>🗑 Delete</button>
-          </div>
+          </div></SmartMenu>
         </div>
       )}
       {showSettings && (
