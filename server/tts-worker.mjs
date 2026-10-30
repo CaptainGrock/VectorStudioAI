@@ -103,7 +103,9 @@ async function ensureWorker({ py, lib, ckpt, attn, fast, onLog, timeoutMs = 6000
     };
   }
   const workerPy = path.join(lib, "worker.py");
-  if (!fs.existsSync(workerPy)) return { ok: false, fallback: true, error: "No worker.py in the code folder." };
+  // Older/independently-installed code folders lack worker.py — skip
+  // silently and let the one-shot path serve (it always exists).
+  if (!fs.existsSync(workerPy)) return { ok: false, fallback: true, silent: true, error: "No worker.py in the code folder." };
   const args = [...py.slice(1), workerPy, ckpt, "--attn", attn || "sdpa"];
   if (fast) args.push("--fast-all");
   const sep = process.platform === "win32" ? ";" : ":";

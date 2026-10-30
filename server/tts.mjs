@@ -517,7 +517,7 @@ export function synthTts({ text, refAudioDataUrl, refText, instruction, modelPat
             return { handled: true, out: { ok: true, dataUrl: `data:audio/wav;base64,${wbuf.toString('base64')}`, bytes: wbuf.length } };
           }
           if (!r.fallback) return { handled: true, out: { ok: false, error: r.error } };
-          try { onLog?.(`Resident worker unavailable (${r.error}) — one-shot run instead.\n`); } catch { /* ignore */ }
+          if (!r.silent) { try { onLog?.(`Resident worker unavailable (${r.error}) — one-shot run instead.\n`); } catch { /* ignore */ } }
           return null;
         } catch (e) {
           try { onLog?.(`Resident worker hiccup (${e?.message || e}) — one-shot run instead.\n`); } catch { /* ignore */ }
