@@ -1842,6 +1842,7 @@ export default function App() {
   const loadConversation = useStudio(s => s.loadConversation)
   const deleteConversation = useStudio(s => s.deleteConversation)
   const renameConversation = useStudio(s => s.renameConversation)
+  const setConversationTags = useStudio(s => s.setConversationTags)
   const moveLayer = useStudio(s => s.moveLayer)
   const trash = useStudio(s => s.trash)
   const restoreTrash = useStudio(s => s.restoreTrash)
@@ -1894,6 +1895,26 @@ export default function App() {
   const [assetsCollapsed, setAssetsCollapsed] = useState(true)
   const [activityCollapsed, setActivityCollapsed] = useState(true)
   const [histCollapsed, setHistCollapsed] = useState(false)
+  // History search + tag groups: free-text filters by title or tag;
+  // groups derive from tags (multi-tagged slides appear under each of
+  // their tags) with an Untagged section for the rest. Collapsed state
+  // persists per session so big histories stay navigable.
+  const [histSearch, setHistSearch] = useState('')
+  const [histGroupsCollapsed, setHistGroupsCollapsed] = useState({})
+  const histFiltered = React.useMemo(() => {
+    const q = histSearch.trim().toLowerCase()
+    if (!q) return conversations
+    return conversations.filter((c) => String(c.title || '').toLowerCase().includes(q) || (Array.isArray(c.tags) ? c.tags : []).some((t) => String(t).toLowerCase().includes(q)))
+  }, [conversations, histSearch])
+  const histGroups = React.useMemo(() => {
+    const tagSet = new Map()
+    for (const c of histFiltered) for (const t of (Array.isArray(c.tags) ? c.tags : [])) if (!tagSet.has(t)) tagSet.set(t, [])
+    const tags = [...tagSet.keys()].sort((a, b) => a.localeCompare(b))
+    const groups = tags.map((tag) => ({ tag, items: histFiltered.filter((c) => (Array.isArray(c.tags) ? c.tags : []).includes(tag)) }))
+    const untagged = histFiltered.filter((c) => !(Array.isArray(c.tags) && c.tags.length))
+    if (untagged.length || !groups.length) groups.push({ tag: null, items: untagged })
+    return groups
+  }, [histFiltered])
   // Simple trims the UI to the essentials; Power unlocks sequencing,
   // media assets, JSON export and TTS. Persisted — default Simple.
   const [mode, setMode] = useState(() => { try { return localStorage.getItem('vectorstudio.mode.v1') || 'simple' } catch { return 'simple' } })
@@ -2659,26 +2680,65 @@ export default function App() {
           {!assetsCollapsed && <AssetsStage simple={isSimple} onAddImage={(m) => onAddImage(m)} onAddTts={(id) => onAddAudioLayer('audio_tts', id)} onAddMusic={(id) => onAddAudioLayer('audio_music', id)} onAddShape={(id) => onAddShape(id)} />}
           <button onClick={() => setHistCollapsed((c) => !c)} title={histCollapsed ? 'Expand the History section' : 'Collapse the History section'} style={{ width: '100%', marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, background: histCollapsed ? '#4a2e8a' : '#6d3fd1', border: '1px solid #7c5cd6', borderLeft: histCollapsed ? '1px solid #7c5cd6' : '3px solid #ffd166', borderRadius: 8, padding: '9px 10px', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: '#fff' }}><span style={{ flex: 1, textAlign: 'left' }}>History</span><span style={{ fontSize: 11, fontWeight: 400, opacity: 0.7 }}>{histCollapsed ? 'expand ▸' : '▾'}</span></button>
           {!histCollapsed && (<>
-          <div style={{ fontSize: 11, opacity: 0.55, margin: '6px 2px 4px' }}>⧉ duplicates a version to tweak · right-click to rename/delete.</div>
-          {conversations.length ? (
-            <div style={{ fontSize: 12, maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {conversations.map((c) => (
-                <div key={c.id} draggable onDragStart={(e) => { e.dataTransfer.setData('text/vs-convo', c.id); e.dataTransfer.effectAllowed = 'copy' }} style={{ background: 'var(--vs-panel)', borderRadius: 6, padding: '6px 8px', cursor: 'context-menu', display: 'flex', gap: 8, alignItems: 'center' }} title="Right-click for rename / delete · drag into the sequence rail" onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ id: c.id, x: e.clientX, y: e.clientY }) }}>
-                  <div title="Mini preview — click ▶ to watch this slide big"><ClipThumb scene={c.scene} width={104} /></div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                      <button onClick={() => { loadConversation(c.id); setStatus(`Loaded: ${c.title}`, 'done'); setGenCollapsed(true); setRevCollapsed(false); pushLog(`Loaded: ${c.title}`) }} title={c.prompt} style={{ flex: 1, textAlign: 'left', background: 'none', border: 'none', color: 'var(--vs-accent)', cursor: 'pointer', padding: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</button>
-                      <button onClick={() => { const st = useStudio.getState(); const srcScene = c.id === st.activeConvoId ? st.scene : c.scene; const item = st.addConversation(c.prompt, JSON.parse(JSON.stringify(srcScene))); st.renameConversation(item.id, `${c.title} (copy)`.slice(0, 80)); setStatus(`Duplicated “${c.title}” — tweak away, the original is kept.`, 'done') }} title="Duplicate — tweak/rename a new version, the original is kept" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>⧉</button>
-                      {!isSimple && <button onClick={() => addSeqItem(c)} title="Append to the sequence reel" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#3ddc84' }}>＋Seq</button>}
-                      <button onClick={() => { if (window.confirm(`Delete “${c.title}” from History? (A copy is kept in Trash.)`)) deleteConversation(c.id) }} title="Delete conversation (kept in Trash)" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>✕</button>
-                    </div>
-                    <div style={{ opacity: 0.55, fontSize: 11 }}>{new Date(c.createdAt).toLocaleString()} · {c.layerCount} layer{c.layerCount === 1 ? '' : 's'}</div>
-                    {!seqMode && (<button onClick={() => { previewConvoScene(c) }} title="Watch this slide in the big preview (your current work is kept — press Back to return)" style={{ fontSize: 11, marginTop: 2 }}>▶ Preview slide</button>)}
+          <div style={{ fontSize: 11, opacity: 0.55, margin: '6px 2px 4px' }}>⧉ duplicates a version to tweak · right-click to rename/tag/delete.</div>
+          <div style={{ display: 'flex', gap: 6, margin: '4px 0 6px' }}>
+            <input value={histSearch} onChange={(e) => setHistSearch(e.target.value)} placeholder="Search history by name or tag…" title="Filter slides by title text or tag" style={{ flex: 1, background: 'var(--vs-deep)', color: 'var(--vs-text)', border: '1px solid var(--vs-border)', borderRadius: 6, padding: '6px 8px', fontSize: 12 }} />
+            {!!histSearch && <button onClick={() => setHistSearch('')} title="Clear the search filter" style={{ fontSize: 12 }}>✕</button>}
+          </div>
+          {histGroups.length > 1 && (
+            <div style={{ display: 'flex', gap: 6, margin: '0 0 6px' }}>
+              <button onClick={() => setHistGroupsCollapsed({})} title="Expand every tag group" style={{ fontSize: 11 }}>Expand all</button>
+              <button onClick={() => { const all = {}; histGroups.forEach((g) => { all[g.tag || '__untagged'] = true }); setHistGroupsCollapsed(all) }} title="Collapse every tag group" style={{ fontSize: 11 }}>Collapse all</button>
+              {!!histSearch && <span style={{ fontSize: 11, opacity: 0.6, alignSelf: 'center' }}>{histFiltered.length} match{histFiltered.length === 1 ? '' : 'es'}</span>}
+            </div>
+          )}
+          {conversations.length ? (histFiltered.length ? (
+            <div style={{ fontSize: 12, maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {histGroups.map((g) => {
+                const key = g.tag || '__untagged'
+                const collapsed = histSearch.trim() ? false : !!histGroupsCollapsed[key]
+                return (
+                  <div key={g.tag || '__untagged'}>
+                    <button onClick={() => setHistGroupsCollapsed((m) => ({ ...m, [key]: !m[key] }))} title={collapsed ? `Expand ${g.tag ? `tag “${g.tag}”` : 'untagged slides'}` : `Collapse ${g.tag ? `tag “${g.tag}”` : 'untagged slides'}`} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 6, background: 'var(--vs-inset)', border: '1px solid var(--vs-border)', borderRadius: 6, padding: '5px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: 'var(--vs-text)' }}>
+                      <span style={{ opacity: 0.7 }}>{collapsed ? '▸' : '▾'}</span>
+                      <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.tag ? `🏷 ${g.tag}` : 'Untagged'} <span style={{ opacity: 0.55, fontWeight: 400 }}>({g.items.length})</span></span>
+                    </button>
+                    {!collapsed && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
+                        {g.items.map((c) => (
+                          <div key={`${g.tag || 'untagged'}-${c.id}`} draggable onDragStart={(e) => { e.dataTransfer.setData('text/vs-convo', c.id); e.dataTransfer.effectAllowed = 'copy' }} style={{ background: 'var(--vs-panel)', borderRadius: 6, padding: '6px 8px', cursor: 'context-menu', display: 'flex', gap: 8, alignItems: 'center' }} title="Right-click for rename / tag / delete · drag into the sequence rail" onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ id: c.id, x: e.clientX, y: e.clientY }) }}>
+                            <div title="Mini preview — click ▶ to watch this slide big"><ClipThumb scene={c.scene} width={104} /></div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                <button onClick={() => { loadConversation(c.id); setStatus(`Loaded: ${c.title}`, 'done'); setGenCollapsed(true); setRevCollapsed(false); pushLog(`Loaded: ${c.title}`) }} title={c.prompt} style={{ flex: 1, textAlign: 'left', background: 'none', border: 'none', color: 'var(--vs-accent)', cursor: 'pointer', padding: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</button>
+                                <button onClick={() => { const st = useStudio.getState(); const srcScene = c.id === st.activeConvoId ? st.scene : c.scene; const item = st.addConversation(c.prompt, JSON.parse(JSON.stringify(srcScene))); st.renameConversation(item.id, `${c.title} (copy)`.slice(0, 80)); if (Array.isArray(c.tags) && c.tags.length) st.setConversationTags(item.id, c.tags); setStatus(`Duplicated “${c.title}” — tweak away, the original is kept.`, 'done') }} title="Duplicate — tweak/rename a new version, the original is kept" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>⧉</button>
+                                {!isSimple && <button onClick={() => addSeqItem(c)} title="Append to the sequence reel" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#3ddc84' }}>＋Seq</button>}
+                                <button onClick={() => { if (window.confirm(`Delete “${c.title}” from History? (A copy is kept in Trash.)`)) deleteConversation(c.id) }} title="Delete conversation (kept in Trash)" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>✕</button>
+                              </div>
+                              <div style={{ opacity: 0.55, fontSize: 11 }}>{new Date(c.createdAt).toLocaleString()} · {c.layerCount} layer{c.layerCount === 1 ? '' : 's'}</div>
+                              {!!(Array.isArray(c.tags) && c.tags.length) && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 3 }}>
+                                  {c.tags.map((t) => (
+                                    <span key={t} title={`Tagged “${t}” — click ✕ to remove`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'var(--vs-sel)', border: '1px solid var(--vs-border)', borderRadius: 20, padding: '1px 4px 1px 8px', fontSize: 11 }}>
+                                      {t}
+                                      <button onClick={() => setConversationTags(c.id, c.tags.filter((x) => x !== t))} title={`Remove tag “${t}”`} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 11, lineHeight: 1 }}>✕</button>
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              {!seqMode && (<button onClick={() => { previewConvoScene(c) }} title="Watch this slide in the big preview (your current work is kept — press Back to return)" style={{ fontSize: 11, marginTop: 2 }}>▶ Preview slide</button>)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           ) : (
+            <div style={{ fontSize: 12, opacity: 0.6 }}>No slides match “{histSearch.trim()}” — try a different name or tag, or <button onClick={() => setHistSearch('')} title="Show the full history again" style={{ fontSize: 12, padding: '0 4px' }}>clear the search</button>.</div>
+          )) : (
             <div style={{ fontSize: 12, opacity: 0.6 }}>No saved generations yet — each Generate lands here.</div>
           )}
           {!!trash.length && (
@@ -2762,6 +2822,7 @@ export default function App() {
         <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={() => setCtxMenu(null)} onContextMenu={(e) => { e.preventDefault(); setCtxMenu(null) }}>
           <div style={{ position: 'fixed', left: Math.min(ctxMenu.x, window.innerWidth - 170), top: Math.min(ctxMenu.y, window.innerHeight - 110), background: 'var(--vs-pop)', border: '1px solid var(--vs-border)', borderRadius: 8, padding: 4, minWidth: 150, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }} onClick={(e) => e.stopPropagation()}>
             <button onClick={() => { const c = conversations.find(x => x.id === ctxMenu.id); const name = window.prompt('Rename conversation', c?.title || ''); if (name && name.trim()) renameConversation(ctxMenu.id, name.trim()); setCtxMenu(null) }} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-text)' }}>✏️ Rename</button>
+            <button onClick={() => { const c = conversations.find(x => x.id === ctxMenu.id); const cur = (Array.isArray(c?.tags) ? c.tags : []).join(', '); const next = window.prompt('Tags (comma-separated, e.g. intro, q3-review). Empty clears.', cur); if (next !== null) { setConversationTags(ctxMenu.id, next); setStatus(next.trim() ? `Tagged “${c?.title || 'slide'}”: ${next.trim()}.` : `Cleared tags on “${c?.title || 'slide'}”.`, 'done') } setCtxMenu(null) }} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-text)' }}>🏷 Tag…</button>
             <button onClick={() => { const c = conversations.find(x => x.id === ctxMenu.id); if (window.confirm(`Delete “${c?.title || 'this slide'}” from History? (A copy is kept in Trash.)`)) deleteConversation(ctxMenu.id); setCtxMenu(null) }} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: '#ff9090' }}>🗑 Delete</button>
           </div>
         </div>

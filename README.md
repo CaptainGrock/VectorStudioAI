@@ -62,6 +62,10 @@ Press **🎬 Sequence** to chain saved history conversations into one reel:
 - The reel auto-saves to the browser (up to 40 clips) and exports via **File ▾ → Export sequence MP4**.
 - **Server auto-save:** while the local server is running, the full project (History, sequence, scene — audio/image bytes included, no 5MB cap) is saved to `data/project.json` a couple seconds after every change (plus a final save when the tab closes/hides, so quick close-and-stop cycles are covered) and restored on startup, so restarts bring back full slides instead of media-stripped versions. The header shows **✓ Server backup + time** once it lands — wait for it before closing if you just imported. The browser copy remains the offline fallback. `data/` is git-ignored.
 
+## History tags, search, and groups
+
+Right-click any history slide → **🏷 Tag…** (comma-separated, e.g. `intro, q3-review`; empty clears). Tags show as chips on the card (✕ removes one) and group the rail into collapsible **tag sections** plus Untagged — a multi-tagged slide appears under each of its tags. The **search box** above History filters by title or tag, **Expand all / Collapse all** manages the sections, and duplicates inherit the source slide's tags. Tags persist in History, Trash restores, JSON export/import, and the server auto-save.
+
 ## Shapes
 
 Ask for vector shapes in plain language (`decision diamond labeled Approved`, `red arrow pointing right`, `rounded rectangle`, `ring to highlight`) or add them from Stage 3 → Assets. Shapes carry fill/stroke colors, sizes, and centered labels editable in the right rail, ride the same Transform/Motion/keyframe system as everything else, and export like any other layer.

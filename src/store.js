@@ -5,11 +5,27 @@ const LAST_KEY = 'vectorstudio.lastScene'
 const CONV_KEY = 'vectorstudio.convos.v1'
 const MAX_CONVOS = 20
 
+// Tags group history slides in the rail (each slide holds 0..n lowercase
+// tags; grouping is derived, never stored). Older saves without tags
+// migrate to [] so filtering/grouping never crashes on undefined.
+function normalizeTags(tags) {
+  if (!Array.isArray(tags)) return []
+  const seen = new Set()
+  const out = []
+  for (const t of tags) {
+    const clean = String(t || '').trim().toLowerCase().slice(0, 30)
+    if (!clean || seen.has(clean)) continue
+    seen.add(clean)
+    out.push(clean)
+    if (out.length >= 10) break
+  }
+  return out
+}
 function loadConvos() {
   try {
     const raw = localStorage.getItem(CONV_KEY)
     const arr = raw ? JSON.parse(raw) : []
-    return Array.isArray(arr) ? arr.filter((c) => c && c.id && c.scene).slice(0, MAX_CONVOS) : []
+    return Array.isArray(arr) ? arr.filter((c) => c && c.id && c.scene).slice(0, MAX_CONVOS).map((c) => ({ ...c, tags: normalizeTags(c.tags) })) : []
   } catch {
     return []
   }
@@ -469,7 +485,7 @@ export const useStudio = create((set, get) => ({
     if (!item) return s
     const takeId = s.conversations.some((x) => x.id === item.id)
       ? `c_${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}` : item.id
-    const restored = { id: takeId, title: item.title, prompt: item.prompt, scene: item.scene, createdAt: item.createdAt || new Date().toISOString(), layerCount: item.layerCount }
+    const restored = { id: takeId, title: item.title, prompt: item.prompt, scene: item.scene, createdAt: item.createdAt || new Date().toISOString(), layerCount: item.layerCount, tags: normalizeTags(item.tags) }
     const conversations = [restored, ...s.conversations].slice(0, MAX_CONVOS)
     persistConvos(conversations)
     const trash = (s.trash || []).filter((x) => x.id !== id)
@@ -546,6 +562,7 @@ export const useStudio = create((set, get) => ({
       scene,
       createdAt: new Date().toISOString(),
       layerCount: scene.layers.length,
+      tags: [],
     }
     set((s) => {
       const conversations = [item, ...s.conversations].slice(0, MAX_CONVOS)
@@ -583,6 +600,15 @@ export const useStudio = create((set, get) => ({
     const conversations = s.conversations.map((x) => (x.id === id ? { ...x, title: String(title).trim().slice(0, 80) || x.title } : x))
     persistConvos(conversations)
     return { conversations }
+  }),
+
+  // Tags for history grouping/filtering: comma-separated input is split,
+  // lowercased, de-duped and capped (see normalizeTags). Empty clears.
+  setConversationTags: (id, tags) => set((s) => {
+    const clean = normalizeTags(Array.isArray(tags) ? tags : String(tags || '').split(','))
+    const conversations = s.conversations.map((x) => (x.id === id ? { ...x, tags: clean } : x))
+    persistConvos(conversations)
+    return { conversations, log: [...s.log, `Tagged history item (${clean.length ? clean.join(', ') : 'untagged'}).`] }
   }),
 
   // ---- Sequence (multi-slide playlist) ----
@@ -732,7 +758,7 @@ export const useStudio = create((set, get) => ({
         try {
           if (!c || !c.id || !c.scene || !Array.isArray(c.scene.layers)) continue
           const scene = validateScene(normalizeScene(c.scene))
-          convos.push({ id: c.id, title: String(c.title || 'Untitled').slice(0, 80), prompt: typeof c.prompt === 'string' ? c.prompt : '', scene, createdAt: c.createdAt || new Date().toISOString(), layerCount: scene.layers.length })
+          convos.push({ id: c.id, title: String(c.title || 'Untitled').slice(0, 80), prompt: typeof c.prompt === 'string' ? c.prompt : '', scene, createdAt: c.createdAt || new Date().toISOString(), layerCount: scene.layers.length, tags: normalizeTags(c.tags) })
         } catch { /* skip one bad slide, keep the rest */ }
       }
       let sequence = s.sequence
