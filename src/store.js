@@ -506,6 +506,24 @@ export const useStudio = create((set, get) => ({
     }
   }),
 
+  // Z-order: layers paint back-to-front in array order, so a higher index
+  // covers lower ones (a full-screen image at the end of the array hides
+  // everything under it). dir +1 = bring forward (toward front), -1 =
+  // send backward; large values (Number.MAX_SAFE_INTEGER) jump to the
+  // very front/back. No-ops at the ends. Undoable + persisted like edits.
+  moveLayer: (id, dir) => set((s) => {
+    const from = s.scene.layers.findIndex((l) => l.id === id)
+    if (from < 0 || !dir) return s
+    const to = Math.min(s.scene.layers.length - 1, Math.max(0, from + Math.trunc(Number(dir) || 0)))
+    if (to === from) return s
+    const layers = [...s.scene.layers]
+    const [layer] = layers.splice(from, 1)
+    layers.splice(to, 0, layer)
+    const scene = { ...s.scene, layers }
+    persistScene(scene)
+    return { scene, past: [...s.past, s.scene].slice(-50), future: [] }
+  }),
+
   // Returns the new item (callers fork sequence clips from it).
   addConversation: (prompt, scene) => {
     const item = {

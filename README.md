@@ -39,7 +39,8 @@ Right rail inspector:
 - Transform (X/Y/scale/opacity), Text content, Fonts, Motion (Regular/In/Out easing), keyframes, and audio controls.
 - Drag titles, images, and shapes directly on the video; dropping saves a keyframe (canvas drops record the full pose, so opacity/scale fades keep working).
 - Timeline: zoom/fit, Trim, collapse/expand tracks, forgiving edge snapping, Home/End playhead jumps, Ctrl+Z / Ctrl+Y undo-redo.
-- Right-click a track for Rename / **Duplicate layer** (full copy with keyframes) / Insert text / Delete.
+- Right-click a track for Rename / **Duplicate layer** (full copy with keyframes) / Insert text / Delete, plus Bring forward / Send backward / Bring to front / Send to back.
+- Tracks paint back-to-front: the **top track covers tracks below it** (a full-screen image on top hides everything under it; move it to the bottom to use it as a backdrop). Use the ▲▼ buttons on each track to reorder — changes apply to preview and MP4 instantly and are undoable.
 - The red playhead has its own grab strip above the keyframe diamonds, so grabbing the line always scrubs; to retime a diamond sitting at the playhead, click elsewhere on the lane first, then drag the diamond.
 
 ## Charts, pacing, and export
