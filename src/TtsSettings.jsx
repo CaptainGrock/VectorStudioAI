@@ -9,12 +9,12 @@ const SUGGESTED = ['BreezeBlue/Breeze-TTS-2', 'drbaph/Breeze-TTS-2-comfyui']
 export function loadTts() {
   try {
     const raw = localStorage.getItem(KEY)
-    if (!raw) return { modelPath: '', voices: [{ id: 'v_default', name: 'Narrator', refText: '', refAudio: '' }], instruction: '', fast: 'auto' }
+    if (!raw) return { modelPath: '', voices: [{ id: 'v_default', name: 'Narrator', refText: '', refAudio: '' }], instruction: '', fast: 'auto', worker: 'auto', workerIdleMin: 10 }
     const s = JSON.parse(raw)
     if (!Array.isArray(s.voices) || !s.voices.length) s.voices = [{ id: 'v_default', name: 'Narrator', refText: '', refAudio: '' }]
-    return { modelPath: '', instruction: '', fast: 'auto', ...s }
+    return { modelPath: '', instruction: '', fast: 'auto', worker: 'auto', workerIdleMin: 10, ...s }
   } catch {
-    return { modelPath: '', voices: [{ id: 'v_default', name: 'Narrator', refText: '', refAudio: '' }], instruction: '', fast: 'auto' }
+    return { modelPath: '', voices: [{ id: 'v_default', name: 'Narrator', refText: '', refAudio: '' }], instruction: '', fast: 'auto', worker: 'auto', workerIdleMin: 10 }
   }
 }
 export function saveTts(s) {
@@ -495,6 +495,19 @@ export default function TtsSettings() {
         <option value="off">Standard (stock eager — slowest, most compatible)</option>
       </select>
       <div style={{ fontSize: 11, opacity: 0.65, marginTop: 2 }}>Auto uses SDPA/flash attention over eager (identical math, ~10–15% faster). Graphs only pay off on long narrations — each run spends up to ~2 min capturing them. The synth log names the active mode.</div>
+
+      <div style={{ fontSize: 12, fontWeight: 600, marginTop: 10 }}>Resident worker — keep the voice loaded</div>
+      <select value={tts.worker || 'auto'} onChange={(e) => persist({ ...tts, worker: e.target.value })} style={{ width: '100%', marginTop: 4 }}
+        title="Auto keeps the 3B model in VRAM between runs (ComfyUI-style): repeat generations skip the ~30 s load and graph capture happens once. It unloads after idle minutes, or stays down when VRAM is tight — then one-shot runs are used instead.">
+        <option value="auto">Auto — stay resident when VRAM allows (recommended)</option>
+        <option value="off">Off — one-shot process per generation</option>
+      </select>
+      <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>Unload after idle
+        <input type="number" min={1} max={120} value={tts.workerIdleMin ?? 10} onChange={(e) => { const n = Math.round(Number(e.target.value)); if (Number.isFinite(n)) persist({ ...tts, workerIdleMin: Math.min(120, Math.max(1, n)) }) }} style={{ width: 56 }} title="Minutes without a synthesis before VRAM is released" /> min
+        {server?.worker?.resident
+          ? <span style={{ color: '#3ddc84' }} title={`Holding ~${server.worker.vramNeedGB || 9} GB VRAM${server.worker.idleInSec != null ? `, releases after ${Math.floor(server.worker.idleInSec / 60)}:${String(server.worker.idleInSec % 60).padStart(2, '0')} idle` : ''}`}>● resident{server.worker.busy ? ' (working)' : ''}</span>
+          : <span style={{ opacity: 0.6 }}>○ unloaded</span>}
+      </label>
 
       <label style={{ fontSize: 12, display: 'block', marginTop: 10 }}>Voice direction (optional — no clip needed)</label>
       <input value={tts.instruction} onChange={(e) => persist({ ...tts, instruction: e.target.value })}

@@ -561,7 +561,7 @@ function AudioSection({ layer, v, push, fps }) {
     try {
       const r = await fetch('/api/tts/synth', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ text, refAudioDataUrl: voice?.refAudio || '', refText: voice?.refText || '', instruction: ttsCfg.instruction || '', modelPath: ttsCfg.modelPath || '', seed: layer.data?.seed ?? 42, fast: ttsCfg.fast || 'auto' }),
+        body: JSON.stringify({ text, refAudioDataUrl: voice?.refAudio || '', refText: voice?.refText || '', instruction: ttsCfg.instruction || '', modelPath: ttsCfg.modelPath || '', seed: layer.data?.seed ?? 42, fast: ttsCfg.fast || 'auto', worker: ttsCfg.worker || 'auto', workerIdleMin: ttsCfg.workerIdleMin ?? 10 }),
       })
       if (r.status === 404) throw new Error('local server is outdated — restart start.bat so it picks up TTS support, then try again.')
       const out = await r.json().catch(() => ({}))

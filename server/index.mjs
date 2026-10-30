@@ -9,6 +9,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { startRender, renderStatus, renderFile } from "./render.mjs";
 import { defaultTtsDir, ttsModels, ttsFit, startTtsDownload, findLib, scanLibDir, defaultAppLibDir, startLibInstall, startDepsInstall, startCudaTorchInstall, scanForPythons, cancelLibJob, libJobState, ttsPythonStatus, pickPython, startSynthJob, synthJobState, cancelSynthJob, startCheckpointDownload, ckptJobState } from "./tts.mjs";
+import { workerState } from "./tts-worker.mjs";
 import { hardwareProfile, memoryBudgetGB, budgetBasis, describeBudget } from "./hardware.mjs";
 import {
   loadSettings, saveSettings, defaultModelDir, localModels,
@@ -375,7 +376,7 @@ const server = http.createServer(async (req, res) => {
       const budgetGB = memoryBudgetGB(profile);
       const lib = findLib(ROOT);
       const pyStatus = ttsPythonStatus(ROOT, settings.ttsPy || null, lib.ok ? lib.path : "");
-      return send(res, 200, { dir, models: ttsModels(dir), fit: ttsFit(budgetGB), budgetGB, python: pyStatus.selected, pythons: pyStatus.list, pySuggested: pyStatus.suggested || null, lib, appLibDir: defaultAppLibDir(ROOT), libJob: libJobState(), ckptJob: ckptJobState() });
+      return send(res, 200, { dir, models: ttsModels(dir), fit: ttsFit(budgetGB), budgetGB, python: pyStatus.selected, pythons: pyStatus.list, pySuggested: pyStatus.suggested || null, lib, appLibDir: defaultAppLibDir(ROOT), libJob: libJobState(), ckptJob: ckptJobState(), worker: workerState() });
     }
     if (req.method === "POST" && url.pathname === "/api/tts/lib") {
       const dir = String(body.dir || "").trim();
@@ -454,6 +455,7 @@ const server = http.createServer(async (req, res) => {
         instruction: body.instruction, modelPath: body.modelPath || body.model, seed: body.seed,
         libDir: settings.ttsLibDir || "", appRoot: ROOT, savedPy: settings.ttsPy || null,
         fast: body.fast || "auto", attn: body.attn || "auto",
+        worker: body.worker || "auto", workerIdleMin: body.workerIdleMin,
       }));
     }
     const synthPollMatch = url.pathname.match(/^\/api\/tts\/synth\/([^/]+)$/);

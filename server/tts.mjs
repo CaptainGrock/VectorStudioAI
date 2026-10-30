@@ -11,6 +11,7 @@ import path from "node:path";
 import https from "node:https";
 import { spawnSync, spawn } from "node:child_process";
 import { loadSettings } from "./models.mjs";
+import { synthViaWorker, setWorkerIdleMs } from "./tts-worker.mjs";
 
 const WIN_DEFAULT = "C:\\Stable\\ComfyUI\\models\\breezetts2";
 
@@ -425,7 +426,7 @@ export function synthStatus({ modelPath, libPath, savedPy } = {}) {
 // Async (event-loop friendly): writes ref + output wavs to temp, spawns
 // `python infer.py <ckpt> --ref-audio … --ref-text … --text … --output` and
 // resolves { ok, dataUrl } or { ok:false, error } when it exits.
-export function synthTts({ text, refAudioDataUrl, refText, instruction, modelPath, libDir, appRoot, savedPy, seed, timeoutMs = 600000, onLog, __child, fast = "auto", attn = "auto" } = {}) {
+export function synthTts({ text, refAudioDataUrl, refText, instruction, modelPath, libDir, appRoot, savedPy, seed, timeoutMs = 600000, onLog, __child, fast = "auto", attn = "auto", worker = "auto", workerIdleMin = 10 } = {}) {
   const lib = (libDir && scanLibDir(libDir)?.ok) ? libDir : (appRoot ? findLib(appRoot).path : "");
   const libOk = lib && scanLibDir(lib)?.ok;
   if (!libOk) return Promise.resolve({ ok: false, error: "BreezeTTS-2 code folder not set — open Settings → Text-to-Speech and Install it or point it at your nodes folder." });
@@ -470,6 +471,8 @@ export function synthTts({ text, refAudioDataUrl, refText, instruction, modelPat
       resolve(out);
     };
     let refWav;
+    // Async body (worker attempt awaits) inside the sync Promise executor.
+    (async () => {
     try {
       const outWav = path.join(tmp, "out.wav");
       const attnArg = fast === "off" ? "eager" : String(attn || "auto");
@@ -495,6 +498,33 @@ export function synthTts({ text, refAudioDataUrl, refText, instruction, modelPat
       if (wantFast && !hasTriton) {
         return Promise.resolve({ ok: false, error: `${py.join(" ")} has no triton — CUDA graphs can't compile without it. Run “${py[0]} -m pip install triton-windows” (Windows) or pick Standard speed instead.` });
       }
+      // Resident worker first (ComfyUI-style: the model stays loaded, so
+      // repeat runs skip the cold load and graphs are captured once per
+      // session). Any worker problem falls back to the one-shot run below
+      // — never a dead end. 'off' skips straight to one-shot.
+      const wRes = await (async () => {
+        if (String(worker || 'auto') === 'off') return null;
+        try { setWorkerIdleMs(Math.max(1, Number(workerIdleMin) || 10) * 60 * 1000); } catch { /* ignore */ }
+        try {
+          const r = await synthViaWorker({
+            py, lib, ckpt, attn: attnArg, fast: wantFast, text: t, seed: seedNum,
+            refAudioDataUrl, refText, instruction: String(instruction || '').trim() || '',
+            onLog, timeoutMs, tmp, __child,
+          });
+          if (r.ok) {
+            const wbuf = fs.readFileSync(path.join(tmp, 'out.wav'));
+            if (wbuf.length > 25 * 1024 * 1024) return { handled: true, out: { ok: false, error: 'That narration is over 25 MB — split the text and synthesize in parts.' } };
+            return { handled: true, out: { ok: true, dataUrl: `data:audio/wav;base64,${wbuf.toString('base64')}`, bytes: wbuf.length } };
+          }
+          if (!r.fallback) return { handled: true, out: { ok: false, error: r.error } };
+          try { onLog?.(`Resident worker unavailable (${r.error}) — one-shot run instead.\n`); } catch { /* ignore */ }
+          return null;
+        } catch (e) {
+          try { onLog?.(`Resident worker hiccup (${e?.message || e}) — one-shot run instead.\n`); } catch { /* ignore */ }
+          return null;
+        }
+      })();
+      if (wRes) { finish(wRes.out); return; }
       // Config echo: the box under generation shows exactly what this run
       // costs, so a slow run is self-diagnosing (instruction ON doubles
       // tokens; a reference clip adds prefill; the wrong Python loses CUDA).
@@ -553,6 +583,7 @@ export function synthTts({ text, refAudioDataUrl, refText, instruction, modelPat
       };
       run(wantFast);
     } catch (err) { finish({ ok: false, error: err?.message || String(err) }); }
+    })().catch((err) => { try { finish({ ok: false, error: err?.message || String(err) }); } catch { /* ignore */ } });
   });
 }
 

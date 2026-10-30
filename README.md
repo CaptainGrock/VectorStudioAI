@@ -129,12 +129,13 @@ Local voice cloning/narration runs through the official BreezeTTS-2 `infer.py` C
 6. **Voices**
    - Add one or more speakers.
    - Reference clips are optional; the default generic voice works without one.
-   - Clips should be short clean speech, up to 8 MB, with an exact transcript.
-
-7. **Speed** (Settings → Text-to-Speech, below the checkpoint picker)
-   - **Auto** uses SDPA/flash attention instead of the stock eager kernels (identical math, ~10–15% faster decode, no quality change).
-   - **Fastest** enables the official CUDA-graph fast paths — only worth it on 60 s+ voiceovers (each run spends 1–2 min capturing graphs first; needs triton + ~15 GB free VRAM, falls back to stock on out-of-memory).
-   - Tip: a **Voice direction** instruction doubles per-token work (`--cfg-scale 4`, guided pass) — leave it empty for maximum speed.
+   - Clips should be short clean speech, up to 8 MB, with an exact transcript.  7. **Speed** (Settings → Text-to-Speech, below the checkpoint picker)
+    - **Auto** uses SDPA/flash attention instead of the stock eager kernels (identical math, ~10–15% faster decode, no quality change).
+    - **Fastest** enables the official CUDA-graph fast paths — only worth it on 60 s+ voiceovers (each run spends 1–2 min capturing graphs first; needs triton + ~15 GB free VRAM, falls back to stock on out-of-memory).
+    - **Resident worker** (same panel, on by default): keeps the 3B model in VRAM between runs — repeat generations skip the ~30 s load, graphs capture once. Unloads after N idle minutes; stays down when free VRAM is under ~9 GB (stock) / ~15 GB (graphs) and one-shot runs are used instead.
+    - Measured on an RTX 4090 (26 s narration, cloned voice): 186 s stock → **75 s** with the torch 2.14/cu126 interpreter below → less with the worker resident.
+    - Tip: a **Voice direction** instruction doubles per-token work (`--cfg-scale 4`, guided pass) — leave it empty for maximum speed.
+    - Faster interpreter (optional): `C:\pinokio\YuE2\.venv-tts214\Scripts\python.exe` (torch 2.14.1+cu126, transformers 4.57.6) — paste it into the Python box. A clone of the YuE2 env; the original is untouched. Do NOT upgrade it to transformers 5.x — the vendored runtime registers a config name 5.x now owns, so synthesis fails at import.
 
 ### Generate narration
 
