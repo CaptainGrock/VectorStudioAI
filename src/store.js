@@ -166,6 +166,21 @@ function persistConvos(list) {
 }
 const SEQ_KEY = 'vectorstudio.sequence.v1'
 const ACTIVE_KEY = 'vectorstudio.activeConvo.v1'
+const IMG_KEY = 'vectorstudio.images.v1'
+const AUD_KEY = 'vectorstudio.audios.v1'
+// Attached registries are memory-only unless persisted: without these,
+// every restart empties the Images/Audio inventory (backgrounds and
+// imageName re-links orphaned). Best-effort under quota — big bytes are
+// stripped by saveDurable but names/dimensions survive, and the server
+// backup (no 5MB cap) carries the full files.
+function loadRegistry(key, cap) {
+  try {
+    const arr = JSON.parse(localStorage.getItem(key) || '[]')
+    return Array.isArray(arr) ? arr.filter((x) => x && x.id).slice(0, cap) : []
+  } catch {
+    return []
+  }
+}
 const SEQ_PERSIST_MAX = 4 * 1024 * 1024 // scenes carry data: URLs — skip disk when huge
 const TRASH_KEY = 'vectorstudio.trash.v1'
 const MAX_TRASH = 10
@@ -804,6 +819,9 @@ export const useStudio = create((set, get) => ({
 
   datasets: [],
   attachDataset: (table) => set((s) => ({ datasets: [...s.datasets, table].slice(-5), log: [...s.log, `Attached ${table.name}: ${table.rows.length} rows.`] })),
+  // Datasets travel in the server backup (localhost, no 5MB cap) —
+  // localStorage can't be trusted with full CSV rows under quota, and
+  // re-attaching a CSV is one click, so they stay session-only offline.
   // Data updates keep the slot (id) so linked layers can refresh: only the
   // name/columns/rows change. Lineage is by id, so renames are safe.
   replaceDataset: (id, table) => set((s) => ({
@@ -812,15 +830,31 @@ export const useStudio = create((set, get) => ({
   })),
   removeDataset: (id) => set((s) => ({ datasets: s.datasets.filter((d) => d.id !== id) })),
 
-  images: [],
-  attachImage: (img) => set((s) => ({ images: [...s.images, img].slice(-10), log: [...s.log, `Attached image ${img.name} (${img.width}x${img.height}).`] })),
-  removeImage: (id) => set((s) => ({ images: s.images.filter((m) => m.id !== id) })),
+  images: loadRegistry(IMG_KEY, 10),
+  attachImage: (img) => set((s) => {
+    const images = [...s.images, img].slice(-10)
+    saveDurable(IMG_KEY, images, 'Images')
+    return { images, log: [...s.log, `Attached image ${img.name} (${img.width}x${img.height}).`] }
+  }),
+  removeImage: (id) => set((s) => {
+    const images = s.images.filter((m) => m.id !== id)
+    saveDurable(IMG_KEY, images, 'Images')
+    return { images }
+  }),
 
   // Session audio assets (TTS wav/mp3, background music). Stored as data:
   // URLs so preview and MP4 export resolve the identical bytes.
-  audios: [],
-  attachAudio: (a) => set((s) => ({ audios: [...s.audios, a].slice(-10), log: [...s.log, `Attached audio ${a.name}.`] })),
-  removeAudio: (id) => set((s) => ({ audios: s.audios.filter((a) => a.id !== id) })),
+  audios: loadRegistry(AUD_KEY, 10),
+  attachAudio: (a) => set((s) => {
+    const audios = [...s.audios, a].slice(-10)
+    saveDurable(AUD_KEY, audios, 'Audio files')
+    return { audios, log: [...s.log, `Attached audio ${a.name}.`] }
+  }),
+  removeAudio: (id) => set((s) => {
+    const audios = s.audios.filter((a) => a.id !== id)
+    saveDurable(AUD_KEY, audios, 'Audio files')
+    return { audios }
+  }),
 
   setPrompt: (prompt) => set({ prompt }),
   setEditPrompt: (editPrompt) => set({ editPrompt }),
@@ -859,14 +893,48 @@ export const useStudio = create((set, get) => ({
       } catch { /* keep current scene */ }
       if (typeof p.activeConvoId === 'string' && convos.some((c) => c.id === p.activeConvoId)) activeConvoId = p.activeConvoId
       else if (convos.length && !convos.some((c) => c.id === activeConvoId)) activeConvoId = null
+      // Registries: the server copy wins when present (full bytes, no quota
+      // cap). Absent keys mean an older backup — keep the local inventory.
+      let images = s.images
+      let audios = s.audios
+      let datasets = s.datasets
+      try {
+        if (Array.isArray(p.images)) images = p.images.filter((x) => x && x.id).slice(0, 10)
+        if (Array.isArray(p.audios)) audios = p.audios.filter((x) => x && x.id).slice(0, 10)
+        if (Array.isArray(p.datasets)) datasets = p.datasets.filter((x) => x && x.id).slice(0, 5)
+      } catch { /* keep current registries */ }
       persistConvos(convos)
       persistSequence(sequence)
       persistScene(scene)
+      saveDurable(IMG_KEY, images, 'Images')
+      saveDurable(AUD_KEY, audios, 'Audio files')
       try {
         if (activeConvoId) localStorage.setItem(ACTIVE_KEY, activeConvoId)
         else localStorage.removeItem(ACTIVE_KEY)
       } catch { /* ignore */ }
-      return { conversations: convos, sequence, scene, sceneRev: s.sceneRev + 1, activeConvoId, log: [...s.log, `Restored ${convos.length} slide${convos.length === 1 ? '' : 's'} from auto-save (media intact).`] }
+      return { conversations: convos, sequence, scene, sceneRev: s.sceneRev + 1, activeConvoId, images, audios, datasets, log: [...s.log, `Restored ${convos.length} slide${convos.length === 1 ? '' : 's'} from auto-save (media intact).`] }
+    } catch {
+      return s
+    }
+  }),
+  // Registries-only restore: a backup can hold images/audio/datasets with
+  // zero slides (e.g. written while history was briefly empty) — take the
+  // inventory without touching the live slides.
+  hydrateRegistries: (project) => set((s) => {
+    try {
+      const p = project && typeof project === 'object' ? project : null
+      if (!p) return s
+      let images = s.images
+      let audios = s.audios
+      let datasets = s.datasets
+      let touched = false
+      if (Array.isArray(p.images)) { images = p.images.filter((x) => x && x.id).slice(0, 10); touched = true }
+      if (Array.isArray(p.audios)) { audios = p.audios.filter((x) => x && x.id).slice(0, 10); touched = true }
+      if (Array.isArray(p.datasets)) { datasets = p.datasets.filter((x) => x && x.id).slice(0, 5); touched = true }
+      if (!touched) return s
+      saveDurable(IMG_KEY, images, 'Images')
+      saveDurable(AUD_KEY, audios, 'Audio files')
+      return { images, audios, datasets, log: [...s.log, 'Restored attached images/audio from auto-save.'] }
     } catch {
       return s
     }

@@ -11,7 +11,7 @@ import path from "node:path";
 import https from "node:https";
 import { spawnSync, spawn } from "node:child_process";
 import { loadSettings } from "./models.mjs";
-import { synthViaWorker, setWorkerIdleMs } from "./tts-worker.mjs";
+import { synthViaWorker, setWorkerIdleMs, workerState } from "./tts-worker.mjs";
 
 const WIN_DEFAULT = "C:\\Stable\\ComfyUI\\models\\breezetts2";
 
@@ -626,7 +626,15 @@ export function startSynthJob(args) {
   const t = String(args?.text || "").trim();
   if (!t) return { ok: false, error: "Nothing to speak — type the narration text first." };
   const id = `tts_${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
-  const job = { id, active: true, startedAt: Date.now(), log: [], error: "", done: false, dataUrl: "", bytes: 0, child: null };
+  // Progress estimate for the UI bar: decode ≈ chars/10 synth-seconds on the
+  // current stack (measured ~11 chars/s on the cu126 clone), +30% buffer so
+  // the bar approaches — never overshoots — 100%, plus a one-time load
+  // allowance when the resident worker isn't already up.
+  let residentAtStart = false;
+  try { residentAtStart = !!workerState()?.resident; } catch { /* progress still works, just assumes a cold load */ }
+  const loadSec = residentAtStart ? 3 : 25;
+  const expectedSec = Math.max(15, loadSec + Math.ceil((t.length / 10) * 1.3));
+  const job = { id, active: true, startedAt: Date.now(), log: [], error: "", done: false, dataUrl: "", bytes: 0, child: null, textLen: t.length, expectedSec, loadSec, loadPct: null, phase: residentAtStart ? "synthesizing" : "loading" };
   // Console spam (missing-SoX notice, triton/glog warnings) would drown
   // the progress view — collapse the known-benign lines to one note.
   const BENIGN = [/proceed here/i, /^\s*- - -.*- - -\s*$/, /path variables/i, /triton/i, /flop_counter/i, /^[WI]\d{4} /, /operable program or batch file/i];
@@ -640,6 +648,13 @@ export function startSynthJob(args) {
         continue;
       }
       if (BENIGN.some((re) => re.test(clean))) continue;
+      // Phase + load-progress signals for the UI bar (kept out of the
+      // visible log tail — the bar + phase label replace the raw lines).
+      const shard = /Loading checkpoint shards:\s*(\d+)%/.exec(clean);
+      if (shard) { job.loadPct = Math.min(100, Math.max(0, Number(shard[1]))); job.phase = "loading"; continue; }
+      if (/resident worker|worker:.*ready|model load/i.test(clean)) { job.phase = "loading"; continue; }
+      if (/TTS worker resident|repeat runs skip/i.test(clean)) { job.phase = "synthesizing"; continue; }
+      if (/request .* done in|saved .*\.wav/i.test(clean)) { job.phase = "finalizing"; continue; }
       job.log.push(clean);
     }
     if (job.log.length > 40) job.log = job.log.slice(-40);
@@ -662,9 +677,29 @@ export function startSynthJob(args) {
 export function synthJobState(id) {
   const j = synthJobs.get(String(id));
   if (!j) return { ok: false, error: "Unknown synthesis job." };
+  const elapsedSec = Math.round((Date.now() - j.startedAt) / 1000);
+  // Determinate progress: elapsed vs estimate, eased so it creeps toward
+  // 99% instead of parking at 100% while the last seconds decode. During
+  // the model load, blend in the real checkpoint-shard % when we have it.
+  let progress = null;
+  let phase = j.phase || "synthesizing";
+  if (!j.done && !j.error && j.expectedSec) {
+    const raw = elapsedSec / j.expectedSec;
+    const eased = raw < 0.7 ? raw : 0.7 + (1 - Math.exp(-(raw - 0.7) * 2.2)) * 0.29;
+    progress = Math.min(0.99, Math.max(0, eased));
+    if (phase === "loading" && j.loadPct != null) {
+      // Load occupies roughly loadSec/expectedSec of the bar.
+      const loadShare = Math.min(0.6, (j.loadSec || 25) / j.expectedSec);
+      progress = Math.min(progress, (j.loadPct / 100) * loadShare);
+    }
+    if (elapsedSec > (j.loadSec || 0) + 2 && phase === "loading") phase = "synthesizing";
+    if (j.done) { progress = 1; phase = "done"; }
+  } else if (j.done) { progress = 1; phase = "done"; }
   return {
     ok: true, id: j.id, state: j.done ? "done" : j.error ? "error" : "running",
-    elapsedSec: Math.round((Date.now() - j.startedAt) / 1000),
+    elapsedSec,
+    expectedSec: j.expectedSec || null,
+    progress, phase, textLen: j.textLen || null,
     logTail: j.log.slice(-8), error: j.error || undefined,
     ...(j.done ? { dataUrl: j.dataUrl, bytes: j.bytes } : {}),
   };

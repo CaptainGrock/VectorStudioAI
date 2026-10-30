@@ -50,6 +50,31 @@ function Playhead({ getFrame, duration, onGrabDown, onGrabMove, onGrabUp }) {
   )
 }
 
+// Live playhead readout for timeline headers: polls the Player at rAF but
+// only re-renders when the rounded frame changes, so it's cheap. Shows
+// `@ 12f / 240f` — no more guessing where the playhead is while scrubbing.
+function FrameReadout({ getFrame, duration }) {
+  const [frame, setFrame] = React.useState(0)
+  React.useEffect(() => {
+    let raf = 0
+    let last = -1
+    const tick = () => {
+      const f = Math.round(getFrame?.() ?? 0)
+      if (f !== last) { last = f; setFrame(f) }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [getFrame])
+  const total = Math.max(1, Math.round(duration ?? 0))
+  const cur = Math.min(total, Math.max(0, frame))
+  return (
+    <span title={`Playhead at frame ${cur} of ${total} — click / drag a lane to scrub`} style={{ fontWeight: 700, color: 'var(--vs-bright)', background: 'var(--vs-card)', border: '1px solid var(--vs-accent)', borderRadius: 5, padding: '1px 7px', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+      ▶ {cur}f / {total}f
+    </span>
+  )
+}
+
 // Viewport-aware context menu: renders at the cursor, then re-seats itself
 // before paint so it never bleeds off-screen. When there isn't room
 // below the cursor it pops HIGHER (opens upward); horizontal and edge
@@ -116,7 +141,7 @@ function KeyframeDiamond({ frame, duration, selected, onPress, onMove, onEnd, on
 function SaveHealth() {
   const backup = useStudio(s => s.serverBackup)
   const backupChip = backup && backup.state !== 'idle' ? (
-    <span title={backup.state === 'saved' ? `Full project backed up on disk${backup.at ? ` at ${backup.at}` : ''} — safe to close.` : backup.state === 'saving' ? 'Backing up the full project to disk…' : 'Server backup failed — the browser copy is all there is. Export JSON to be safe.'}
+    <span title={backup.state === 'saved' ? `Full project backed up on disk${backup.at ? ` at ${backup.at}` : ''} — safe to close.${backup.error ? ` Note: ${backup.error}` : ''}` : backup.state === 'saving' ? 'Backing up the full project to disk…' : `Server backup failed (${backup.error || 'rejected'}) — the browser copy is all there is. Export JSON to be safe.'}`}
       style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', borderRadius: 7, padding: '3px 10px', flexShrink: 0,
         color: backup.state === 'error' ? '#ff9090' : backup.state === 'saved' ? '#3ddc84' : '#ffd166',
         border: `1px solid ${backup.state === 'error' ? '#6e2a33' : backup.state === 'saved' ? '#1e5a3a' : '#6e5a1e'}`,
@@ -591,7 +616,7 @@ function AudioSection({ layer, v, push, fps }) {
           return
         }
         if (p.state === 'error' || p.ok === false) throw new Error(p.error || 'synthesis failed')
-        setSynthJob({ running: true, id: out.id, elapsedSec: p.elapsedSec || 0, logTail: p.logTail || [] })
+        setSynthJob({ running: true, id: out.id, elapsedSec: p.elapsedSec || 0, expectedSec: p.expectedSec || null, progress: typeof p.progress === 'number' ? p.progress : null, phase: p.phase || 'synthesizing', logTail: p.logTail || [] })
         if (i === 299) throw new Error('synthesis timed out after ~10 minutes — try shorter text')
       }
     } catch (e) { setSynthJob({ error: e.message }); setStatus(`TTS failed: ${e.message}`, 'error') }
@@ -620,18 +645,24 @@ function AudioSection({ layer, v, push, fps }) {
           <button onClick={onSynth} disabled={!!synthJob?.running} title="Synthesize with the local BreezeTTS-2 checkpoint">🎙 Generate speech</button>
           {synthJob?.running && (
             <div style={{ background: 'var(--vs-inset)', borderRadius: 6, padding: 6 }}>
-              <style>{`@keyframes vs-slide { 0% { margin-left: -40%; } 100% { margin-left: 100%; } }`}</style>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ flex: 1 }}>🎙 Synthesizing… {synthJob.elapsedSec || 0}s elapsed</span>
+                <span style={{ flex: 1 }} title={synthJob.phase === 'loading' ? 'Loading the voice model into VRAM (one-time per session)' : synthJob.phase === 'finalizing' ? 'Writing the audio file' : 'Generating speech'}>
+                  {synthJob.phase === 'loading' ? '● Loading voice model…' : synthJob.phase === 'finalizing' ? '● Finalizing…' : '● Synthesizing…'}{' '}
+                  {synthJob.progress != null ? `${Math.round(synthJob.progress * 100)}%` : ''}
+                  <span style={{ opacity: 0.6 }}> · {synthJob.elapsedSec || 0}s{synthJob.expectedSec ? ` of ~${synthJob.expectedSec}s` : ''}</span>
+                </span>
                 <button onClick={onCancelSynth} title="Stop this synthesis run">Cancel</button>
               </div>
-              <div style={{ height: 8, background: 'var(--vs-track)', borderRadius: 4, overflow: 'hidden', marginTop: 4 }}>
-                <div style={{ height: '100%', width: '40%', background: 'var(--vs-accent)', animation: 'vs-slide 1.2s linear infinite' }} />
+              <div role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={synthJob.progress != null ? Math.round(synthJob.progress * 100) : undefined} style={{ height: 8, background: 'var(--vs-track)', borderRadius: 4, overflow: 'hidden', marginTop: 4 }}>
+                <div style={{ height: '100%', width: `${Math.round((synthJob.progress ?? 0) * 100)}%`, background: 'var(--vs-accent)', borderRadius: 4, transition: 'width 2s linear' }} />
               </div>
               {!!synthJob.logTail?.length && (
-                <div style={{ marginTop: 4, opacity: 0.7, maxHeight: 90, overflowY: 'auto' }}>
-                  {synthJob.logTail.map((l, i) => <div key={i}>{l}</div>)}
-                </div>
+                <details style={{ marginTop: 4, opacity: 0.7, fontSize: 11 }}>
+                  <summary style={{ cursor: 'pointer' }}>Details</summary>
+                  <div style={{ maxHeight: 90, overflowY: 'auto', marginTop: 2 }}>
+                    {synthJob.logTail.map((l, i) => <div key={i}>{l}</div>)}
+                  </div>
+                </details>
               )}
             </div>
           )}
@@ -1535,6 +1566,7 @@ function SequencerPanel({ getFrame, onJump, onExportSeq, rendering, playerRef })
       <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, opacity: 0.9, display: 'flex', alignItems: 'center', gap: 8 }}>
         <button onClick={togglePlay} disabled={!clips.length} title={playing ? 'Pause the sequence (Space)' : 'Play the whole sequence (Space)'} style={{ fontSize: 14, padding: '2px 10px', fontWeight: 700 }}>{playing ? '⏸' : '▶'}</button>
         <span>Sequence · {clips.length} clip{clips.length === 1 ? '' : 's'} · {secs(total)}</span>
+        <FrameReadout getFrame={getFrame} duration={Math.max(1, total)} />
         <span style={{ fontWeight: 400, opacity: 0.55 }}>{canvas.width}×{canvas.height} · first clip sets the canvas</span>
         <span style={{ flex: 1 }} />
         <span style={{ fontWeight: 400, display: 'flex', gap: 4, alignItems: 'center' }} title="Timeline zoom — zooming in scrolls horizontally">
@@ -1860,7 +1892,7 @@ function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onSee
   }
   return (
     <div ref={tlRef} tabIndex={0} onKeyDown={tlKeys} style={{ borderTop: '1px solid var(--vs-line)', padding: 12, overflowX: 'auto', overflowY: 'auto', minHeight: 96, maxHeight: 360, background: 'var(--vs-rail)', outline: 'none' }}>
-      <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, opacity: 0.8, display: 'flex', alignItems: 'center', gap: 8 }}>Timeline · {scene.layers.length} track{scene.layers.length === 1 ? '' : 's'} · {scene.durationInFrames} frames <span title="Tracks paint back-to-front: the top track covers tracks below it. Drag the ⋮⋮ grip to reorder." style={{ fontWeight: 400, opacity: 0.6 }}>(top = front)</span><span style={{ flex: 1 }} /><div style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 400 }} title="Timeline zoom — 100% fits the whole scene, zooming in scrolls"><button onClick={() => setZoom((z) => Math.max(1, Math.round((z - 0.25) * 100) / 100))} disabled={zoom <= 1} title="Zoom out">−</button><span style={{ fontSize: 11, minWidth: 38, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span><button onClick={() => setZoom((z) => Math.min(3, Math.round((z + 0.25) * 100) / 100))} title="Zoom in">+</button><button onClick={() => setZoom(1)} disabled={zoom === 1} title="Fit the whole scene">Fit</button><button onClick={trimToContent} disabled={!scene.layers.length} title="Snap scene length to the longest layer (stray keyframes pulled in too)">Trim</button></div>{scene.layers.length > 1 && (<><button onClick={() => setCollapsed(new Set(scene.layers.map((l) => l.id)))} title="Collapse all tracks">Collapse all</button><button onClick={() => setCollapsed(new Set())} title="Expand all tracks">Expand all</button></>)}</div>
+      <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, opacity: 0.8, display: 'flex', alignItems: 'center', gap: 8 }}>Timeline · {scene.layers.length} track{scene.layers.length === 1 ? '' : 's'} · {scene.durationInFrames} frames <span title="Tracks paint back-to-front: the top track covers tracks below it. Drag the ⋮⋮ grip to reorder." style={{ fontWeight: 400, opacity: 0.6 }}>(top = front)</span><FrameReadout getFrame={getFrame} duration={timeMax} /><span style={{ flex: 1 }} /><div style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 400 }} title="Timeline zoom — 100% fits the whole scene, zooming in scrolls"><button onClick={() => setZoom((z) => Math.max(1, Math.round((z - 0.25) * 100) / 100))} disabled={zoom <= 1} title="Zoom out">−</button><span style={{ fontSize: 11, minWidth: 38, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span><button onClick={() => setZoom((z) => Math.min(3, Math.round((z + 0.25) * 100) / 100))} title="Zoom in">+</button><button onClick={() => setZoom(1)} disabled={zoom === 1} title="Fit the whole scene">Fit</button><button onClick={trimToContent} disabled={!scene.layers.length} title="Snap scene length to the longest layer (stray keyframes pulled in too)">Trim</button></div>{scene.layers.length > 1 && (<><button onClick={() => setCollapsed(new Set(scene.layers.map((l) => l.id)))} title="Collapse all tracks">Collapse all</button><button onClick={() => setCollapsed(new Set())} title="Expand all tracks">Expand all</button></>)}</div>
       {!scene.layers.length && (
         <div style={{ fontSize: 13, opacity: 0.65, padding: '8px 0' }}>No tracks yet — generate a scene and its layers, clips and keyframe diamonds will appear here.</div>
       )}
@@ -2071,6 +2103,9 @@ export default function App() {
   const seqCan = React.useMemo(() => seqCanvas(sequence), [sequence])
   const editingSeqItem = editingSeqId ? sequence.items.find((x) => x.id === editingSeqId) || null : null
   const activeConvoId = useStudio(s => s.activeConvoId)
+  // Registry changes join the debounced server backup (datasets/images
+  // already subscribe below for the toolbar; audios subscribes here).
+  const audios = useStudio(s => s.audios)
   const loadConversation = useStudio(s => s.loadConversation)
   const deleteConversation = useStudio(s => s.deleteConversation)
   const renameConversation = useStudio(s => s.renameConversation)
@@ -2234,22 +2269,24 @@ export default function App() {
     try {
       const r = await fetch('/api/project', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ conversations: st.conversations, sequence: st.sequence, scene: st.scene, activeConvoId: st.activeConvoId }),
-        signal: keepalive ? undefined : AbortSignal.timeout(30000),
+        body: JSON.stringify({ conversations: st.conversations, sequence: st.sequence, scene: st.scene, activeConvoId: st.activeConvoId, images: st.images, audios: st.audios, datasets: st.datasets }),
+        signal: keepalive ? undefined : AbortSignal.timeout(60000),
         keepalive,
       })
       const body = await r.json().catch(() => null)
       if (!r.ok || !body?.ok) throw new Error(body?.error || `HTTP ${r.status}`)
       const at = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-      st.setServerBackup({ state: 'saved', at })
-    } catch {
+      st.setServerBackup({ state: 'saved', at, error: body?.preserved ? `Disk held ${body.preserved} slide${body.preserved === 1 ? '' : 's'} while history was briefly empty — nothing lost.` : null })
+      if (body?.preserved) st.pushLog?.(`Server backup kept ${body.preserved} slide${body.preserved === 1 ? '' : 's'} while history was briefly empty — nothing lost.`)
+    } catch (e) {
       // Offline counts as idle, not failure: the browser copy stands in
-      // and the next change retries. Only a hard server rejection shows.
+      // and the next change retries. But a REJECTED save while the server
+      // is up is loud — a silent disk gap is how restarts lose media.
       try {
         await fetch('/api/health', { signal: AbortSignal.timeout(3000) })
-        useStudio.getState().setServerBackup({ state: 'idle', at: null })
+        useStudio.getState().setServerBackup({ state: 'error', at: null, error: e?.message || 'save rejected' })
       } catch {
-        useStudio.getState().setServerBackup({ state: 'idle', at: null })
+        useStudio.getState().setServerBackup({ state: 'idle', at: null, error: null })
       }
     }
   }, [])
@@ -2263,7 +2300,13 @@ export default function App() {
         if (cancelled || !body?.ok || body.empty || !body.project) return
         const srv = body.project
         const srvCount = Array.isArray(srv.conversations) ? srv.conversations.length : 0
-        if (!srvCount) return
+        if (!srvCount) {
+          // No slides on disk, but it may still hold the image/audio
+          // inventory (backups written while history was briefly empty) —
+          // take that without touching the live slides.
+          try { useStudio.getState().hydrateRegistries(srv) } catch { /* ignore */ }
+          return
+        }
         const st = useStudio.getState()
         const localCount = st.conversations.length
         let localBytes = 0
@@ -2291,29 +2334,32 @@ export default function App() {
     })()
     return () => { cancelled = true }
   }, [pushProjectNow])
-  // Debounced push of the full project after any history/sequence/scene
-  // change (2s idle). Changes before the startup restore finishes are
-  // HELD (pendingPush) and flushed right after — the old code returned
+  // Debounced push of the full project after any history/sequence/scene/
+  // registry change (2s idle). Changes before the startup restore finishes
+  // are HELD (pendingPush) and flushed right after — the old code returned
   // early and dropped them, so fast imports after boot never reached disk.
   React.useEffect(() => {
     if (!serverRestored.current) { pendingPush.current = true; return }
     clearTimeout(projPush.current)
     projPush.current = setTimeout(() => { pushProjectNow() }, 2000)
     return () => clearTimeout(projPush.current)
-  }, [conversations, sequence, scene, activeConvoId, pushProjectNow])
+  }, [conversations, sequence, scene, activeConvoId, images, audios, datasets, pushProjectNow])
   // Close/tab-hide flush: the debounce above can hold up to 2s of work,
-  // and that window used to die with the page. keepalive POSTs the live
-  // in-memory project (full media) synchronously on the way out.
+  // and that window used to die with the page. A hidden tab still runs a
+  // NORMAL fetch to completion; only the actual page close uses keepalive
+  // (which browsers cap at 64KB — enough for small projects, while big
+  // ones rely on the debounce above, so watch for ✓ Server backup).
   React.useEffect(() => {
-    const flush = () => {
+    const flush = (close) => {
       try { useStudio.getState().flushSync() } catch {}
       clearTimeout(projPush.current)
-      try { pushProjectNow({ keepalive: true }) } catch {}
+      try { pushProjectNow({ keepalive: close }) } catch {}
     }
-    const onVis = () => { if (document.visibilityState === 'hidden') flush() }
-    window.addEventListener('pagehide', flush)
+    const onVis = () => { if (document.visibilityState === 'hidden') flush(false) }
+    const onHide = () => flush(true)
+    window.addEventListener('pagehide', onHide)
     document.addEventListener('visibilitychange', onVis)
-    return () => { window.removeEventListener('pagehide', flush); document.removeEventListener('visibilitychange', onVis) }
+    return () => { window.removeEventListener('pagehide', onHide); document.removeEventListener('visibilitychange', onVis) }
   }, [pushProjectNow])
   const fileRef = React.useRef(null)
   const importJsonRef = React.useRef(null)
