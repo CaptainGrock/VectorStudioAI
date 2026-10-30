@@ -453,6 +453,7 @@ const server = http.createServer(async (req, res) => {
         text: body.text, refAudioDataUrl: body.refAudioDataUrl, refText: body.refText,
         instruction: body.instruction, modelPath: body.modelPath || body.model, seed: body.seed,
         libDir: settings.ttsLibDir || "", appRoot: ROOT, savedPy: settings.ttsPy || null,
+        fast: body.fast || "auto", attn: body.attn || "auto",
       }));
     }
     const synthPollMatch = url.pathname.match(/^\/api\/tts\/synth\/([^/]+)$/);

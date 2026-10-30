@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react'
 import { Player } from '@remotion/player'
 import { SceneComposition } from './remotion/SceneComposition.jsx'
 import { SequenceComposition } from './remotion/SequenceComposition.jsx'
-import { useStudio, seqLayout, seqCanvas, clipDuration, emptyScene } from './store.js'
+import { useStudio, seqLayout, seqCanvas, clipDuration, emptyScene, loadStrippedMarker } from './store.js'
 import { generateScene, editScene, getLastSource, tableFromLayer, describeTable, resolveEditTable, diagnoseNoPatch, refreshLayerData, resolveRefreshTable } from './llm.js'
 import { validateScene, normalizeScene, lerpKeyframes, backfillKeyframeProps, effectiveTiming } from './sceneGraph.js'
 import { FONT_CHOICES } from './llm.js'
@@ -109,11 +109,11 @@ function KeyframeDiamond({ frame, duration, selected, onPress, onMove, onEnd, on
   )
 }
 
-// Persistent storage-health chip: silent while every save lands, loud
-// (amber/red) the moment auto-save degrades or fails — so a quota wall
-// warns DURING the session, never as a surprise after a refresh.
+// Server-backup chip only, by request: browser-quota stripping is covered
+// by the save/load conventions (server auto-save + stripped-save marker
+// restore), so the health chip just confused. Hard failures still land in
+// the Activity Log via noteHealth.
 function SaveHealth() {
-  const health = useStudio(s => s.saveHealth)
   const backup = useStudio(s => s.serverBackup)
   const backupChip = backup && backup.state !== 'idle' ? (
     <span title={backup.state === 'saved' ? `Full project backed up on disk${backup.at ? ` at ${backup.at}` : ''} — safe to close.` : backup.state === 'saving' ? 'Backing up the full project to disk…' : 'Server backup failed — the browser copy is all there is. Export JSON to be safe.'}
@@ -124,24 +124,7 @@ function SaveHealth() {
       {backup.state === 'saving' ? '● Server backup…' : backup.state === 'saved' ? `✓ Server backup${backup.at ? ` ${backup.at}` : ''}` : '○ Server backup failed'}
     </span>
   ) : null
-  // Degraded-but-working saves stay silent (server backup + save/load
-  // conventions cover it) — only a hard failure raises the red chip.
-  if (!health || health.ok) return backupChip
-  const failing = !health.ok
-  return (
-    <span style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-      <span title={`${health.detail || 'Auto-save trouble.'} Back up via Export → JSON.`}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700,
-          color: failing ? '#ff9090' : '#ffd166', whiteSpace: 'nowrap',
-          border: `1px solid ${failing ? '#6e2a33' : '#6e5a1e'}`, borderRadius: 7,
-          padding: '3px 10px', background: failing ? '#2a1418' : '#2a2114', flexShrink: 0,
-        }}>
-        {failing ? '⚠ Auto-save FAILING' : '⚠ Auto-save degraded'}
-      </span>
-      {backupChip}
-    </span>
-  )
+  return backupChip
 }
 
 function StatusBar({ status, busy }) {
@@ -578,7 +561,7 @@ function AudioSection({ layer, v, push, fps }) {
     try {
       const r = await fetch('/api/tts/synth', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ text, refAudioDataUrl: voice?.refAudio || '', refText: voice?.refText || '', instruction: ttsCfg.instruction || '', modelPath: ttsCfg.modelPath || '', seed: layer.data?.seed ?? 42 }),
+        body: JSON.stringify({ text, refAudioDataUrl: voice?.refAudio || '', refText: voice?.refText || '', instruction: ttsCfg.instruction || '', modelPath: ttsCfg.modelPath || '', seed: layer.data?.seed ?? 42, fast: ttsCfg.fast || 'auto' }),
       })
       if (r.status === 404) throw new Error('local server is outdated — restart start.bat so it picks up TTS support, then try again.')
       const out = await r.json().catch(() => ({}))
@@ -1892,7 +1875,7 @@ function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onSee
               onPointerCancel={() => { dragLayerRef.current = null; setDragLayer(null) }}
               title="Drag up/down to reorder (top track paints in front)" style={{ cursor: 'grab', color: '#8a93a8', fontSize: 13, padding: '0 2px', touchAction: 'none' }}>⋮⋮</span><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(l.name || '').trim() ? l.name : <i style={{ opacity: 0.6 }}>Untitled</i>} <span style={{ color: '#9fb3d8' }}>({l.type === 'audio_tts' ? 'voice' : l.type === 'audio_music' ? 'music' : l.type})</span></span></div>
           {!collapsed.has(l.id) && (<>
-          <div style={{ position: 'relative', flex: zoom === 1 ? 1 : 'none', width: zoom === 1 ? undefined : `${Math.round(zoom * 100)}%`, height: 34, background: 'var(--vs-ruler)', borderRadius: 6, cursor: 'ew-resize', touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none' }} title="Click or drag to scrub the playhead (edges snap; Home/End jump to start/end)"
+          <div data-lane={l.id} style={{ position: 'relative', flex: zoom === 1 ? 1 : 'none', width: zoom === 1 ? undefined : `${Math.round(zoom * 100)}%`, height: 34, background: 'var(--vs-ruler)', borderRadius: 6, cursor: 'ew-resize', touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none' }} title="Click or drag to scrub the playhead (edges snap; Home/End jump to start/end)"
             onPointerDown={(e) => {
               tlRef.current?.focus?.({ preventScroll: true })
               // Alt-drag marquees a frame range instead of scrubbing.
@@ -1900,7 +1883,7 @@ function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onSee
                 e.stopPropagation(); e.preventDefault()
                 scrubbing.current = false
                 try { e.currentTarget.setPointerCapture(e.pointerId) } catch {}
-                marqueeRef.current = { rect: e.currentTarget.getBoundingClientRect(), x0: e.clientX }
+                marqueeRef.current = { rect: e.currentTarget.getBoundingClientRect(), x0: e.clientX, y0: e.clientY, id: l.id }
                 setMarquee({ x0: e.clientX, y0: e.clientY, x1: e.clientX, y1: e.clientY })
                 return
               }
@@ -1920,8 +1903,25 @@ function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onSee
                 const f1 = frameFromX(Math.max(mq.x0, e.clientX), mq.rect)
                 if (f0 != null && f1 != null && Math.abs(e.clientX - mq.x0) > 6) {
                   const lo = Math.min(f0, f1), hi = Math.max(f0, f1)
+                  // Only tracks the box vertically touches are included — a
+                  // single-lane marquee stays on that lane; drag across rows
+                  // to grab every track (falls back to the start lane).
+                  let laneIds = null
+                  try {
+                    const y0 = Math.min(mq.y0 ?? e.clientY, e.clientY), y1 = Math.max(mq.y0 ?? e.clientY, e.clientY)
+                    laneIds = new Set()
+                    ;(trackListRef.current?.querySelectorAll('[data-lane]') || []).forEach((el) => {
+                      const r = el.getBoundingClientRect()
+                      if (r.bottom >= y0 && r.top <= y1) laneIds.add(el.getAttribute('data-lane'))
+                    })
+                    if (!laneIds.size) laneIds = null
+                  } catch { laneIds = null }
+                  if (!laneIds) laneIds = new Set([mq.id])
                   const found = []
-                  for (const lay of scene.layers) (lay.keyframes || []).forEach((k, j) => { if (k.frame >= lo && k.frame <= hi) found.push({ id: lay.id, ki: j }) })
+                  for (const lay of scene.layers) {
+                    if (!laneIds.has(lay.id)) continue
+                    ;(lay.keyframes || []).forEach((k, j) => { if (k.frame >= lo && k.frame <= hi) found.push({ id: lay.id, ki: j }) })
+                  }
                   if (found.length) {
                     if (e.ctrlKey || e.metaKey) {
                       const merged = [...validSel]
@@ -2031,7 +2031,7 @@ function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onSee
       ))}
       {dragLayer && dragLayer.over === scene.layers.length - 1 && <div style={{ height: 3, background: 'var(--vs-accent)', borderRadius: 2, marginBottom: 4 }} />}
       </div>
-      <div style={{ fontSize: 12, opacity: 0.6 }}>Red line is the playhead — click or drag any track to scrub it. Drag yellow diamonds to retime keyframes. Multi-select: Ctrl-click toggles, Shift-click extends, double-click a track grabs it all, Alt-drag marquees across tracks, right-click a diamond for “select after here”; drag one selected diamond to move the group (others ripple aside), arrows nudge, Delete removes, Esc clears. Drag a track's edge bars to set its start/end — dragging audio's left edge delays when it starts. Drag titles, images and shapes right on the video to move them (drop saves a keyframe).</div>
+      <div style={{ fontSize: 12, opacity: 0.6 }}>Red line is the playhead — click or drag any track to scrub it. Drag yellow diamonds to retime keyframes. Multi-select: Ctrl-click toggles, Shift-click extends, double-click a track grabs it all, Alt-drag marquees across tracks, right-click a diamond for “select after here”; Alt-drag marquees (touch more tracks to include them); drag one selected diamond to move the group (others ripple aside), arrows nudge, Delete removes, Esc clears. Drag a track's edge bars to set its start/end — dragging audio's left edge delays when it starts. Drag titles, images and shapes right on the video to move them (drop saves a keyframe).</div>
       {marquee && <div style={{ position: 'fixed', left: Math.min(marquee.x0, marquee.x1), top: Math.min(marquee.y0, marquee.y1), width: Math.abs(marquee.x1 - marquee.x0), height: Math.abs(marquee.y1 - marquee.y0), border: '1px solid #fff', background: 'rgba(255,255,255,0.12)', zIndex: 80, pointerEvents: 'none' }} />}
       {menu && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={() => setMenu(null)} onContextMenu={(e) => { e.preventDefault(); setMenu(null) }}>
@@ -2270,10 +2270,14 @@ export default function App() {
         try { localBytes = JSON.stringify(st.conversations).length } catch { localBytes = 0 }
         let srvBytes = 0
         try { srvBytes = JSON.stringify(srv.conversations).length } catch { srvBytes = 0 }
-        const degraded = !!st.saveHealth?.degraded
+        const degraded = !!st.saveHealth?.degraded || !!loadStrippedMarker()
         // Restore when the server clearly has more: empty local history,
-        // a degraded (media-stripped) local save, or a substantially
-        // larger server copy. Otherwise the live session wins.
+        // a media-stripped local save (in-memory flag OR the marker that
+        // survives reload — a stripped copy can still be 90%+ the size of
+        // the full one, so the size check alone misses it and the
+        // background image / voiceover is "lost", then pushed back to
+        // disk over the good copy), or a substantially larger server copy.
+        // Otherwise the live session wins.
         if (localCount === 0 || degraded || srvBytes > localBytes * 1.1) {
           st.hydrateProject(srv)
           setStatus(`Restored ${srvCount} slide${srvCount === 1 ? '' : 's'} from auto-save (media intact).`, 'done')
@@ -2702,7 +2706,7 @@ export default function App() {
       const truncNote = editTruncated && patch?.some((o) => String(o.path || '').includes('/data'))
         ? ` Note: regrouped from the first ${scene.layers.map(tableFromLayer).find((t) => t && t.truncated)?.rows.length} rows kept in the saved scene — re-attach the file for exact counts.` : ''
       if (patch?.length) { setStatus('Applying revision…'); patchScene(patch); setStatus(`Done — applied ${patch.length} change${patch.length === 1 ? '' : 's'}${scopeSuffix}. Preview updated.`, 'done'); pushLog(`Edit patch: ${JSON.stringify(patch).slice(0, 220)}`); pushRev('assistant', `Applied ${patch.length} change${patch.length === 1 ? '' : 's'}${scopeSuffix}: ${summarizePatch(patch, beforeLayers)}. Preview updated.${truncNote}`) }
-      else { setStatus('No change matched — I asked for details below instead of guessing.', 'error'); pushLog('No patch produced; asked for clarification.'); pushRev('assistant', diagnoseNoPatch(scene, datasets, editPrompt) || 'I couldn\u2019t match that to a change, so I\u2019d rather ask than guess and get it wrong. I can: switch chart type (bar / line / pie / area / scatter / histogram / waterfall / funnel / radar / map), re-orient bars (horizontal / vertical), group by a column ("by month" works off week/date columns too), break down two ways ("break down by month showing countries side by side"), stack bars by a second column ("stack by topping"), count / average / sum a metric, take the top N, reorder ("order by week ascending", "sort descending", "reverse order"), filter to values ("only Cup and Waffle Cone"), ignore a column, connect the dots on a line ("connect the dots") or restore its wipe, swap in an attached or pasted dataset, recolor, retime, or move/restyle titles. Reply with specifics — e.g. "group by vessel and count the states".') }
+      else { setStatus('No change matched — I asked for details below instead of guessing.', 'error'); pushLog('No patch produced; asked for clarification.'); pushRev('assistant', diagnoseNoPatch(scene, datasets, editPrompt) || 'I couldn\u2019t match that to a change, so I\u2019d rather ask than guess and get it wrong. I can: switch chart type (bar / line / pie / area / scatter / histogram / waterfall / funnel / radar / map), re-orient bars (horizontal / vertical), group by a column ("by month" works off week/date columns too), break down two ways ("break down by month showing countries side by side"), stack bars by a second column ("stack by topping"), count / average / sum a metric, take the top N, reorder ("order by week ascending", "sort descending", "reverse order"), format axes ("x-axis to 2 decimals", "y-axis in $M"), filter to values ("only Cup and Waffle Cone"), ignore a column, connect the dots on a line ("connect the dots") or restore its wipe, swap in an attached or pasted dataset, recolor, retime, or move/restyle titles. Reply with specifics — e.g. "group by vessel and count the states".') }
     } catch (e) { setStatus(`Edit failed: ${e.message}`, 'error'); pushLog(`Edit failed: ${e.message}`); pushRev('assistant', `That revision failed: ${e.message}`) }
     setBusy(false)
   }

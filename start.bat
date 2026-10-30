@@ -98,9 +98,8 @@ if not errorlevel 1 set PORT=5175
 echo [VectorStudio] Port: %PORT%>> "%LOG%"
 
 echo [VectorStudio] Starting local-engine backend + studio at http://127.0.0.1:%PORT%/ ...
-echo [VectorStudio] The browser opens in a few seconds. Keep this window open; close it (or Ctrl+C) to stop.
-timeout /t 4 /nobreak >nul
-start "" "http://127.0.0.1:%PORT%/"
+echo [VectorStudio] A VectorStudio AI loading screen opens now and hands off automatically. Keep this window open; close it (or Ctrl+C) to stop.
+start "" "%~dp0splash.html"
 call npm run dev -- --port %PORT% --host 127.0.0.1
 echo.
 echo [VectorStudio] Server stopped (exit code %errorlevel%). See launcher.log if this was unexpected.

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VectorStudio AI — starting…</title>
+<style>
+  @keyframes vs-spin { to { transform: rotate(360deg); } }
+  @keyframes vs-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: #0e1420; color: #dfe7f5;
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  .card { text-align: center; padding: 40px 48px; max-width: 460px; }
+  .ring {
+    width: 54px; height: 54px; margin: 0 auto 22px; border-radius: 50%;
+    border: 4px solid #2a3a55; border-top-color: #4da3ff;
+    animation: vs-spin 0.9s linear infinite;
+  }
+  h1 { font-size: 26px; margin: 0 0 8px; letter-spacing: 0.5px; }
+  h1 span { color: #4da3ff; }
+  p { margin: 6px 0; font-size: 13px; color: #9fb3d8; }
+  #status { animation: vs-pulse 1.6s ease-in-out infinite; }
+  #err { display: none; color: #ff9090; animation: none; }
+  #err a { color: #4da3ff; }
+  .hint { margin-top: 18px; font-size: 11px; color: #64748f; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="ring"></div>
+    <h1>VectorStudio <span>AI</span></h1>
+    <p id="status">Starting the local engine…</p>
+    <p id="err"></p>
+    <p class="hint">This page hands off to the studio automatically.<br />Keep this window's server console open — closing it stops everything.</p>
+  </div>
+<script>
+  // start.bat opens this file immediately so the browser never sits on a
+  // connection error while Vite + the backend boot. We poll the studio
+  // ports (the only ones start.bat uses) and hand off on first answer.
+  // file:// -> http://127.0.0.1 needs no-cors: an opaque resolve means the
+  // server is listening, which is all the signal we need to redirect.
+  (function () {
+    var ports = [5173, 5174, 5175];
+    var status = document.getElementById('status');
+    var err = document.getElementById('err');
+    var waited = 0;
+    var limit = 5 * 60 * 1000;
+    var step = 500;
+    function probe(port) {
+      return fetch('http://127.0.0.1:' + port + '/api/health', { mode: 'no-cors', cache: 'no-store' })
+        .then(function () { return port; });
+    }
+    function tick() {
+      Promise.any(ports.map(probe)).then(function (port) {
+        status.textContent = 'Ready — opening the studio…';
+        location.replace('http://127.0.0.1:' + port + '/');
+      }).catch(function () {
+        waited += step;
+        if (waited >= limit) {
+          status.style.display = 'none';
+          err.style.display = 'block';
+          err.innerHTML = 'Still no answer after 5 minutes — the server may have failed to start. '
+            + 'Check the black server window (and launcher.log), then try these: '
+            + ports.map(function (p) { return '<a href="http://127.0.0.1:' + p + '/">:' + p + '</a>'; }).join(' · ');
+          return;
+        }
+        var s = Math.round(waited / 1000);
+        status.textContent = 'Starting the local engine… (' + s + 's)';
+        setTimeout(tick, step);
+      });
+    }
+    tick();
+  })();
+</script>
+</body>
+</html>

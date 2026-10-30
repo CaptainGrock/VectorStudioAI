@@ -131,6 +131,11 @@ Local voice cloning/narration runs through the official BreezeTTS-2 `infer.py` C
    - Reference clips are optional; the default generic voice works without one.
    - Clips should be short clean speech, up to 8 MB, with an exact transcript.
 
+7. **Speed** (Settings → Text-to-Speech, below the checkpoint picker)
+   - **Auto** uses SDPA/flash attention instead of the stock eager kernels (identical math, ~10–15% faster decode, no quality change).
+   - **Fastest** enables the official CUDA-graph fast paths — only worth it on 60 s+ voiceovers (each run spends 1–2 min capturing graphs first; needs triton + ~15 GB free VRAM, falls back to stock on out-of-memory).
+   - Tip: a **Voice direction** instruction doubles per-token work (`--cfg-scale 4`, guided pass) — leave it empty for maximum speed.
+
 ### Generate narration
 
 1. Open Stage 3 → Assets.

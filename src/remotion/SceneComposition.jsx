@@ -87,7 +87,7 @@ function StackedBars({ layer, frame, horizontal }) {
                     return v > 0 ? <div key={si} title={`${s.label}: ${fmtNum(v * e)}`} style={{ width: `${Math.max(0, (v / max) * 100 * e)}%`, height: '100%', background: s.color || CHART_PALETTE[si % CHART_PALETTE.length] }} /> : null
                   })}
                 </div>
-                <div style={{ width: 90, fontSize: 15, opacity: 0.85 }}>{fmtNum(total * e)}</div>
+                <div style={{ width: 90, fontSize: 15, opacity: 0.85 }}>{fmtBarLabel(total * e, layer, max)}</div>
               </div>
             )
           })}
@@ -113,7 +113,7 @@ function StackedBars({ layer, frame, horizontal }) {
                 })}
               </div>
               <div style={{ marginTop: 8, fontSize: small ? 12 : 18, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lb ?? `G${i + 1}`}</div>
-              {!small && <div style={{ fontSize: 16, opacity: 0.8 }}>{fmtNum(totals[i] * e)}</div>}
+              {!small && <div style={{ fontSize: 16, opacity: 0.8 }}>{fmtBarLabel(totals[i] * e, layer, max)}</div>}
             </div>
           )
         })}
@@ -143,7 +143,7 @@ function BarChart({ layer, frame }) {
                 <div style={{ flex: 1, height: 30, background: 'rgba(255,255,255,0.07)', borderRadius: 8 }}>
                   <div style={{ width: `${Math.max(v > 0 ? 2 : 0, pct)}%`, height: '100%', background: pointColors[i] || 'linear-gradient(90deg,#4da3ff,#1e56c8)', borderRadius: 8 }} />
                 </div>
-                <div style={{ width: 90, fontSize: 15, opacity: 0.85 }}>{fmtNum(v * e)}</div>
+                <div style={{ width: 90, fontSize: 15, opacity: 0.85 }}>{fmtBarLabel(v * e, layer, max)}</div>
               </div>
             )
           })}
@@ -170,7 +170,7 @@ function BarChart({ layer, frame }) {
               transition: 'none',
             }} />
             <div style={{ marginTop: 8, fontSize: small ? 12 : 18, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{labels[i] ?? `M${i + 1}`}</div>
-            {!small && <div style={{ fontSize: 16, opacity: 0.8 }}>${Math.round(v * e).toLocaleString()}</div>}
+            {!small && <div style={{ fontSize: 16, opacity: 0.8 }}>{fmtBarLabel(v * e, layer, max)}</div>}
           </div>
           )
         })}
@@ -228,7 +228,7 @@ function LineChart({ layer, frame }) {
           {[0.25, 0.5, 0.75, 1].map((f) => (
             <g key={f}>
               <line x1={60} y1={320 - f * 260} x2={1000} y2={320 - f * 260} stroke="rgba(255,255,255,0.12)" />
-              <text x={54} y={324 - f * 260} textAnchor="end" fill="#fff" fontSize={13} opacity={0.6}>{fmtAxis(max * f, layer.data?.yFormat, max)}</text>
+              <text x={54} y={324 - f * 260} textAnchor="end" fill="#fff" fontSize={13} opacity={0.6}>{fmtAxis(max * f, layer.data?.yFormat, max, layer.data?.yDecimals)}</text>
             </g>
           ))}
           <line x1={60} y1={320} x2={1000} y2={320} stroke="rgba(255,255,255,0.35)" strokeWidth={2} />
@@ -276,13 +276,29 @@ function fmtVal(v) {
 // data.yFormat. $M/$k divide only when the data actually needs it (max at
 // least a million/thousand), so values already expressed in millions still
 // read correctly ("$34.5M" either way).
-function fmtAxis(v, fmt, max) {
-  const r1 = (x) => { const r = Math.round(x * 10) / 10; return Number.isInteger(r) ? String(r) : String(r) }
-  if (fmt === '$M') { const d = Math.abs(max) >= 1e6 ? v / 1e6 : v; return `$${r1(d)}M` }
-  if (fmt === '$k') { const d = Math.abs(max) >= 1e3 ? v / 1e3 : v; return `$${r1(d)}k` }
-  if (fmt === 'k') { const d = Math.abs(max) >= 1e3 ? v / 1e3 : v; return `${r1(d)}k` }
+function fmtAxis(v, fmt, max, decimals) {
+  const dec = decimals == null ? null : Math.max(0, Math.min(4, Math.round(decimals)))
+  const r1 = (x) => dec != null ? Number(x).toFixed(dec) : (() => { const r = Math.round(x * 10) / 10; return Number.isInteger(r) ? String(r) : String(r) })()
+  const divM = (x) => Math.abs(max) >= 1e6 ? x / 1e6 : x
+  const divB = (x) => Math.abs(max) >= 1e9 ? x / 1e9 : x
+  const divK = (x) => Math.abs(max) >= 1e3 ? x / 1e3 : x
+  if (fmt === '$M') return `$${r1(divM(v))}M`
+  if (fmt === 'M') return `${r1(divM(v))}M`
+  if (fmt === '$B') return `$${r1(divB(v))}B`
+  if (fmt === 'B') return `${r1(divB(v))}B`
+  if (fmt === '$k') return `$${r1(divK(v))}k`
+  if (fmt === 'k') return `${r1(divK(v))}k`
   if (fmt === '%') return `${r1(v)}%`
+  if (fmt === '$') return `$${r1(v)}`
+  if (dec != null) return Number(v).toLocaleString(undefined, { minimumFractionDigits: dec, maximumFractionDigits: dec })
   return fmtVal(v)
+}
+// Bar value labels: legacy "$1,423" default untouched unless the layer
+// carries an axis format (yFormat and/or yDecimals from a prompt).
+function fmtBarLabel(v, layer, max) {
+  const d = layer?.data || {}
+  if (d.yFormat == null && d.yDecimals == null) return `$${Math.round(v).toLocaleString()}`
+  return fmtAxis(v, d.yFormat, max, d.yDecimals)
 }
 const fmtNum = fmtVal
 
@@ -417,7 +433,7 @@ function AreaChart({ layer, frame }) {
           {[0.25, 0.5, 0.75, 1].map((f) => (
             <g key={f}>
               <line x1={60} y1={320 - f * 260} x2={1000} y2={320 - f * 260} stroke="rgba(255,255,255,0.12)" />
-              <text x={54} y={324 - f * 260} textAnchor="end" fill="#fff" fontSize={13} opacity={0.6}>{fmtAxis(max * f, layer.data?.yFormat, max)}</text>
+              <text x={54} y={324 - f * 260} textAnchor="end" fill="#fff" fontSize={13} opacity={0.6}>{fmtAxis(max * f, layer.data?.yFormat, max, layer.data?.yDecimals)}</text>
             </g>
           ))}
           <line x1={60} y1={320} x2={1000} y2={320} stroke="rgba(255,255,255,0.35)" strokeWidth={2} />
@@ -452,7 +468,7 @@ function ScatterChart({ layer, frame }) {
         {[0.25, 0.5, 0.75, 1].map((f) => (
           <g key={f}>
             <line x1={60} y1={460 - f * 400} x2={1100} y2={460 - f * 400} stroke="rgba(255,255,255,0.12)" />
-            <text x={52} y={464 - f * 400} textAnchor="end" fill="#fff" fontSize={13} opacity={0.6}>{fmtAxis(max * f, layer.data?.yFormat, max)}</text>
+            <text x={52} y={464 - f * 400} textAnchor="end" fill="#fff" fontSize={13} opacity={0.6}>{fmtAxis(max * f, layer.data?.yFormat, max, layer.data?.yDecimals)}</text>
           </g>
         ))}
         <line x1={60} y1={460} x2={1100} y2={460} stroke="rgba(255,255,255,0.35)" strokeWidth={2} />

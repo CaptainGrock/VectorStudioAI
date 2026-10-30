@@ -115,7 +115,7 @@ function pyEnvWithLib(libPath) {
 // infer.py needs, and whether PyTorch can actually see CUDA —
 // breeze_infer alone imports fine without torch, and torch imports fine
 // without a GPU, so neither ever means "ready to synthesize" by itself.
-const CHECK_SRC = "import importlib.util,json\nmods=['breeze_infer','torch','transformers','qwen_tts','soundfile']\nout={'mods':{m:importlib.util.find_spec(m) is not None for m in mods}}\ntry:\n import torch\n out['torch_ver']=torch.__version__\n out['cuda_build']=torch.version.cuda\n try:\n  out['cuda_available']=bool(torch.cuda.is_available())\n  out['devices']=[torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())] if out['cuda_available'] else []\n except Exception as e:\n  out['cuda_available']=False;out['devices']=[];out['cuda_error']=str(e)[:200]\nexcept Exception as e:\n out['torch_ver']='';out['cuda_build']='';out['cuda_available']=False;out['devices']=[];out['torch_error']=str(e)[:200]\nprint(json.dumps(out))";
+const CHECK_SRC = "import importlib.util,json\nmods=['breeze_infer','torch','transformers','qwen_tts','soundfile']\nout={'mods':{m:importlib.util.find_spec(m) is not None for m in mods},'accel':{m:importlib.util.find_spec(m) is not None for m in ['triton','flash_attn']}}\ntry:\n import torch\n out['torch_ver']=torch.__version__\n out['cuda_build']=torch.version.cuda\n try:\n  out['cuda_available']=bool(torch.cuda.is_available())\n  out['devices']=[torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())] if out['cuda_available'] else []\n  out['memGB']=round(torch.cuda.get_device_properties(0).total_memory/1073741824,1) if out['cuda_available'] and torch.cuda.device_count() else 0\n except Exception as e:\n  out['cuda_available']=False;out['devices']=[];out['cuda_error']=str(e)[:200]\nexcept Exception as e:\n out['torch_ver']='';out['cuda_build']='';out['cuda_available']=False;out['devices']=[];out['torch_error']=str(e)[:200]\nprint(json.dumps(out))";
 // Probe cache: tab polling hits /api/tts every few seconds, and each probe
 // spawns a Python + imports torch — without caching every reload takes
 // ages and the UI looks dead. 30 s TTL, cleared whenever an installer
@@ -140,9 +140,11 @@ function probePython(arr, env, importTimeout) {
       argv: arr, exe: arr.join(" "), ver,
       hasBreeze: !!mods.breeze_infer,
       deps: { torch: !!mods.torch, transformers: !!mods.transformers, qwen_tts: !!mods.qwen_tts, soundfile: !!mods.soundfile },
+      accel: { triton: !!(info.accel || {}).triton, flash: !!(info.accel || {}).flash },
       cuda: {
         available: !!info.cuda_available,
         devices: Array.isArray(info.devices) ? info.devices : [],
+        memGB: Number(info.memGB) || 0,
         torchVer: info.torch_ver || "",
         cudaBuild: info.cuda_build || "",
         error: info.cuda_error || "",
@@ -417,13 +419,13 @@ export function synthStatus({ modelPath, libPath, savedPy } = {}) {
     if (devs) return { ok: false, error: `${pick.exe} can't see your GPU (${devs}) — PyTorch has no CUDA here. Hit “Install CUDA torch” in Settings → Text-to-Speech, then retry.` };
     return { ok: false, error: `No NVIDIA GPU is visible to ${pick.exe || "Python"} — BreezeTTS-2's runner needs CUDA (12 GB+ VRAM recommended). If you do have an NVIDIA card, update its driver and hit “Install CUDA torch”, then retry.` };
   }
-  return { ok: true, py: pick.py };
+  return { ok: true, py: pick.py, memGB: Number(pick.cuda?.memGB) || 0, accel: pick.accel || { triton: false, flash: false } };
 }
 
 // Async (event-loop friendly): writes ref + output wavs to temp, spawns
 // `python infer.py <ckpt> --ref-audio … --ref-text … --text … --output` and
 // resolves { ok, dataUrl } or { ok:false, error } when it exits.
-export function synthTts({ text, refAudioDataUrl, refText, instruction, modelPath, libDir, appRoot, savedPy, seed, timeoutMs = 600000, onLog, __child } = {}) {
+export function synthTts({ text, refAudioDataUrl, refText, instruction, modelPath, libDir, appRoot, savedPy, seed, timeoutMs = 600000, onLog, __child, fast = "auto", attn = "auto" } = {}) {
   const lib = (libDir && scanLibDir(libDir)?.ok) ? libDir : (appRoot ? findLib(appRoot).path : "");
   const libOk = lib && scanLibDir(lib)?.ok;
   if (!libOk) return Promise.resolve({ ok: false, error: "BreezeTTS-2 code folder not set — open Settings → Text-to-Speech and Install it or point it at your nodes folder." });
@@ -470,54 +472,86 @@ export function synthTts({ text, refAudioDataUrl, refText, instruction, modelPat
     let refWav;
     try {
       const outWav = path.join(tmp, "out.wav");
-      const args = [inferPy, ckpt, "--text", t, "--output", outWav, "--seed", String(seedNum)];
+      const attnArg = fast === "off" ? "eager" : String(attn || "auto");
+      const baseArgs = [inferPy, ckpt, "--text", t, "--output", outWav, "--seed", String(seedNum), "--attn", attnArg];
       if (refAudioDataUrl) {
         refWav = path.join(tmp, "ref.wav");
         dataUrlToFile(refAudioDataUrl, refWav);
-        args.push("--ref-audio", refWav);
-        if (String(refText || "").trim()) args.push("--ref-text", String(refText).trim());
+        baseArgs.push("--ref-audio", refWav);
+        if (String(refText || "").trim()) baseArgs.push("--ref-text", String(refText).trim());
       }
-      if (String(instruction || "").trim()) args.push("--instruction", String(instruction).trim(), "--cfg-scale", "4");
+      if (String(instruction || "").trim()) baseArgs.push("--instruction", String(instruction).trim(), "--cfg-scale", "4");
       const sep = process.platform === "win32" ? ";" : ":";
-      const child = spawn(py[0], [...py.slice(1), ...args], {
-        cwd: ckpt,
-        env: { ...process.env, PYTHONPATH: lib + (process.env.PYTHONPATH ? sep + process.env.PYTHONPATH : "") },
-      });
-      try { __child?.(child); } catch { /* no listener */ }
-      let logged = "";
-      const emit = (c) => { const s = c.toString(); logged += s; try { onLog?.(s); } catch { /* ignore */ } };
-      child.stdout?.on("data", emit);
-      child.stderr?.on("data", emit);
-      const timer = setTimeout(() => {
-        try { child.kill(); } catch { /* ignore */ }
-        finish({ ok: false, error: "TTS timed out after 10 minutes — try shorter text." });
-      }, timeoutMs);
-      child.on("error", (e) => { clearTimeout(timer); finish({ ok: false, error: e?.message || "Could not launch Python." }); });
-      child.on("close", (code) => {
-        clearTimeout(timer);
-        const tail = logged.slice(-3000).trim().split("\n").slice(-4).join(" ");
-        if (code !== 0 || !fs.existsSync(outWav)) {
-          // A missing third-party package is the classic first-run failure —
-          // name it and the fix instead of dumping the traceback.
-          const modMiss = /No module named ['"]([\w.]+)['"]/.exec(logged);
-          if (modMiss) {
-            const pretty = { qwen_tts: "qwen-tts" }[modMiss[1]] || modMiss[1];
-            finish({ ok: false, error: `${py.join(" ")} is missing the '${pretty}' package — open Settings → Text-to-Speech and hit “Install dependencies” (it targets this exact Python), then retry.` });
+      // Speed policy (measured, same weights/math either way): every run
+      // uses SDPA/flash attention over eager (~10-15% faster decode).
+      // CUDA graphs (--fast-all) only pay off on long voiceovers: each
+      // fresh process spends 40-95 s capturing graphs, so short clips get
+      // SLOWER with them on. Auto therefore never enables graphs; Fastest
+      // is the explicit opt-in for 60 s+ narrations, with a one-shot
+      // fallback to stock when the card runs out of memory mid-run.
+      const memGB = Number(st.memGB) || 0;
+      const hasTriton = !!(st.accel || {}).triton;
+      let wantFast = fast === "on";
+      if (wantFast && !hasTriton) {
+        return Promise.resolve({ ok: false, error: `${py.join(" ")} has no triton — CUDA graphs can't compile without it. Run “${py[0]} -m pip install triton-windows” (Windows) or pick Standard speed instead.` });
+      }
+      // Config echo: the box under generation shows exactly what this run
+      // costs, so a slow run is self-diagnosing (instruction ON doubles
+      // tokens; a reference clip adds prefill; the wrong Python loses CUDA).
+      try {
+        const shortPy = String((py[0] || 'python').split(/[\\/]/).pop() || 'python');
+        const instrOn = String(instruction || '').trim().length > 0;
+        onLog?.(`Engine: --attn ${attnArg} (same math, faster kernels), CUDA-graph fast path ${wantFast ? `ON${memGB ? ` — ${memGB} GB VRAM` : ''}` : 'off'}, Python ${shortPy}${memGB ? ` (${memGB} GB VRAM)` : ''}.\n`);
+        onLog?.(`Job: ${t.length} chars, seed ${seedNum}, voice ${refAudioDataUrl ? 'cloned from reference clip' : 'generic (no reference clip)'}, instruction ${instrOn ? 'ON (~2x tokens: every step runs guided + unguided — empty the Voice-direction box for max speed)' : 'off'}.\n`);
+      } catch { /* ignore */ }
+      const run = (fastAttempt) => {
+        const args = fastAttempt ? [...baseArgs, "--fast-all"] : baseArgs;
+        const child = spawn(py[0], [...py.slice(1), ...args], {
+          cwd: ckpt,
+          env: { ...process.env, PYTHONPATH: lib + (process.env.PYTHONPATH ? sep + process.env.PYTHONPATH : "") },
+        });
+        try { __child?.(child); } catch { /* no listener */ }
+        let logged = "";
+        const emit = (c) => { const s = c.toString(); logged += s; try { onLog?.(s); } catch { /* ignore */ } };
+        child.stdout?.on("data", emit);
+        child.stderr?.on("data", emit);
+        const timer = setTimeout(() => {
+          try { child.kill(); } catch { /* ignore */ }
+          finish({ ok: false, error: "TTS timed out after 10 minutes — try shorter text." });
+        }, timeoutMs);
+        child.on("error", (e) => { clearTimeout(timer); finish({ ok: false, error: e?.message || "Could not launch Python." }); });
+        child.on("close", (code) => {
+          clearTimeout(timer);
+          const tail = logged.slice(-3000).trim().split("\n").slice(-4).join(" ");
+          if (code !== 0 || !fs.existsSync(outWav)) {
+            // A missing third-party package is the classic first-run failure —
+            // name it and the fix instead of dumping the traceback.
+            const modMiss = /No module named ['"]([\w.]+)['"]/.exec(logged);
+            if (modMiss) {
+              const pretty = { qwen_tts: "qwen-tts" }[modMiss[1]] || modMiss[1];
+              finish({ ok: false, error: `${py.join(" ")} is missing the '${pretty}' package — open Settings → Text-to-Speech and hit “Install dependencies” (it targets this exact Python), then retry.` });
+              return;
+            }
+            if (/fast streaming requires a CUDA device/i.test(logged)) {
+              finish({ ok: false, error: `That Python's PyTorch has no CUDA — the runner needs an NVIDIA GPU. Open Settings → Text-to-Speech and hit “Install CUDA torch” (or pick a Python that already has it), then retry.` });
+              return;
+            }
+            if (fastAttempt && /out of memory/i.test(logged)) {
+              try { onLog?.(`CUDA-graph fast path ran out of memory — retrying stock (slower, fits anywhere).\n`); } catch { /* ignore */ }
+              run(false);
+              return;
+            }
+            finish({ ok: false, error: `BreezeTTS-2 failed (exit ${code}). ${tail || "See the server console."}` });
             return;
           }
-          if (/fast streaming requires a CUDA device/i.test(logged)) {
-            finish({ ok: false, error: `That Python's PyTorch has no CUDA — the runner needs an NVIDIA GPU. Open Settings → Text-to-Speech and hit “Install CUDA torch” (or pick a Python that already has it), then retry.` });
-            return;
-          }
-          finish({ ok: false, error: `BreezeTTS-2 failed (exit ${code}). ${tail || "See the server console."}` });
-          return;
-        }
-        try {
-          const buf = fs.readFileSync(outWav);
-          if (buf.length > 25 * 1024 * 1024) { finish({ ok: false, error: "That narration is over 25 MB — split the text and synthesize in parts." }); return; }
-          finish({ ok: true, dataUrl: `data:audio/wav;base64,${buf.toString("base64")}`, bytes: buf.length });
-        } catch (e) { finish({ ok: false, error: e?.message || String(e) }); }
-      });
+          try {
+            const buf = fs.readFileSync(outWav);
+            if (buf.length > 25 * 1024 * 1024) { finish({ ok: false, error: "That narration is over 25 MB — split the text and synthesize in parts." }); return; }
+            finish({ ok: true, dataUrl: `data:audio/wav;base64,${buf.toString("base64")}`, bytes: buf.length });
+          } catch (e) { finish({ ok: false, error: e?.message || String(e) }); }
+        });
+      };
+      run(wantFast);
     } catch (err) { finish({ ok: false, error: err?.message || String(err) }); }
   });
 }
@@ -564,7 +598,7 @@ export function startSynthJob(args) {
   const job = { id, active: true, startedAt: Date.now(), log: [], error: "", done: false, dataUrl: "", bytes: 0, child: null };
   // Console spam (missing-SoX notice, triton/glog warnings) would drown
   // the progress view — collapse the known-benign lines to one note.
-  const BENIGN = [/proceed here/i, /^\s*- - -.*- - -\s*$/, /path variables/i, /triton/i, /flop_counter/i, /^[WI]\d{4} /];
+  const BENIGN = [/proceed here/i, /^\s*- - -.*- - -\s*$/, /path variables/i, /triton/i, /flop_counter/i, /^[WI]\d{4} /, /operable program or batch file/i];
   let soxNoted = false;
   const pushLog = (s) => {
     for (const line of String(s).split(/\r?\n/)) {

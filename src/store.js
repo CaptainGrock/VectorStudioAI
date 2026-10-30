@@ -4,6 +4,22 @@ import { applyPatch, validateScene, normalizeScene } from './sceneGraph.js'
 const LAST_KEY = 'vectorstudio.lastScene'
 const CONV_KEY = 'vectorstudio.convos.v1'
 const MAX_CONVOS = 20
+// Survives reload (unlike the in-memory saveHealth flag): set whenever a
+// save lands media-stripped, cleared by the next full save. The startup
+// restore checks it — without this, a stripped local copy that is still
+// 90%+ the size of the server copy wins the size heuristic and the
+// background image / voiceover is "lost" (then pushed back to disk).
+const STRIPPED_KEY = 'vectorstudio.stripped.v1'
+export function loadStrippedMarker() {
+  try {
+    const raw = localStorage.getItem(STRIPPED_KEY)
+    if (!raw) return null
+    const m = JSON.parse(raw)
+    return m && typeof m === 'object' ? m : null
+  } catch {
+    return null
+  }
+}
 
 // Tags group history slides in the rail (each slide holds 0..n lowercase
 // tags; grouping is derived, never stored). Older saves without tags
@@ -45,6 +61,9 @@ function noteHealth(patch) {
   const sig = `${patch.ok}|${patch.degraded}|${patch.stripped}|${patch.detail}`
   if (sig === lastHealthSig) return
   lastHealthSig = sig
+  // The header chip for this is gone by request — a hard failure still
+  // lands in the Activity Log so it isn't fully silent.
+  if (!patch.ok && patch.detail) { try { noteLog(`Auto-save trouble: ${patch.detail}`) } catch {} }
   // Deferred: persist helpers run inside zustand updaters, so never
   // setState synchronously here — that would nest a set inside a set.
   try { setTimeout(() => { try { useStudio.setState({ saveHealth: { ...patch, at: new Date().toISOString() } }) } catch {} }, 0) } catch {}
@@ -123,12 +142,14 @@ function saveDurable(key, value, what) {
   try {
     localStorage.setItem(key, raw)
     lastStrippedSig = ''
+    try { localStorage.removeItem(STRIPPED_KEY) } catch { /* ignore */ }
     noteHealth({ ok: true, degraded: false, stripped: 0, detail: '' })
     return true
   } catch { /* quota — fall through to the compact retry */ }
   const { copy, stripped } = stripHeavyMedia(value)
   try {
     localStorage.setItem(key, JSON.stringify(copy))
+    try { localStorage.setItem(STRIPPED_KEY, JSON.stringify({ at: new Date().toISOString(), what, stripped })) } catch { /* marker is best-effort */ }
     logStripped(what, value)
     noteHealth({
       ok: true, degraded: true, stripped,

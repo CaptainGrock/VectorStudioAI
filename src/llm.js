@@ -329,10 +329,10 @@ export function diagnoseNoPatch(scene, datasets, prompt) {
   // already hold their final positions (the wipe reveals them, dots pop in
   // sequence) — nothing to patch, so confirm instead of guessing.
   const stillIntent = /stationar|stay (in place|put|still)|don't (move|rise|animate|float)|static position|keep .*still|stop .*ris|fix .*in place|connect the lines?|join the dots?/.test(low);
-  const axisAskD = /\by-axis\b|\bx-axis\b/.test(low)
-  const tickCharts = (scene.layers || []).some((l) => l.type === 'line_chart' || l.type === 'area_chart' || l.type === 'scatter_chart')
-  if (axisAskD && !parseAxisFormat(p).yFormat && tickCharts) {
-    return `Y-axis ticks are on by default — tell me the units and I'll format every division, e.g. “y-axis in $M millions”, “thousands”, or “percent”. (Words like “total amount” alone describe the data, not the axis — that's why nothing changed.)`
+  const axisAskD = /\by-axis\b|\bx-axis\b|\baxis\b|\bticks?\b/.test(low)
+  const tickCharts = (scene.layers || []).some((l) => l.type === 'line_chart' || l.type === 'area_chart' || l.type === 'scatter_chart' || l.type === 'bar_chart' || l.type === 'histogram')
+  if (axisAskD && parseAxisFormat(p).yFormat == null && parseAxisFormat(p).yDecimals == null && tickCharts) {
+    return `Axis ticks are on by default — tell me the units and I'll format every division, e.g. “y-axis in $M millions”, “x-axis to 2 decimal points”, “ticks as percent”, or “format the axis as dollars”. (Words like “total amount” alone describe the data, not the axis — that's why nothing changed.)`
   }
   if (stillIntent && (scene.layers || []).some((l) => l.type === 'line_chart' || l.type === 'area_chart')) {
     return `Already stationary — line and area points hold their final positions while the wipe reveals them left-to-right (dots pop in sequence with Stagger). Two alternatives: say “connect the dots” and the dots pop first while each segment draws between them; say “wipe reveal” to go back. To change pacing instead, try “slower reveal” or “all at once”.`;
@@ -830,14 +830,28 @@ function parseDrawMode(p) {
   return connect ? { drawMode: 'connect', stagger: 4 } : {}
 }
 
-// Axis display units: "y-axis in $M millions", "thousands", "percent".
-// Stored as data.yFormat; line/area/scatter tick labels honor it.
+// Axis display: units ("y-axis in $M millions", "thousands", "percent",
+// "in dollars", "in M", "in billions") plus decimal precision ("2 decimal
+// points", "show 1 decimal", "e.g. $1.42M"). Stored as data.yFormat +
+// data.yDecimals; tick charts and bar value labels honor both.
 export function parseAxisFormat(p) {
   const s = String(p || '').toLowerCase()
-  if (/\$m\b|millions?\b/.test(s)) return { yFormat: '$M' }
-  if (/\$k\b|thousands?\b/.test(s)) return { yFormat: '$k' }
-  if (/\bpercent\b|%/.test(s)) return { yFormat: '%' }
-  return {}
+  const out = {}
+  if (/\$m\b|\$[\d,.]*\s*m\b|\b\d[\d,.]*\s*m\b|millions?\b/.test(s)) out.yFormat = /\$/.test(s) ? '$M' : 'M'
+  else if (/\$k\b|thousands?\b/.test(s)) out.yFormat = '$k'
+  else if (/\bbillions?\b|\$b\b|\b\d[\d,.]*\s*b\b/.test(s)) out.yFormat = /\$/.test(s) ? '$B' : 'B'
+  else if (/\bpercent\b|%/.test(s)) out.yFormat = '%'
+  else if (/\bdollars?\b|\bcurrency\b|\bbucks\b|\$/.test(s)) out.yFormat = '$'
+  const dm = s.match(/(\d+)\s*decimal(?:\s*points?|\s*places?)?/) || s.match(/\b(one|two|three|four)\s*decimals?\b/)
+  if (dm) {
+    const words = { one: 1, two: 2, three: 3, four: 4 }
+    out.yDecimals = words[dm[1]] ?? Math.max(0, Math.min(4, Number(dm[1])))
+  } else if (/axi?s\b|x-axis|y-axis|tick|format|decimal/.test(s)) {
+    // A worked example carries the precision ("e.g. $1.42M" → 2).
+    const ex = s.match(/\$\d+\.(\d+)/) || s.match(/\be\.g\.[^\d]*\d+\.(\d+)/)
+    if (ex) out.yDecimals = Math.max(0, Math.min(4, ex[1].length))
+  }
+  return out
 }
 export function buildTableChartLayer(p, table, base = defaultScene, opts = {}) {
   const layerData = tableChartData(p, table, opts)
@@ -1872,23 +1886,30 @@ export function ruleBasedPatch(scene, prompt, datasets = [], images = []) {
       patch.push({ op: 'replace', path: `/layers/${li}/orientation`, value: wantOrient })
     })
   }
-  // Axis display: "y-axis in $M millions", "ticks in percent". Units
-  // become data.yFormat on the targeted tick chart(s) — never a rebuild.
+  // Axis display: "y-axis in $M millions", "x-axis to 2 decimals". Units
+  // and precision become data.yFormat/yDecimals on bars, histograms and
+  // tick charts — never a rebuild.
   // Pure axis asks opt out of regrouping below: in "y-axis total amount"
   // the word "total" names the hoped-for label, not a metric, so without
   // this carve-out the chart pointlessly regroups (and gains points).
   // Anything paired with an explicit data ask still regroups as usual.
-  const axisAsk = /\by-axis\b|\bx-axis\b/.test(p)
-  const axisFmt = parseAxisFormat(p).yFormat
+  const axisAsk = /\by-axis\b|\bx-axis\b|\baxis\b|\bticks?\b/.test(p)
+  const axisFmtAll = parseAxisFormat(p)
+  const axisFmt = axisFmtAll.yFormat
+  const axisDec = axisFmtAll.yDecimals
   const axisOnlyAsk = axisAsk && !/group\s+(by|per)|count\s+by|how many|top\s+\d+|bottom\s+\d+|\bsort\b|filter|average|avg|mean|\bsum\b|stack|unstack|pie|donut|bars?|lines?|scatter|histogram|waterfall|funnel|radar|surface|maps?|bubbles?|recolor|colou?r|\btitle\b|\blegend\b|\breveal\b|\bstagger\b|faster|slower|\borient\b|horizontal|vertical|\bby\s+(?!\$)[a-z0-9]/.test(p)
-  if (axisAsk && axisFmt) {
+  if (axisAsk && (axisFmt != null || axisDec != null)) {
     const namedHitAx = scene.layers.some((o) => o.name && p.includes(String(o.name).toLowerCase()))
     scene.layers.forEach((l, li) => {
       if (!isDataChart(l.type)) return
       const named = l.name && p.includes(String(l.name).toLowerCase())
       if (namedHitAx && !named) return
-      if (!named && l.type !== 'line_chart' && l.type !== 'area_chart' && l.type !== 'scatter_chart') return
-      patch.push({ op: 'replace', path: `/layers/${li}/data/yFormat`, value: axisFmt })
+      // Ticks live on line/area/scatter; bars and histograms show the
+      // same formatting on their value labels. Anything else has no
+      // numeric axis to format.
+      if (!named && l.type !== 'line_chart' && l.type !== 'area_chart' && l.type !== 'scatter_chart' && l.type !== 'bar_chart' && l.type !== 'histogram') return
+      if (axisFmt != null) patch.push({ op: 'replace', path: `/layers/${li}/data/yFormat`, value: axisFmt })
+      if (axisDec != null) patch.push({ op: 'replace', path: `/layers/${li}/data/yDecimals`, value: axisDec })
     })
   }
   // Chart-type + dataset switches: "change it to a vertical bar chart",

@@ -9,12 +9,12 @@ const SUGGESTED = ['BreezeBlue/Breeze-TTS-2', 'drbaph/Breeze-TTS-2-comfyui']
 export function loadTts() {
   try {
     const raw = localStorage.getItem(KEY)
-    if (!raw) return { modelPath: '', voices: [{ id: 'v_default', name: 'Narrator', refText: '', refAudio: '' }], instruction: '' }
+    if (!raw) return { modelPath: '', voices: [{ id: 'v_default', name: 'Narrator', refText: '', refAudio: '' }], instruction: '', fast: 'auto' }
     const s = JSON.parse(raw)
     if (!Array.isArray(s.voices) || !s.voices.length) s.voices = [{ id: 'v_default', name: 'Narrator', refText: '', refAudio: '' }]
-    return { modelPath: '', instruction: '', ...s }
+    return { modelPath: '', instruction: '', fast: 'auto', ...s }
   } catch {
-    return { modelPath: '', voices: [{ id: 'v_default', name: 'Narrator', refText: '', refAudio: '' }], instruction: '' }
+    return { modelPath: '', voices: [{ id: 'v_default', name: 'Narrator', refText: '', refAudio: '' }], instruction: '', fast: 'auto' }
   }
 }
 export function saveTts(s) {
@@ -486,6 +486,15 @@ export default function TtsSettings() {
         ＋ Add speaker
       </button>
       <input ref={fileRef} type="file" accept=".wav,.mp3,.ogg,.m4a,audio/*" style={{ display: 'none' }} onChange={onRefFile} />
+
+      <div style={{ fontSize: 12, fontWeight: 600, marginTop: 10 }}>Speed — same voice, faster kernels</div>
+      <select value={tts.fast || 'auto'} onChange={(e) => persist({ ...tts, fast: e.target.value })} style={{ width: '100%', marginTop: 4 }}
+        title="Auto uses SDPA/flash attention plus CUDA-graph fast paths when VRAM allows (~20 GB+), with a stock fallback on out-of-memory. Fastest forces the graphs on; Standard is stock eager everywhere.">
+        <option value="auto">Auto (recommended)</option>
+        <option value="on">Fastest, 60 s+ voiceovers (CUDA graphs — triton + ~15 GB free VRAM, 1–2 min one-time warmup)</option>
+        <option value="off">Standard (stock eager — slowest, most compatible)</option>
+      </select>
+      <div style={{ fontSize: 11, opacity: 0.65, marginTop: 2 }}>Auto uses SDPA/flash attention over eager (identical math, ~10–15% faster). Graphs only pay off on long narrations — each run spends up to ~2 min capturing them. The synth log names the active mode.</div>
 
       <label style={{ fontSize: 12, display: 'block', marginTop: 10 }}>Voice direction (optional — no clip needed)</label>
       <input value={tts.instruction} onChange={(e) => persist({ ...tts, instruction: e.target.value })}
