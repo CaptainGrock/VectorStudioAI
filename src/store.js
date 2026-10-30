@@ -366,6 +366,65 @@ export const useStudio = create((set, get) => ({
     persistScene(scene)
     return { scene, past: [...s.past, s.scene].slice(-50), future: [] }
   }),
+  // Group keyframe drags (multi-select): moves = [{ id, ki, frame }]. The
+  // live preview stays memory-only; the commit persists once with a single
+  // undo entry. Callers pre-resolve ripple pushes into the moves list.
+  moveKeyframes: (moves) => set((s) => {
+    const byId = new Map()
+    for (const m of (moves || [])) {
+      if (!m || !m.id || m.ki == null || !Number.isFinite(m.frame)) continue
+      if (!byId.has(m.id)) byId.set(m.id, new Map())
+      byId.get(m.id).set(m.ki, Math.max(0, Math.round(m.frame)))
+    }
+    if (!byId.size) return s
+    const layers = s.scene.layers.map(l => {
+      const m = byId.get(l.id)
+      if (!m) return l
+      return { ...l, keyframes: l.keyframes.map((kk, j) => (m.has(j) ? { ...kk, frame: m.get(j) } : kk)) }
+    })
+    return { scene: { ...s.scene, layers } }
+  }),
+  commitKeyframesGroup: (moves) => set((s) => {
+    const byId = new Map()
+    for (const m of (moves || [])) {
+      if (!m || !m.id || m.ki == null || !Number.isFinite(m.frame)) continue
+      if (!byId.has(m.id)) byId.set(m.id, new Map())
+      byId.get(m.id).set(m.ki, Math.max(0, Math.round(m.frame)))
+    }
+    if (!byId.size) return s
+    const layers = s.scene.layers.map(l => {
+      const m = byId.get(l.id)
+      if (!m) return l
+      return { ...l, keyframes: l.keyframes.map((kk, j) => (m.has(j) ? { ...kk, frame: m.get(j) } : kk)) }
+    })
+    const scene = fitDurationOut({ ...s.scene, layers })
+    persistScene(scene)
+    return { scene, past: [...s.past, s.scene].slice(-50), future: [] }
+  }),
+  // Multi-delete: never strips a layer's last keyframe (those layers are
+  // skipped); one undo entry for the whole batch.
+  deleteKeyframes: (list) => set((s) => {
+    const byId = new Map()
+    for (const m of (list || [])) {
+      if (!m || !m.id || m.ki == null) continue
+      if (!byId.has(m.id)) byId.set(m.id, new Set())
+      byId.get(m.id).add(m.ki)
+    }
+    if (!byId.size) return s
+    let removed = 0
+    const layers = s.scene.layers.map(l => {
+      const rm = byId.get(l.id)
+      if (!rm || !rm.size) return l
+      const keep = l.keyframes.filter((_, j) => !rm.has(j))
+      if (!keep.length) return l
+      removed += l.keyframes.length - keep.length
+      return { ...l, keyframes: keep }
+    })
+    if (!removed) return { log: [...s.log, 'A layer needs at least one keyframe — nothing deleted.'] }
+    const scene = { ...s.scene, layers }
+    persistScene(scene)
+    return { scene, past: [...s.past, s.scene].slice(-50), future: [], log: [...s.log, `Deleted ${removed} keyframe${removed === 1 ? '' : 's'}.`] }
+  }),
 
   // Right-edge trim of a layer's endFrame. trimLayer is the live drag
   // (no undo spam — same pattern as moveKeyframe); commitLayerTrim writes

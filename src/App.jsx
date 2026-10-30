@@ -79,26 +79,32 @@ function SmartMenu({ x, y, minWidth = 170, children, style }) {
   )
 }
 
-function KeyframeDiamond({ frame, duration, onScrub, onCommit }) {
+function KeyframeDiamond({ frame, duration, selected, onPress, onMove, onEnd, onContext }) {
   const ref = React.useRef(null)
-  const dragging = React.useRef(false)
+  const ctxRef = React.useRef(null)
   const frameFromX = (clientX) => {
     const bar = ref.current?.parentElement?.getBoundingClientRect()
     if (!bar || !bar.width) return frame
     return Math.round(Math.min(1, Math.max(0, (clientX - bar.left) / bar.width)) * duration)
   }
   return (
-    <div ref={ref} title={`frame ${frame} (drag)`}
+    <div ref={ref} title={`frame ${frame} — drag to retime${selected ? ' (selected: drag moves the group)' : ''}; Ctrl-click toggles, Shift-click extends`}
       style={{
         position: 'absolute', top: 4, width: 12, height: 26, cursor: 'ew-resize', touchAction: 'none',
         left: `calc(${(frame / duration) * 100}% - 6px)`,
-        background: '#ffcf40', clipPath: 'polygon(50% 0,100% 50%,50% 100%,0 50%)',
+        // NOTE: box-shadow is clipped away by clip-path, so selection is
+        // shown with a filled color swap + drop-shadow filter instead.
+        background: selected ? '#ffffff' : '#ffcf40', clipPath: 'polygon(50% 0,100% 50%,50% 100%,0 50%)',
+        filter: selected ? 'drop-shadow(0 0 3px #7df9ff) drop-shadow(0 0 1px #fff)' : undefined,
+        transform: selected ? 'scale(1.25)' : undefined,
+        zIndex: selected ? 2 : undefined,
       }}
-      onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); dragging.current = true; e.currentTarget.setPointerCapture(e.pointerId) }}
-      onPointerMove={(e) => { if (dragging.current) onScrub(frameFromX(e.clientX)) }}
-      onPointerUp={(e) => { if (dragging.current) { dragging.current = false; onCommit(frameFromX(e.clientX)) } }}
-      onPointerCancel={() => { dragging.current = false }}
-      onLostPointerCapture={() => { dragging.current = false }}
+      onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); const ctx = onPress(e); ctxRef.current = ctx || null; if (ctx) { try { e.currentTarget.setPointerCapture(e.pointerId) } catch {} } }}
+      onPointerMove={(e) => { if (ctxRef.current) onMove(ctxRef.current, frameFromX(e.clientX)) }}
+      onPointerUp={(e) => { if (ctxRef.current) { const c = ctxRef.current; ctxRef.current = null; onEnd(c, frameFromX(e.clientX)) } }}
+      onPointerCancel={() => { ctxRef.current = null }}
+      onLostPointerCapture={() => { ctxRef.current = null }}
+      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onContext?.(e) }}
     />
   )
 }
@@ -118,8 +124,9 @@ function SaveHealth() {
       {backup.state === 'saving' ? '● Server backup…' : backup.state === 'saved' ? `✓ Server backup${backup.at ? ` ${backup.at}` : ''}` : '○ Server backup failed'}
     </span>
   ) : null
-  if ((!health || (health.ok && !health.degraded)) && !backupChip) return null
-  if (!health || (health.ok && !health.degraded)) return backupChip
+  // Degraded-but-working saves stay silent (server backup + save/load
+  // conventions cover it) — only a hard failure raises the red chip.
+  if (!health || health.ok) return backupChip
   const failing = !health.ok
   return (
     <span style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
@@ -1649,8 +1656,9 @@ function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onSee
   const deleteLayer = useStudio(s => s.deleteLayer)
   const moveLayerTo = useStudio(s => s.moveLayerTo)
   const updateLayer = useStudio(s => s.updateLayer)
-  const moveKeyframe = useStudio(s => s.moveKeyframe)
-  const commitKeyframes = useStudio(s => s.commitKeyframes)
+  const moveKeyframes = useStudio(s => s.moveKeyframes)
+  const commitKeyframesGroup = useStudio(s => s.commitKeyframesGroup)
+  const deleteKeyframes = useStudio(s => s.deleteKeyframes)
   const trimLayer = useStudio(s => s.trimLayer)
   const commitLayerTrim = useStudio(s => s.commitLayerTrim)
   const trimStartLayer = useStudio(s => s.trimStartLayer)
@@ -1699,6 +1707,148 @@ function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onSee
   // the sequencer rail), so it works on every track size. Display order
   // is front-on-top (reversed array): display position `over` among the
   // remaining rows converts to array index (n-1) - over.
+  // Multi-select keyframes: plain drags still scrub the playhead — only
+  // diamond gestures touch the selection. Ctrl/Cmd-click toggles one,
+  // Shift-click extends from the anchor (same track), double-clicking a
+  // track header grabs the whole track, Alt-drag marquees a frame range
+  // across tracks, click-without-drag on empty lane / Esc clears.
+  const tlRef = React.useRef(null)
+  const [kfSel, setKfSel] = React.useState([]) // [{id, ki}]
+  const anchorRef = React.useRef(null)
+  const pressRef = React.useRef(null) // group-drag snapshot, or null
+  const downRef = React.useRef(null) // lane press point (click-deselect)
+  const marqueeRef = React.useRef(null)
+  const [marquee, setMarquee] = React.useState(null)
+  const kfKey = (id, ki) => `${id}::${ki}`
+  // Drop entries whose layer/keyframe is gone (undo, delete, new scene).
+  const validSel = React.useMemo(() => {
+    const lens = new Map(scene.layers.map(l => [l.id, (l.keyframes || []).length]))
+    return kfSel.filter(s => (lens.get(s.id) ?? -1) > s.ki)
+  }, [kfSel, scene])
+  const selSet = React.useMemo(() => new Set(validSel.map(s => kfKey(s.id, s.ki))), [validSel])
+  const layerOf = (id) => scene.layers.find(x => x.id === id)
+  const frameOfSel = (s) => layerOf(s.id)?.keyframes?.[s.ki]?.frame ?? 0
+  // Clamp + ripple: nothing below 0, and unselected keyframes sitting
+  // exactly on a landing frame get pushed along (chained) so the group
+  // never merges with or deletes existing work.
+  function applyGroupDelta(selSnap, delta, commit) {
+    if (!selSnap.length) return
+    let d = Math.round(delta)
+    for (const s of selSnap) d = Math.max(d, -s.frame)
+    if (d === 0) return
+    const moves = selSnap.map(s => ({ id: s.id, ki: s.ki, frame: s.frame + d }))
+    const selKi = new Map()
+    const land = new Map()
+    for (const m of moves) {
+      if (!selKi.has(m.id)) { selKi.set(m.id, new Set()); land.set(m.id, new Set()) }
+      selKi.get(m.id).add(m.ki)
+      land.get(m.id).add(m.frame)
+    }
+    const extra = []
+    const frameOf = (lay, j) => {
+      const e = extra.find(x => x.id === lay.id && x.ki === j)
+      return e ? e.frame : lay.keyframes[j].frame
+    }
+    let changed = true, guard = 0
+    while (changed && guard++ < 25) {
+      changed = false
+      for (const lay of scene.layers) {
+        const sel = selKi.get(lay.id)
+        if (!sel) continue
+        const lands = land.get(lay.id)
+        lay.keyframes.forEach((k, j) => {
+          if (sel.has(j)) return
+          if (lands.has(frameOf(lay, j))) {
+            const nf = frameOf(lay, j) + d
+            const ex = extra.find(x => x.id === lay.id && x.ki === j)
+            if (ex) ex.frame = nf
+            else extra.push({ id: lay.id, ki: j, frame: nf })
+            lands.add(nf)
+            changed = true
+          }
+        })
+      }
+    }
+    if (commit) commitKeyframesGroup([...moves, ...extra])
+    else moveKeyframes([...moves, ...extra])
+  }
+  function diamondPress(e, l, ki) {
+    tlRef.current?.focus?.({ preventScroll: true })
+    try { onSelectTrack?.(l.id) } catch {}
+    const key = kfKey(l.id, ki)
+    if (e.ctrlKey || e.metaKey) {
+      setKfSel(selSet.has(key) ? validSel.filter(s => !(s.id === l.id && s.ki === ki)) : [...validSel, { id: l.id, ki }])
+      anchorRef.current = { id: l.id, ki }
+      return null
+    }
+    if (e.shiftKey) {
+      const a = anchorRef.current
+      if (a && a.id === l.id && layerOf(l.id)) {
+        const lo = Math.min(a.ki, ki), hi = Math.max(a.ki, ki)
+        const merged = [...validSel]
+        for (let j = lo; j <= hi; j++) if (!merged.some(s => s.id === l.id && s.ki === j)) merged.push({ id: l.id, ki: j })
+        setKfSel(merged)
+      } else {
+        setKfSel([{ id: l.id, ki }])
+        anchorRef.current = { id: l.id, ki }
+      }
+      return null
+    }
+    let sel = validSel
+    if (!selSet.has(key)) { sel = [{ id: l.id, ki }]; setKfSel(sel) }
+    anchorRef.current = { id: l.id, ki }
+    const ctx = { press: { id: l.id, ki }, sel: sel.map(s => ({ ...s, frame: frameOfSel(s) })), startFrame: l.keyframes[ki]?.frame ?? 0, moved: false }
+    pressRef.current = ctx
+    return ctx
+  }
+  function diamondMove(ctx, frame) {
+    if (!ctx || ctx !== pressRef.current) return
+    const delta = Math.round(frame) - ctx.startFrame
+    if (delta !== 0) ctx.moved = true
+    else return
+    applyGroupDelta(ctx.sel, delta, false)
+  }
+  function diamondUp(ctx, frame) {
+    if (!ctx || ctx !== pressRef.current) return
+    pressRef.current = null
+    if (!ctx.moved) { setKfSel([ctx.press]); anchorRef.current = ctx.press; return }
+    applyGroupDelta(ctx.sel, Math.round(frame) - ctx.startFrame, true)
+    setStatus(`Moved ${ctx.sel.length} keyframe${ctx.sel.length === 1 ? '' : 's'} — Ctrl+Z undoes.`, 'done')
+  }
+  // Right-click a diamond: grab everything at/after it, this track or all.
+  function selectAfter(kf, allTracks) {
+    const pressedFrame = layerOf(kf.id)?.keyframes?.[kf.ki]?.frame ?? 0
+    const found = []
+    for (const lay of scene.layers) {
+      if (!allTracks && lay.id !== kf.id) continue
+      ;(lay.keyframes || []).forEach((k, j) => { if (k.frame >= pressedFrame) found.push({ id: lay.id, ki: j }) })
+    }
+    if (found.length) {
+      setKfSel(found)
+      anchorRef.current = found[found.length - 1]
+      setStatus(`Selected ${found.length} keyframe${found.length === 1 ? '' : 's'} from frame ${pressedFrame} — drag one to move them together.`, 'done')
+    }
+  }
+  // Arrows nudge (±1, Shift ±10), Delete removes, Esc clears — only when
+  // the timeline has focus and the target isn't an editable control.
+  function tlKeys(e) {
+    const t = e.target, tag = t?.tagName
+    if (t?.isContentEditable || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON') return
+    if (!validSel.length) return
+    if (e.key === 'Escape') { setKfSel([]); return }
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault()
+      const d = (e.key === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 10 : 1)
+      applyGroupDelta(validSel.map(s => ({ ...s, frame: frameOfSel(s) })), d, true)
+      return
+    }
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      e.preventDefault()
+      deleteKeyframes(validSel)
+      setKfSel([])
+      setStatus('Deleted selected keyframes — Ctrl+Z undoes.', 'done')
+    }
+  }
   const trackListRef = React.useRef(null)
   const [dragLayer, setDragLayer] = React.useState(null) // {id, over}
   const dragLayerRef = React.useRef(null)
@@ -1726,7 +1876,7 @@ function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onSee
     setStatus(`Moved “${l?.name || 'layer'}” to track ${over + 1} of ${n} (top = front).`, 'done')
   }
   return (
-    <div style={{ borderTop: '1px solid var(--vs-line)', padding: 12, overflowX: 'auto', overflowY: 'auto', minHeight: 96, maxHeight: 360, background: 'var(--vs-rail)' }}>
+    <div ref={tlRef} tabIndex={0} onKeyDown={tlKeys} style={{ borderTop: '1px solid var(--vs-line)', padding: 12, overflowX: 'auto', overflowY: 'auto', minHeight: 96, maxHeight: 360, background: 'var(--vs-rail)', outline: 'none' }}>
       <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, opacity: 0.8, display: 'flex', alignItems: 'center', gap: 8 }}>Timeline · {scene.layers.length} track{scene.layers.length === 1 ? '' : 's'} · {scene.durationInFrames} frames <span title="Tracks paint back-to-front: the top track covers tracks below it. Drag the ⋮⋮ grip to reorder." style={{ fontWeight: 400, opacity: 0.6 }}>(top = front)</span><span style={{ flex: 1 }} /><div style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 400 }} title="Timeline zoom — 100% fits the whole scene, zooming in scrolls"><button onClick={() => setZoom((z) => Math.max(1, Math.round((z - 0.25) * 100) / 100))} disabled={zoom <= 1} title="Zoom out">−</button><span style={{ fontSize: 11, minWidth: 38, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span><button onClick={() => setZoom((z) => Math.min(3, Math.round((z + 0.25) * 100) / 100))} title="Zoom in">+</button><button onClick={() => setZoom(1)} disabled={zoom === 1} title="Fit the whole scene">Fit</button><button onClick={trimToContent} disabled={!scene.layers.length} title="Snap scene length to the longest layer (stray keyframes pulled in too)">Trim</button></div>{scene.layers.length > 1 && (<><button onClick={() => setCollapsed(new Set(scene.layers.map((l) => l.id)))} title="Collapse all tracks">Collapse all</button><button onClick={() => setCollapsed(new Set())} title="Expand all tracks">Expand all</button></>)}</div>
       {!scene.layers.length && (
         <div style={{ fontSize: 13, opacity: 0.65, padding: '8px 0' }}>No tracks yet — generate a scene and its layers, clips and keyframe diamonds will appear here.</div>
@@ -1736,17 +1886,61 @@ function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onSee
         <React.Fragment key={l.id}>
         {lineForLayer(di) && <div style={{ height: 3, background: 'var(--vs-accent)', borderRadius: 2, marginBottom: 4 }} />}
         <div data-layer-row data-layer-id={l.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: collapsed.has(l.id) ? 4 : 10, opacity: dragLayer && dragLayer.id === l.id ? 0.45 : 1 }}>
-          <div onClick={() => onSelectTrack?.(l.id)} title="Select layer — drag ⋮⋮ to reorder, right-click for more (top track paints in front)" onContextMenu={(e) => { e.preventDefault(); setMenu({ id: l.id, x: e.clientX, y: e.clientY }) }} style={{ width: 180, fontSize: 13, cursor: 'pointer', color: 'var(--vs-bright)', background: selectedId === l.id ? 'var(--vs-sel)' : 'var(--vs-card)', border: selectedId === l.id ? '1px solid var(--vs-accent)' : '1px solid var(--vs-border)', borderRadius: 4, padding: '3px 6px', display: 'flex', alignItems: 'center', gap: 4 }}><button onClick={(e) => { e.stopPropagation(); toggleTrack(l.id) }} title={collapsed.has(l.id) ? 'Expand track' : 'Collapse track'} style={{ background: 'none', border: 'none', color: '#9fb3d8', cursor: 'pointer', padding: 0, fontSize: 12 }}>{collapsed.has(l.id) ? '▸' : '▾'}</button><span onPointerDown={(e) => { e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); dragLayerRef.current = l.id; setDragLayer({ id: l.id, over: layerIndexFromEvent(e, l.id) }) }}
+          <div onClick={() => onSelectTrack?.(l.id)} onDoubleClick={(e) => { e.stopPropagation(); const n = (l.keyframes || []).length; const all = []; for (let j = 0; j < n; j++) all.push({ id: l.id, ki: j }); setKfSel(all); anchorRef.current = all[all.length - 1] || null; if (n) setStatus(`Selected ${n} keyframe${n === 1 ? '' : 's'} on “${l.name || 'layer'}” — drag one to move them together.`, 'done') }} title="Select layer — double-click selects all its keyframes; drag ⋮⋮ to reorder, right-click for more (top track paints in front)" onContextMenu={(e) => { e.preventDefault(); setMenu({ id: l.id, x: e.clientX, y: e.clientY }) }} style={{ width: 180, fontSize: 13, cursor: 'pointer', color: 'var(--vs-bright)', background: selectedId === l.id ? 'var(--vs-sel)' : 'var(--vs-card)', border: selectedId === l.id ? '1px solid var(--vs-accent)' : '1px solid var(--vs-border)', borderRadius: 4, padding: '3px 6px', display: 'flex', alignItems: 'center', gap: 4 }}><button onClick={(e) => { e.stopPropagation(); toggleTrack(l.id) }} title={collapsed.has(l.id) ? 'Expand track' : 'Collapse track'} style={{ background: 'none', border: 'none', color: '#9fb3d8', cursor: 'pointer', padding: 0, fontSize: 12 }}>{collapsed.has(l.id) ? '▸' : '▾'}</button><span onPointerDown={(e) => { e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); dragLayerRef.current = l.id; setDragLayer({ id: l.id, over: layerIndexFromEvent(e, l.id) }) }}
               onPointerMove={(e) => { if (dragLayerRef.current === l.id) setDragLayer({ id: l.id, over: layerIndexFromEvent(e, l.id) }) }}
               onPointerUp={(e) => { if (dragLayerRef.current === l.id) dropLayer(e, l.id) }}
               onPointerCancel={() => { dragLayerRef.current = null; setDragLayer(null) }}
               title="Drag up/down to reorder (top track paints in front)" style={{ cursor: 'grab', color: '#8a93a8', fontSize: 13, padding: '0 2px', touchAction: 'none' }}>⋮⋮</span><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(l.name || '').trim() ? l.name : <i style={{ opacity: 0.6 }}>Untitled</i>} <span style={{ color: '#9fb3d8' }}>({l.type === 'audio_tts' ? 'voice' : l.type === 'audio_music' ? 'music' : l.type})</span></span></div>
           {!collapsed.has(l.id) && (<>
           <div style={{ position: 'relative', flex: zoom === 1 ? 1 : 'none', width: zoom === 1 ? undefined : `${Math.round(zoom * 100)}%`, height: 34, background: 'var(--vs-ruler)', borderRadius: 6, cursor: 'ew-resize', touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none' }} title="Click or drag to scrub the playhead (edges snap; Home/End jump to start/end)"
-            onPointerDown={(e) => { scrubbing.current = true; try { e.currentTarget.setPointerCapture(e.pointerId) } catch {} ; seekFrame(frameFromEvent(e)) }}
-            onPointerMove={(e) => { if (scrubbing.current && e.buttons) seekFrame(frameFromEvent(e)) }}
-            onPointerUp={() => { scrubbing.current = false }}
-            onPointerCancel={() => { scrubbing.current = false }}
+            onPointerDown={(e) => {
+              tlRef.current?.focus?.({ preventScroll: true })
+              // Alt-drag marquees a frame range instead of scrubbing.
+              if (e.altKey) {
+                e.stopPropagation(); e.preventDefault()
+                scrubbing.current = false
+                try { e.currentTarget.setPointerCapture(e.pointerId) } catch {}
+                marqueeRef.current = { rect: e.currentTarget.getBoundingClientRect(), x0: e.clientX }
+                setMarquee({ x0: e.clientX, y0: e.clientY, x1: e.clientX, y1: e.clientY })
+                return
+              }
+              downRef.current = { x: e.clientX, y: e.clientY }
+              scrubbing.current = true; try { e.currentTarget.setPointerCapture(e.pointerId) } catch {} ; seekFrame(frameFromEvent(e))
+            }}
+            onPointerMove={(e) => {
+              if (marqueeRef.current) { setMarquee((m) => (m ? { ...m, x1: e.clientX, y1: e.clientY } : m)); return }
+              if (scrubbing.current && e.buttons) seekFrame(frameFromEvent(e))
+            }}
+            onPointerUp={(e) => {
+              scrubbing.current = false
+              const mq = marqueeRef.current
+              if (mq) {
+                marqueeRef.current = null; setMarquee(null)
+                const f0 = frameFromX(Math.min(mq.x0, e.clientX), mq.rect)
+                const f1 = frameFromX(Math.max(mq.x0, e.clientX), mq.rect)
+                if (f0 != null && f1 != null && Math.abs(e.clientX - mq.x0) > 6) {
+                  const lo = Math.min(f0, f1), hi = Math.max(f0, f1)
+                  const found = []
+                  for (const lay of scene.layers) (lay.keyframes || []).forEach((k, j) => { if (k.frame >= lo && k.frame <= hi) found.push({ id: lay.id, ki: j }) })
+                  if (found.length) {
+                    if (e.ctrlKey || e.metaKey) {
+                      const merged = [...validSel]
+                      for (const f of found) if (!merged.some(s => s.id === f.id && s.ki === f.ki)) merged.push(f)
+                      setKfSel(merged)
+                    } else setKfSel(found)
+                    anchorRef.current = found[found.length - 1]
+                    setStatus(`Selected ${found.length} keyframe${found.length === 1 ? '' : 's'} (frames ${lo}–${hi}) — drag one to move them together.`, 'done')
+                  }
+                }
+                return
+              }
+              // Plain click on empty lane (no drag): clear the selection.
+              // The scrub already happened on press, so nothing is lost.
+              const dn = downRef.current
+              downRef.current = null
+              if (dn && Math.hypot(e.clientX - dn.x, e.clientY - dn.y) < 5 && validSel.length) setKfSel([])
+            }}
+            onPointerCancel={() => { scrubbing.current = false; marqueeRef.current = null; setMarquee(null); downRef.current = null }}
             onLostPointerCapture={() => { scrubbing.current = false }}>
             <Playhead getFrame={getFrame} duration={timeMax} onGrabDown={grabDown} onGrabMove={grabMove} onGrabUp={grabEnd} />
             <div style={{
@@ -1819,8 +2013,11 @@ function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onSee
             )}
             {l.keyframes.map((k, ki) => (
               <KeyframeDiamond key={ki} frame={k.frame} duration={timeMax}
-                onScrub={(frame) => moveKeyframe(l.id, ki, frame)}
-                onCommit={(frame) => commitKeyframes(l.id, ki, frame)}
+                selected={selSet.has(kfKey(l.id, ki))}
+                onPress={(e) => diamondPress(e, l, ki)}
+                onMove={(ctx, frame) => diamondMove(ctx, frame)}
+                onEnd={(ctx, frame) => diamondUp(ctx, frame)}
+                onContext={(e) => setMenu({ id: l.id, kf: { id: l.id, ki }, x: e.clientX, y: e.clientY })}
               />
             ))}
           </div>
@@ -1834,10 +2031,16 @@ function Timeline({ scene, getFrame, selectedId, onSelectTrack, onAddText, onSee
       ))}
       {dragLayer && dragLayer.over === scene.layers.length - 1 && <div style={{ height: 3, background: 'var(--vs-accent)', borderRadius: 2, marginBottom: 4 }} />}
       </div>
-      <div style={{ fontSize: 12, opacity: 0.6 }}>Red line is the playhead — click or drag any track to scrub it. Drag yellow diamonds to retime keyframes. Drag a track's edge bars to set its start/end — dragging audio's left edge delays when it starts. Drag titles, images and shapes right on the video to move them (drop saves a keyframe).</div>
+      <div style={{ fontSize: 12, opacity: 0.6 }}>Red line is the playhead — click or drag any track to scrub it. Drag yellow diamonds to retime keyframes. Multi-select: Ctrl-click toggles, Shift-click extends, double-click a track grabs it all, Alt-drag marquees across tracks, right-click a diamond for “select after here”; drag one selected diamond to move the group (others ripple aside), arrows nudge, Delete removes, Esc clears. Drag a track's edge bars to set its start/end — dragging audio's left edge delays when it starts. Drag titles, images and shapes right on the video to move them (drop saves a keyframe).</div>
+      {marquee && <div style={{ position: 'fixed', left: Math.min(marquee.x0, marquee.x1), top: Math.min(marquee.y0, marquee.y1), width: Math.abs(marquee.x1 - marquee.x0), height: Math.abs(marquee.y1 - marquee.y0), border: '1px solid #fff', background: 'rgba(255,255,255,0.12)', zIndex: 80, pointerEvents: 'none' }} />}
       {menu && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={() => setMenu(null)} onContextMenu={(e) => { e.preventDefault(); setMenu(null) }}>
           <SmartMenu x={menu.x} y={menu.y} minWidth={170} style={{ background: 'var(--vs-menu)', border: '1px solid var(--vs-border)', borderRadius: 8, padding: 4, boxShadow: '0 8px 24px rgba(0,0,0,0.65)', zIndex: 61 }}><div onClick={(e) => e.stopPropagation()}>
+            {menu.kf && (<>
+              <button onClick={() => { selectAfter(menu.kf, false); setMenu(null) }} title="Select this and every later keyframe on this track" style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-bright)', fontSize: 13 }}>⏭ Select all after here (this track)</button>
+              <button onClick={() => { selectAfter(menu.kf, true); setMenu(null) }} title="Select every keyframe at/after this frame on all tracks" style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-bright)', fontSize: 13 }}>⏭ Select all after here (all tracks)</button>
+              <div style={{ borderTop: '1px solid var(--vs-border)', margin: '4px 2px' }} />
+            </>)}
             <button onClick={() => { const l = scene.layers.find((x) => x.id === menu.id); const name = window.prompt('Rename layer (empty = blank title)', l?.name || ''); if (name !== null) renameLayer(menu.id, name.trim()); setMenu(null) }} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-bright)', fontSize: 13 }}>✏️ Rename layer</button>
             <button onClick={() => { const l = scene.layers.find((x) => x.id === menu.id); if (l) { const copy = JSON.parse(JSON.stringify(l)); copy.id = `layer_copy_${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`; copy.name = `${l.name || 'Layer'} copy`; addLayer(copy); setStatus(`Duplicated “${l.name}” with its keyframes.`, 'done') } setMenu(null) }} title="Copy this layer with all its keyframes — the copy selects so you can move it" style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-bright)', fontSize: 13 }}>⧉ Duplicate layer</button>
             <button onClick={() => { moveLayer(menu.id, 1); setStatus('Brought forward — paints in front of the track above.', 'done'); setMenu(null) }} title="Paint in front of the track above" style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-bright)', fontSize: 13 }}>▲ Bring forward</button>
