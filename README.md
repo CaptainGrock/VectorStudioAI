@@ -28,10 +28,13 @@ npm run dev -- --port 5174 --host 127.0.0.1
 
 Left rail:
 
-1. **1 · Generate** — type a prompt like `Create infographic. Title 'Q3 Review'. Bar chart sales 10k to 50k.` Click **Generate scene**. Stages 2 + 3 start collapsed; finishing a generate pops Stage 2 open.
+1. **1 · Generate** — type a prompt like `Create infographic. Title 'Q3 Review'. Bar chart sales 10k to 50k.` Click **✨ Generate new slide** for a fresh slide, or **＋ Add to current slide** to pop just the new chart/media layers into the slide you're already working on (ids refreshed, ends extended to the current duration, backdrop and existing layers untouched, one undo step). Stages 2 + 3 start collapsed; finishing a generate pops Stage 2 open.
    - Attach a spreadsheet with **Attach CSV/XLSX**, load a bundled sample dataset, or paste a Markdown table straight into the prompt. Tables are parsed locally; later prompts can regroup them (`group by vessel`, `count`, `top 10`, `only Cup and Waffle Cone`, `ignore <column>`).
    - Charts carry their table lineage, so **Refresh data** rebuilds a chart from the current dataset while keeping keyframes, timing, and colors.
 2. **2 · Revise chart** — conversational JSON-Patch edits (`Make the bars vertical`, `stack by topping`, `show top 10 only`, `add y-axis labels`). A revision thread keeps the conversation history.
+   - Two-way breakdowns: `break down by month showing countries side by side` rebuilds the chart as months × country series (ISO weeks/dates derive the months automatically; an explicitly named metric like `sum of revenue` is kept).
+   - Re-ordering sorts the chart in place (`order the data by week ascending`, `sort descending`, `reverse order`, `alphabetical`) — grouping, filter, and metric are preserved; naming a different column (`order by country`) regroups instead. Week/date axes read oldest-first by default and flip newest-first only on an explicit `descending`.
+   - Multiple charts on one slide: the **Apply to** dropdown scopes the revision to a single layer (whole slide is the default); backdrop changes still apply.
 3. **3 · Assets** — background image, attached images, attached audio, and narration/music tracks.
 
 Right rail inspector:
@@ -83,7 +86,7 @@ Top bar:
   - **Export MP4** renders the current scene on the local server (`/api/render`) and downloads `vectorstudio.mp4`. First render may download a headless browser and take several minutes. Export resolution follows the scene’s width/height.
   - **Export sequence MP4** (in Sequence mode) renders the whole reel — clips, gaps, and bed music — to one MP4.
   - **Export JSON** downloads the re-importable `scene.json` (or `sequence.json` in Sequence mode).
-  - **Import JSON** loads a `scene.json` backup as a new History entry (current work is kept). It validates first — a bad file changes nothing — embeds `data:` assets as-is, fetches + embeds `http(s)` URLs so the slide is self-contained (unreachable ones stay linked with a warning), re-links images against currently-attached files by name, and lists anything it couldn't resolve (local paths, expired `blob:` URLs) per layer with the next step: re-attach the file, or for narration just Generate speech from the preserved script.
+  - **Import JSON** loads `scene.json` backups as new History entries (current work is kept — pick one file or many at once). It validates first — a bad file changes nothing — embeds `data:` assets as-is, fetches + embeds `http(s)` URLs so the slide is self-contained (unreachable ones stay linked with a warning), re-links images against currently-attached files by name, and lists anything it couldn't resolve (local paths, expired `blob:` URLs) per layer with the next step: re-attach the file, or for narration just Generate speech from the preserved script.
 
 ## Voice narration with BreezeTTS-2
 

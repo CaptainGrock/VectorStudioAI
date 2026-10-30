@@ -180,6 +180,21 @@ function colTokens(c) {
 function stemTok(w) {
   return String(w || '').replace(/(ies)$/, 'y').replace(/(es|s)$/, '')
 }
+// Tiny edit distance for typo tolerance ("Phillipines" → "Philippines").
+function editDist(a, b) {
+  if (a === b) return 0
+  const m = a.length, n = b.length
+  if (!m) return n
+  if (!n) return m
+  if (Math.abs(m - n) > 2) return 3
+  let prev = Array.from({ length: n + 1 }, (_, i) => i)
+  for (let i = 1; i <= m; i++) {
+    const cur = [i]
+    for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
+    prev = cur
+  }
+  return prev[n]
+}
 // Best-match a free-text phrase to a table column. Tight mode only accepts
 // an exact hit or every phrase word inside one column's tokens (used for
 // "ignore X", so "sum by states" never excludes the state column).
@@ -198,6 +213,10 @@ function matchColumn(table, phrase, tight = false) {
     return words.some((w) => w.length >= 3 && (flat.includes(w) || flat.includes(stemTok(w))))
   })
   if (loose) return loose.c
+  // Typo tolerance for longer tokens ("weke" → "week"). Non-tight only:
+  // exclusions must never fuzzy-match the wrong column.
+  const fuzzy = cols.find((x) => x.toks.some((t) => t.length >= 4 && words.some((w) => w.length >= 4 && Math.abs(w.length - t.length) <= 1 && editDist(w, t) <= 1)))
+  if (fuzzy) return fuzzy.c
   return null
 }
 // "ignore the scoops column" / "excluding year" / "without the code" —
@@ -225,8 +244,9 @@ function parseAxisHint(p, table) {
 // cut the aggregation tail before matching a column, or "states" outscores
 // "vessel" via stemming.
 function groupHead(phrase) {
-  const cut = String(phrase || '').split(/\b(?:and|then|,)\s+(?:count|sum|total|averag|mean|top|per)\b/i)[0]
-  return (cut || phrase).trim()
+  const noParen = String(phrase || '').replace(/\([^)]*\)/g, ' ')
+  const cut = noParen.split(/\b(?:and|then|,)\s+(?:count|sum|total|averag|mean|top|per)\b|\b(?:showing|show|with|split(?:ting|s)?|stack(?:ed|s|ing)?|side|vs\.?|versus|over|across|into)\b/i)[0]
+  return (cut || noParen).trim()
 }
 function parseMetric(p, usableNumeric) {
   const sumM = p.match(/(?:sum|total|add(?:ing)? up|sum up)(?:\s+of)?\s+(?:the\s+)?([a-z][a-z0-9_ ]*?)(?=\s+by\s+|\s+per\s+|[^a-z0-9_ ]|$)/i)
@@ -293,7 +313,7 @@ export function resolveEditTable(scene, datasets, prompt) {
 
 // The candidate after "by ..." ("sum by states"), head-split from any
 // aggregation tail so "states" can't outscore the real target.
-const GROUP_PHRASE_RE = /\bby\s+([a-z][a-z &]*?)(?:\s+reference|\s+sheet|\s+data|\s+for\s|\s+based|\s+from\s|,|\s+total|\s+amount|$)/;
+const GROUP_PHRASE_RE = /\bby\s+([a-z][a-z &()]*?)(?:\s+reference|\s+sheet|\s+data|\s+for\s|\s+based|\s+from\s|,|\s+total|\s+amount|$)/;
 export function groupCandidate(p) {
   const m = String(p || '').toLowerCase().match(GROUP_PHRASE_RE);
   return groupHead(m?.[1] || '');
@@ -317,20 +337,41 @@ export function diagnoseNoPatch(scene, datasets, prompt) {
   if (stillIntent && (scene.layers || []).some((l) => l.type === 'line_chart' || l.type === 'area_chart')) {
     return `Already stationary — line and area points hold their final positions while the wipe reveals them left-to-right (dots pop in sequence with Stagger). Two alternatives: say “connect the dots” and the dots pop first while each segment draws between them; say “wipe reveal” to go back. To change pacing instead, try “slower reveal” or “all at once”.`;
   }
-  const dataIntent = /\bgroup(?:s|ed|ing)?\b|\bcount\b|how many|\baverag|\bmean\b|\bsum\b|\btop\s+\d|\bbottom\s+\d|\bfilter\b|\bcolumn\b|\bfield\b|\bheader\b|\bdataset\b|\bexcluding\b|\bignor\w+|\bstack(?:ed)?\b|\bunstack\b|\bclustered\b/.test(low);
+  const dataIntent = /\bgroup(?:s|ed|ing)?\b|\bcount\b|how many|\baverag|\bmean\b|\bsum\b|\btop\s+\d|\bbottom\s+\d|\bfilter\b|\bcolumn\b|\bfield\b|\bheader\b|\bdataset\b|\bexcluding\b|\bignor\w+|\bstack(?:ed)?\b|\bunstack\b|\bclustered\b|\basc(?:ending)?\b|\bdesc(?:ending)?\b|chronolog|\breverse\b|order\s+by/.test(low);
   const { table } = resolveEditTable(scene, datasets, p);
   if (!table) {
     if (!dataIntent) return null;
     return `“${p.trim().slice(0, 80)}” needs the dataset, but I can't see one — nothing is attached and this scene doesn't carry its table (older generations didn't save it). Re-attach the CSV/XLSX, or paste the table into Generate and regenerate; then ask again and I'll group it right away.`;
   }
+  // Two-dimensional asks ("break down by month showing countries side by
+  // side") and derived months rebuild through the stacked path — never
+  // report them as already-grouped or unmatchable; the engine either
+  // builds or the generic capabilities message explains the options.
+  if (parseTwoDim(p, table, table.rows)) return null;
+  const per = periodWordIn(p);
+  if (per && derivePeriodLabels(table, table.rows, per)) return null;
   const cand = groupCandidate(p);
   if (cand && !matchColumn(table, cand)) {
-    return `I couldn't match “${cand}” to a column. This table has: ${table.columns.join(', ')}. Try “group by <one of these>” — e.g. “group by ${table.columns[0]}”.`;
+    return `I couldn't match “${cand}” to a column. This table has: ${table.columns.join(', ')}. Try “group by <one of these>” — e.g. “group by ${table.columns[0]}” — or “by month” to group ISO weeks/dates into months.`;
   }
   if (cand) {
     const col = matchColumn(table, cand);
     const done = (scene.layers || []).find((l) => l.data?.aggregatedBy === col);
-    if (done) return `Already grouped by “${col}” (${(done.data.labels || []).length} groups). Ask to count, average, filter values, or take the top N instead.`;
+    if (done) {
+      // Ordering asks on an already-grouped chart: confirm when it's
+      // already in the asked order instead of crying "already grouped".
+      const orderWord = low.match(/\b(asc(?:ending)?|desc(?:ending)?|chronolog|reverse)\b/);
+      if (orderWord && Array.isArray(done.data?.labels) && done.data.labels.length > 1) {
+        const dir = /desc/.test(orderWord[1]) ? 'desc' : 'asc';
+        const keys = done.data.labels.map((l) => timeKey(l));
+        if (keys.every((k) => k != null)) {
+          const ok = keys.every((k, i) => i === 0 || (dir === 'asc' ? k >= keys[i - 1] : k <= keys[i - 1]));
+          if (ok) return `Already in ${dir === 'asc' ? 'ascending' : 'descending'} order by “${col}” — try the other direction (“${dir === 'asc' ? 'descending' : 'ascending'}”), “top 5”, or a different grouping.`;
+        }
+        return null;
+      }
+      return `Already grouped by “${col}” (${(done.data.labels || []).length} groups). Ask to count, average, filter values, take the top N — or break it down two ways, e.g. “break down by month showing countries side by side”.`;
+    }
   }
   return null;
 }
@@ -371,19 +412,128 @@ export function findValueMentions(p, table) {
       if (new RegExp(`(^|\\W)${esc(v.toLowerCase())}(\\W|$)`, 'i').test(low)) out.push({ col: c, value: v })
     }
   }
+  // Typo tolerance on whole values ("Phillipines" for "Philippines"):
+  // unmatched single-token values match a close prompt token.
+  const toks = low.split(/[^a-z0-9]+/).filter((t) => t.length >= 5)
+  if (toks.length) {
+    for (const c of catCols) {
+      const distinct = [...new Set(table.rows.map((r) => String(r[c] ?? '').trim()).filter((v) => v.length >= 6 && !/\s/.test(v)))]
+      for (const v of distinct) {
+        if (out.some((m) => m.col === c && m.value === v)) continue
+        const vl = v.toLowerCase()
+        const lim = vl.length >= 9 ? 2 : 1
+        if (toks.some((t) => Math.abs(t.length - vl.length) <= 2 && editDist(t, vl) <= lim)) out.push({ col: c, value: v })
+      }
+    }
+  }
   return out
 }
 function parseSort(p) {
   const top = p.match(/\btop\s+(\d+)/i)
-  if (top) return { dir: 'desc', n: Math.max(1, Math.min(100, Number(top[1]))), explicit: true }
+  if (top) return { dir: 'desc', n: Math.max(1, Math.min(100, Number(top[1]))), explicit: true, alpha: false, byKey: null, flip: false, chrono: false }
   const bottom = p.match(/\bbottom\s+(\d+)/i)
-  if (bottom) return { dir: 'asc', n: Math.max(1, Math.min(100, Number(bottom[1]))), explicit: true }
+  if (bottom) return { dir: 'asc', n: Math.max(1, Math.min(100, Number(bottom[1]))), explicit: true, alpha: false, byKey: null, flip: false, chrono: false }
   const m = p.match(/\b(largest|highest|biggest|greatest|smallest|lowest|least)\b/)
-  if (m) return { dir: /largest|highest|biggest|greatest/.test(m[1].toLowerCase()) ? 'desc' : 'asc', n: null, explicit: true }
+  if (m) return { dir: /largest|highest|biggest|greatest/.test(m[1].toLowerCase()) ? 'desc' : 'asc', n: null, explicit: true, alpha: false, byKey: null, flip: false, chrono: false }
   const s = p.match(/\bsort(?:ed|ing)?(?:\s+by\s+value)?\s+(desc(?:ending)?|asc(?:ending)?)/i)
-  if (s) return { dir: s[1].startsWith('desc') ? 'desc' : 'asc', n: null, explicit: true }
-  if (/\balphabetical/.test(p)) return { dir: null, n: null, explicit: true, alpha: true }
-  return { dir: 'desc', n: null, explicit: false }
+  if (s) return { dir: s[1].startsWith('desc') ? 'desc' : 'asc', n: null, explicit: true, alpha: false, byKey: null, flip: false, chrono: false }
+  if (/\balphabetical/.test(p)) return { dir: null, n: null, explicit: true, alpha: true, byKey: null, flip: false, chrono: false }
+  // Bare "sort" ("sort the chart", "sort it biggest first"): biggest-first
+  // like the default build. A paired "reverse" keeps its flip meaning below.
+  if (/\bsort(?:ed|ing)?\b/.test(p) && !/\breverse\b/.test(p)) return { dir: 'desc', n: null, explicit: true, alpha: false, byKey: null, flip: false, chrono: false }
+  // Bare ordering words ("order by week ascending", "sort descending",
+  // "chronological", "reverse order") — the general re-order path.
+  const ascWord = /\basc(?:ending)?\b/i.test(p)
+  const descWord = /\bdesc(?:ending)?\b/i.test(p)
+  const chrono = /chronolog/i.test(p)
+  const flip = /\breverse/i.test(p) && !ascWord && !descWord
+  const byKeyM = String(p).match(/(?:order|sort)(?:ed|ing)?\s+(?:the\s+(?:data\s+)?)?by\s+([a-z]+)/i)
+  const byKey = (byKeyM?.[1] || '').toLowerCase() || null
+  if (ascWord || descWord || chrono || flip || byKey) {
+    return { dir: descWord ? 'desc' : 'asc', n: null, explicit: true, alpha: false, byKey, flip, chrono }
+  }
+  return { dir: 'desc', n: null, explicit: false, alpha: false, byKey: null, flip: false, chrono: false }
+}
+// Time-like group columns read chronologically, not biggest-first.
+const TIME_COL_RE = /^(weeks?|months?|quarters?|years?|days?|dates?)$/i
+// Numeric key for time-like labels (ISO weeks, months, quarters, years,
+// parseable dates) — null when the label isn't time-like.
+function timeKey(label) {
+  const s = String(label || '').trim()
+  let m = s.match(/(19|20\d{2})?-?W(\d{1,2})\b/i)
+  if (m) return (Number(m[1] || 2000)) * 1000 + Number(m[2])
+  const mk = monthKey(s)
+  if (mk) return (mk.year ?? 2000) * 100 + mk.idx
+  m = s.match(/\bQ([1-4])\b/i)
+  if (m) {
+    const y = (s.match(/(19|20\d{2})/) || [])[1]
+    return (Number(y || 2000)) * 10 + Number(m[1])
+  }
+  m = s.match(/^\s*((?:19|20)\d{2})\s*$/)
+  if (m) return Number(m[1]) * 1000
+  const t = Date.parse(s)
+  return Number.isNaN(t) ? null : t
+}
+// Shared entry ordering: biggest-first by value (legacy default), calendar
+// order for time labels unless an explicit direction says otherwise,
+// alphabetical for a named label key.
+function orderEntries(entries, sort, timeLabels = false) {
+  if (!Array.isArray(entries)) return entries
+  if (sort.alpha) return [...entries].sort((a, b) => String(a[0]).localeCompare(String(b[0])))
+  const allTime = entries.length > 0 && entries.every((e) => timeKey(e[0]) != null)
+  const valueWord = sort.byKey && /^(value|values|amount|count|metric|number|numbers|total|revenue|sales)$/.test(sort.byKey)
+  const timeWord = sort.byKey && /^(week|weeks|month|months|quarter|quarters|year|years|day|days|date|dates|time|period)$/.test(sort.byKey)
+  let out
+  if (allTime && !valueWord && (timeLabels || timeWord || sort.chrono || (!sort.byKey && sort.explicit))) {
+    out = [...entries].sort((a, b) => timeKey(a[0]) - timeKey(b[0]))
+    // Time axes read oldest-first by default; only an explicit "descending"
+    // (or a flip, applied below) turns them newest-first.
+    if (sort.dir !== 'asc' && sort.explicit) out.reverse()
+  } else if (sort.byKey && !valueWord && !allTime) {
+    out = [...entries].sort((a, b) => String(a[0]).localeCompare(String(b[0])))
+    if (sort.dir !== 'asc') out.reverse()
+  } else if (sort.dir === 'asc') out = [...entries].sort((a, b) => a[1] - b[1])
+  else if (sort.dir == null) out = [...entries]
+  else out = [...entries].sort((a, b) => b[1] - a[1])
+  if (sort.flip) out = [...out].reverse()
+  return out
+}
+// Pure re-order of a layer already on the slide: permute its current
+// labels/values (/series) without touching the table, so the grouping,
+// filter and metric survive. Returns the new data object, or null when
+// the prompt names a different column (that regroups from the table) or
+// the layer has nothing orderable (maps, text). A bare "reverse" with no
+// other ordering word mirrors the current sequence exactly.
+function reorderLayerData(data, sort, table) {
+  const labels = data?.labels
+  if (!Array.isArray(labels) || labels.length < 2) return null
+  const hasValues = Array.isArray(data.values) && data.values.length === labels.length
+  const series = Array.isArray(data.series) ? data.series : null
+  const seriesOk = !!series && series.length > 0 && series.every((s) => Array.isArray(s.values) && s.values.length === labels.length)
+  if (!hasValues && !seriesOk) return null
+  // A named order key must be the layer's own grouping (or the values);
+  // anything else ("order by country" on a weekly chart) regroups below.
+  if (sort.byKey) {
+    const labelCol = data.labelCol || data.aggregatedBy || ''
+    const isLabel = !!labelCol && matchColumn({ columns: [labelCol] }, sort.byKey) === labelCol
+    const timeOk = /^(time|times|period|periods|date|dates|chronolog|week|weeks|month|months|quarter|quarters|year|years|day|days)$/.test(sort.byKey)
+      && labels.every((lb) => timeKey(lb) != null)
+    const valOk = /^(value|values|amount|amounts|count|counts|metric|metrics|number|numbers|total|totals|revenue|revenues|sales)$/.test(sort.byKey)
+      && !(table && matchColumn(table, sort.byKey))
+    if (!isLabel && !timeOk && !valOk) return null
+  }
+  const totals = seriesOk ? labels.map((_, i) => series.reduce((a, s) => a + (Number(s.values[i]) || 0), 0)) : null
+  const entries = labels.map((lb, i) => [lb, hasValues ? (Number(data.values[i]) || 0) : totals[i], i])
+  const timeLabels = labels.every((lb) => timeKey(lb) != null)
+  const ordered = (sort.flip && sort.dir === 'asc' && !sort.alpha && !sort.chrono && !sort.byKey)
+    ? [...entries].reverse()
+    : orderEntries(entries, sort, timeLabels)
+  const perm = ordered.map((e) => e[2])
+  const out = { ...data, labels: perm.map((i) => labels[i]) }
+  if (hasValues) out.values = perm.map((i) => data.values[i])
+  if (seriesOk) out.series = series.map((s) => ({ ...s, values: perm.map((i) => s.values[i]) }))
+  if (Array.isArray(data.pointColors) && data.pointColors.length === labels.length) out.pointColors = perm.map((i) => data.pointColors[i])
+  return out
 }
 // Shared row filter for the flat and stacked builders: include/exclude by
 // actual cell values ("only Cup and Waffle Cone", "excluding Texas").
@@ -487,7 +637,7 @@ function wideSeriesData(p, table, rows, excluded) {
   }
 }
 
-export function tableChartData(p, table) {
+export function tableChartData(p, table, opts = {}) {
   let base = tableToLayerData(table)
   // No numeric column (pure categorical table): counting rows per group is
   // still well-defined, so build a minimal base instead of giving up.
@@ -519,7 +669,7 @@ export function tableChartData(p, table) {
   let groupCol = parseAxisHint(p, table)
   if (groupCol && (groupCol === countryCol || excluded.has(groupCol))) groupCol = null
   if (!groupCol) {
-    const gm = p.match(/\bby\s+([a-z][a-z &]*?)(?:\s+reference|\s+sheet|\s+data|\s+for\s|\s+based|\s+from\s|,|\s+total|\s+amount|$)/)
+    const gm = p.match(/\bby\s+([a-z][a-z &()]*?)(?:\s+reference|\s+sheet|\s+data|\s+for\s|\s+based|\s+from\s|,|\s+total|\s+amount|$)/)
     if (gm) groupCol = matchColumn(table, groupHead(gm[1])) || null
   }
   if (!groupCol) {
@@ -541,6 +691,21 @@ export function tableChartData(p, table) {
     if (top && top[1] >= 2 && !excluded.has(top[0])) groupCol = top[0]
   }
   if (!groupCol && /\bcategor/.test(p)) groupCol = table.columns.find((c) => /categor/i.test(c)) || null
+  // "by month" with no Month column groups the derived months (from
+  // ISO weeks or dates) instead of falling through to per-row labels.
+  let periodRows = null
+  if (!groupCol) {
+    const pNoTableF = stripTableLines(p).toLowerCase()
+    const byMF = pNoTableF.match(/\b(?:by|per)\s+([a-z]+)/)
+    const canonF = byMF && PERIOD_CANON.find(([re]) => re.test(byMF[1]))?.[1]
+    if (canonF && !matchColumn(table, byMF[1])) {
+      const labels = derivePeriodLabels(table, rows, canonF)
+      if (labels && labels.length === rows.length) {
+        groupCol = '__period'
+        periodRows = rows.map((r, i) => ({ ...r, __period: labels[i] }))
+      }
+    }
+  }
   if (groupCol && excluded.has(groupCol)) groupCol = null
   // Wide time-series (label + period columns) with no explicit grouping:
   // one series per row over the periods, not one point per row.
@@ -559,21 +724,17 @@ export function tableChartData(p, table) {
   if (valueCol && valueCol === groupCol) {
     valueCol = usableNumeric.find((c) => c !== groupCol) || null
   }
+  // Preserve the layer's metric when the prompt names none (see stacked).
+  if (!namedMetric && !wantsCount(p) && opts.metricCol && usableNumeric.includes(opts.metricCol)
+    && opts.metricCol !== groupCol) valueCol = opts.metricCol
   // No plottable metric: count rows per group ("x-axis count of states");
   // an explicit count ask wins even when a metric exists.
   const doCount = !!groupCol && (!valueCol || (wantsCount(p) && !namedMetric))
   const cval = !excluded.has(base.valueCol) ? base.valueCol : (usableNumeric[0] || base.valueCol)
   const sort = parseSort(p)
-  const sortEntries = (entries) => {
-    const out = [...entries]
-    if (sort.alpha) out.sort((a, b) => String(a[0]).localeCompare(String(b[0])))
-    else if (sort.dir === 'asc') out.sort((a, b) => a[1] - b[1])
-    else out.sort((a, b) => b[1] - a[1])
-    return out
-  }
   if (groupCol && groupCol !== countryCol) {
     const acc = new Map()
-    for (const r of rows) {
+    for (const r of (periodRows || rows)) {
       const k = String(r[groupCol] ?? '').trim() || 'Unknown'
       if (doCount) { acc.set(k, (acc.get(k) || 0) + 1); continue }
       const v = cleanNumber(r[valueCol]) ?? 0
@@ -582,24 +743,28 @@ export function tableChartData(p, table) {
     }
     let entries = doCount ? [...acc.entries()]
       : [...acc.entries()].map(([k, e]) => [k, agg === 'mean' ? e.sum / Math.max(1, e.n) : e.sum])
-    entries = sortEntries(entries).slice(0, sort.n ?? 60)
+    entries = orderEntries(entries, sort, groupCol === '__period' || TIME_COL_RE.test(groupCol || '')).slice(0, sort.n ?? 60)
     if (!entries.length) return null
     return {
       ...base, labels: entries.map((e) => e[0]), values: entries.map((e) => round2(e[1])),
-      aggregatedBy: groupCol, aggregation: doCount ? 'count' : agg,
+      aggregatedBy: groupCol === '__period' ? 'Month' : groupCol, aggregation: doCount ? 'count' : agg,
       ...(doCount ? { valueCol: 'Count' } : { valueCol }),
       ...(filterName ? { filteredBy: filterName } : {}), rowCount: entries.length,
     }
   }
   if (countryCol && /countr(y|ies)/.test(p)) {
+    // An explicitly named metric ("sum of revenue by country") wins over
+    // the default column.
+    const countryMetric = (namedMetric && usableNumeric.includes(namedMetric) && namedMetric !== countryCol)
+      ? namedMetric : cval
     const sums = new Map()
     for (const r of rows) {
       const k = String(r[countryCol] ?? '').trim() || 'Unknown'
-      sums.set(k, (sums.get(k) || 0) + (cleanNumber(r[cval]) ?? 0))
+      sums.set(k, (sums.get(k) || 0) + (cleanNumber(r[countryMetric]) ?? 0))
     }
-    const entries = sortEntries([...sums.entries()]).slice(0, sort.n ?? 24)
+    const entries = orderEntries([...sums.entries()], sort).slice(0, sort.n ?? 24)
     if (!entries.length) return null
-    return { ...base, labels: entries.map((e) => e[0]), values: entries.map((e) => round2(e[1])), aggregatedBy: countryCol, ...(filterName ? { filteredBy: filterName } : {}), rowCount: entries.length }
+    return { ...base, labels: entries.map((e) => e[0]), values: entries.map((e) => round2(e[1])), aggregatedBy: countryCol, valueCol: countryMetric, ...(filterName ? { filteredBy: filterName } : {}), rowCount: entries.length }
   }
   // Ungrouped rows: a dropped default metric (or top-N / sort ask) rebuilds
   // the per-row series instead of plotting the excluded column.
@@ -674,8 +839,8 @@ export function parseAxisFormat(p) {
   if (/\bpercent\b|%/.test(s)) return { yFormat: '%' }
   return {}
 }
-export function buildTableChartLayer(p, table, base = defaultScene) {
-  const layerData = tableChartData(p, table)
+export function buildTableChartLayer(p, table, base = defaultScene, opts = {}) {
+  const layerData = tableChartData(p, table, opts)
   if (!layerData || (!layerData.labels.length && !layerData.values.length && !layerData.series?.length)) return null
   // Multi-series time data always draws lines (the renderer that supports it).
   const type = layerData.series?.length ? 'line_chart'
@@ -707,6 +872,117 @@ export function wantsUnstacked(p) {
   return /\bunstack(?:ed|ing|s)?\b|\bclustered\b/.test(String(p || '').toLowerCase())
 }
 
+// Two-dimensional phrasing beyond "stack": "side by side", "break down
+// by X", "split by X". Kept separate from wantsStacked (which feeds the
+// wide-series guard and engine repair) so those paths don't change shape.
+export function wantsSplit(p) {
+  return /\bside\s+by\s+side\b|\bbreak\s*down\s+by\b|\bsplit\s+by\b/i.test(String(p || ''))
+}
+
+// Period words for derived time groups ("by month" with no Month column).
+const PERIOD_CANON = [
+  [/months?|monthly/i, 'month'],
+  [/weeks?|weekly/i, 'week'],
+  [/quarters?|quarterly/i, 'quarter'],
+  [/years?|yearly|annual(?:ly)?/i, 'year'],
+  [/days?|daily/i, 'day'],
+]
+export function periodWordIn(p) {
+  const s = stripTableLines(String(p || ''))
+  for (const [re, canon] of PERIOD_CANON) if (re.test(s)) return canon
+  return null
+}
+
+const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+function monthKey(label) {
+  const m = String(label || '').match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\b\s*(19|20)?(\d{2})?/i)
+  if (!m) return null
+  const idx = MONTH_SHORT.findIndex((x) => x.toLowerCase() === m[1].slice(0, 3).toLowerCase())
+  const year = m[2] != null && m[3] != null ? Number(m[2] + m[3]) : null
+  return { idx, year }
+}
+// ISO-week Thursday owns the calendar month (W01–W05 → Jan, W06–W09 → Feb,
+// W10–W13 → Mar for Q1 data) so a "2026-W01" week never lands in "Dec".
+function monthLabelForWeek(weekNum, year) {
+  const y = Number(year) || new Date().getUTCFullYear()
+  const w = Math.min(53, Math.max(1, Math.round(Number(weekNum) || 1)))
+  const jan4 = new Date(Date.UTC(y, 0, 4))
+  const week1Monday = jan4.getTime() - (((jan4.getUTCDay() + 6) % 7) * 864e5)
+  const monday = new Date(week1Monday + (w - 1) * 7 * 864e5)
+  const thursday = new Date(monday.getTime() + 3 * 864e5)
+  return { month: thursday.getUTCMonth(), year: thursday.getUTCFullYear() }
+}
+
+// Month groups derived from what the table actually has: a Month column,
+// ISO weeks ("2026-W01"), or parseable dates. Returns labels aligned with
+// rows, or null when nothing month-like is derivable.
+export function derivePeriodLabels(table, rows, period = 'month') {
+  if (period !== 'month' || !table || !Array.isArray(table.columns)) return null
+  const mc = table.columns.find((c) => /month/i.test(c))
+  if (mc) return rows.map((r) => String(r[mc] ?? '').trim() || 'Unknown')
+  const wc = table.columns.find((c) => /^weeks?/i.test(c))
+  if (wc && rows.some((r) => /W\d{1,2}/i.test(String(r[wc] ?? '')))) {
+    const parts = rows.map((r) => {
+      const v = String(r[wc] ?? '')
+      const wm = v.match(/W(\d{1,2})/i)
+      const ym = v.match(/(19|20\d{2})/)
+      return monthLabelForWeek(wm ? wm[1] : 1, ym ? ym[1] : undefined)
+    })
+    const multi = new Set(parts.map((x) => x.year)).size > 1
+    return parts.map(({ month, year }) => (multi ? `${MONTH_SHORT[month]} ${year}` : MONTH_SHORT[month]))
+  }
+  const dc = table.columns.find((c) => /date|day/i.test(c) && !isNumericColumn(rows, c))
+  if (dc) {
+    const ds = rows.map((r) => new Date(String(r[dc] ?? '')))
+    if (ds.every((d) => !Number.isNaN(d.getTime()))) {
+      const multi = new Set(ds.map((d) => d.getFullYear())).size > 1
+      return ds.map((d) => (multi ? `${MONTH_SHORT[d.getMonth()]} ${d.getFullYear()}` : MONTH_SHORT[d.getMonth()]))
+    }
+  }
+  return null
+}
+
+// Two-dimensional intent: "break down by month showing countries side by
+// side", "sales per month split by country". Returns real columns (or a
+// derived month group) or null.
+export function parseTwoDim(p, table, rows) {
+  const pNoTable = stripTableLines(String(p || ''))
+  const low = pNoTable.toLowerCase()
+  const hint = /side\s+by\s+side|break\s*down\s+by|split\s+by|\bstack(?:ed|s|ing)?\b/.test(low)
+  const period = periodWordIn(pNoTable)
+  if (!hint && !period) return null
+  let groupCol = null, groupPeriod = null
+  const byM = low.match(/\b(?:by|per)\s+([a-z]+)/)
+  if (byM) {
+    const canon = PERIOD_CANON.find(([re]) => re.test(byM[1]))?.[1] || null
+    if (canon) {
+      if (matchColumn(table, byM[1])) groupCol = matchColumn(table, byM[1])
+      else if (derivePeriodLabels(table, rows, canon)) groupPeriod = canon
+    } else groupCol = matchColumn(table, groupHead(byM[1])) || null
+  }
+  if (!groupCol && !groupPeriod && period) {
+    if (matchColumn(table, period)) groupCol = matchColumn(table, period)
+    else if (derivePeriodLabels(table, rows, period)) groupPeriod = period
+  }
+  let splitCol = null
+  const sm = low.match(/(?:showing|show|with|split\s+by|stack(?:ed|s|ing)?\s+by)\s+([a-z][a-z ]*?)(?:\s+side\s+by\s+side|\s+side\b|,|$)/)
+  if (sm) splitCol = matchColumn(table, groupHead(sm[1])) || null
+  if (!splitCol) {
+    const sideM = low.match(/([a-z][a-z ]*?)\s+side\s+by\s+side/)
+    if (sideM) splitCol = matchColumn(table, groupHead(sideM[1])) || null
+  }
+  if (!splitCol) {
+    for (const m of low.matchAll(/\bby\s+([a-z]+)/g)) {
+      const c = matchColumn(table, m[1])
+      if (c && c !== groupCol) { splitCol = c; break }
+    }
+  }
+  if (splitCol && splitCol === groupCol) splitCol = null
+  if (groupPeriod && splitCol) return { groupCol: null, groupPeriod, splitCol }
+  if (groupCol && splitCol) return { groupCol, groupPeriod: null, splitCol }
+  return null
+}
+
 const STACK_PALETTE = ['#4da3ff', '#3ddc84', '#ffcf40', '#b388ff', '#ff9f43', '#ff6b6b', '#4dd0e1', '#ff7eb6']
 const MAX_STACK_GROUPS = 12, MAX_STACK_SERIES = 7
 
@@ -719,7 +995,17 @@ export function buildStackedData(p, table, opts = {}) {
   const round2 = (v) => Math.round(v * 100) / 100
   const excluded = parseExclusions(p, table)
   const countryCol = table.columns.find((c) => /country/i.test(c))
-  const catCols = (extraOK) => table.columns.filter((c) => c !== countryCol && !excluded.has(c) && !isNumericColumn(rows, c))
+  // Derived-month workspace: '__period' holds per-row month labels when the
+  // prompt groups by month but the table has weeks/dates instead.
+  let effTable = table, effRows = rows, forcedPeriod = null
+  if (opts.groupCol === '__period' && opts.groupPeriod) {
+    const labels = derivePeriodLabels(table, rows, opts.groupPeriod)
+    if (!labels || labels.length !== rows.length) return null
+    effTable = { ...table, columns: [...table.columns, '__period'] }
+    effRows = rows.map((r, i) => ({ ...r, __period: labels[i] }))
+    forcedPeriod = opts.groupPeriod
+  }
+  const catCols = (extraOK) => effTable.columns.filter((c) => c !== countryCol && c !== '__period' && !excluded.has(c) && !isNumericColumn(effRows, c))
   // Primary groups: axis hint > "by X" > bare mention > value-implied >
   // category default > country fallback.
   // A stack clause ("stacked by topping", "stack it by region", "stack
@@ -732,8 +1018,25 @@ export function buildStackedData(p, table, opts = {}) {
   const stripStack = (s) => String(s).replace(new RegExp(`${STACK_CLAUSE}\\s+[^.,;]+`, 'gi'), ' STACKED ')
   let groupCol = parseAxisHint(p, table)
   if (groupCol && (groupCol === countryCol || excluded.has(groupCol))) groupCol = null
+  // "by month" with no Month column groups the derived months — never a
+  // loose text match ("month showing countries…" must not resolve to
+  // Country, or the breakdown never happens).
+  if (!groupCol && !forcedPeriod) {
+    const pNoTableM = stripTableLines(p).toLowerCase()
+    const byM = pNoTableM.match(/\b(?:by|per)\s+([a-z]+)/)
+    const canon = byM && PERIOD_CANON.find(([re]) => re.test(byM[1]))?.[1]
+    if (canon && !matchColumn(table, byM[1])) {
+      const labels = derivePeriodLabels(table, rows, canon)
+      if (labels && labels.length === rows.length) {
+        effTable = { ...effTable, columns: [...effTable.columns, '__period'] }
+        effRows = rows.map((r, i) => ({ ...r, __period: labels[i] }))
+        forcedPeriod = canon
+        groupCol = '__period'
+      }
+    }
+  }
   if (!groupCol) {
-    const gm = stripStack(p).match(/\bby\s+([a-z][a-z &]*?)(?:\s+reference|\s+sheet|\s+data|\s+for\s|\s+based|\s+from\s|,|\s+total|\s+amount|$)/)
+    const gm = stripStack(p).match(/\bby\s+([a-z][a-z &()]*?)(?:\s+reference|\s+sheet|\s+data|\s+for\s|\s+based|\s+from\s|,|\s+total|\s+amount|$)/)
     if (gm) groupCol = matchColumn(table, groupHead(gm[1])) || null
   }
   if (!groupCol) {      // Match against prose with stack clauses (and tables) stripped, so a
@@ -762,6 +1065,21 @@ export function buildStackedData(p, table, opts = {}) {
   // The split capture is greedy ("vessel with count by state") — clip it
   // at continuation words so only the column name reaches the matcher.
   if (sm) stackCol = matchColumn(table, sm[1].split(/\s+(?:with|and|while|for|by|per|versus|vs\.?|counts?|show\w*|over|across|split|group\w*)\b/i)[0]) || null
+  // Two-dimensional phrasing names the split without a stack clause:
+  // "showing countries side by side", "countries side by side", or a
+  // second "by X" after the group.
+  if (!stackCol || stackCol === groupCol || excluded.has(stackCol)) {
+    const pNoTableS = stripTableLines(p).toLowerCase()
+    const showM = pNoTableS.match(/(?:showing|show|with)\s+([a-z][a-z ]*?)(?:\s+side\s+by\s+side|\s+side\b|,|$)/)
+      || pNoTableS.match(/([a-z][a-z ]*?)\s+side\s+by\s+side/)
+    if (showM) stackCol = matchColumn(effTable, groupHead(showM[1])) || null
+    if (!stackCol || stackCol === groupCol) {
+      for (const m of pNoTableS.matchAll(/\bby\s+([a-z]+)/g)) {
+        const c = matchColumn(effTable, m[1])
+        if (c && c !== groupCol && !excluded.has(c)) { stackCol = c; break }
+      }
+    }
+  }
   if (!stackCol || stackCol === groupCol || excluded.has(stackCol)) {
     const cands = catCols().filter((c) => c !== groupCol)
     stackCol = cands.find((c) => {
@@ -781,6 +1099,15 @@ export function buildStackedData(p, table, opts = {}) {
   // Explicit preservation (plain regroups on an existing stack keep their
   // split instead of re-deriving — and possibly swapping — it).
   if (opts.stackCol && table.columns.includes(opts.stackCol) && opts.stackCol !== groupCol && !excluded.has(opts.stackCol)) stackCol = opts.stackCol
+  // Explicit two-dimensional axes (a revise "break down by month showing
+  // countries" ask) override prose inference entirely.
+  if (opts.groupCol && opts.stackCol && opts.stackCol !== opts.groupCol
+    && effTable.columns.includes(opts.stackCol)
+    && (effTable.columns.includes(opts.groupCol) || (opts.groupCol === '__period' && forcedPeriod))
+    && !excluded.has(opts.groupCol) && !excluded.has(opts.stackCol)) {
+    groupCol = opts.groupCol
+    stackCol = opts.stackCol
+  }
   // Metric: same rules as the flat path (named metric > default > count).
   const usableNumeric = table.columns.filter((c) => !excluded.has(c) && isNumericColumn(table.rows, c)
     && new Set(table.rows.map((r) => String(r[c] ?? '').trim())).size > 1)
@@ -793,10 +1120,14 @@ export function buildStackedData(p, table, opts = {}) {
   if (valueCol && (valueCol === groupCol || valueCol === stackCol)) {
     valueCol = usableNumeric.find((c) => c !== groupCol && c !== stackCol) || null
   }
+  // Preserve the layer's metric when the prompt names none — a two-dim
+  // breakdown must not flip revenue to whatever the default picks.
+  if (!namedMetric && !wantsCount(p) && opts.metricCol && usableNumeric.includes(opts.metricCol)
+    && opts.metricCol !== groupCol && opts.metricCol !== stackCol) valueCol = opts.metricCol
   const doCount = !valueCol || (wantsCount(p) && !namedMetric)
   // Matrix: groups x stacks, sorted by group total, capped for readability.
   const groups = new Map()
-  for (const r of rows) {
+  for (const r of effRows) {
     const g = String(r[groupCol] ?? '').trim() || 'Unknown'
     const s = String(r[stackCol] ?? '').trim() || 'Other'
     if (!groups.has(g)) groups.set(g, new Map())
@@ -811,8 +1142,7 @@ export function buildStackedData(p, table, opts = {}) {
     return [g, t]
   })
   const sort = parseSort(p)
-  totals.sort((a, b) => sort.dir === 'asc' ? a[1] - b[1] : b[1] - a[1])
-  const groupOrder = totals.slice(0, sort.n ?? MAX_STACK_GROUPS).map((e) => e[0])
+  const groupOrder = orderEntries(totals, sort, groupCol === '__period' || TIME_COL_RE.test(groupCol || '')).slice(0, sort.n ?? MAX_STACK_GROUPS).map((e) => e[0])
   if (!groupOrder.length) return null
   const stackTotals = new Map()
   for (const g of groupOrder) {
@@ -831,11 +1161,14 @@ export function buildStackedData(p, table, opts = {}) {
     }),
     color: STACK_PALETTE[si % STACK_PALETTE.length],
   }))
+  const groupName = groupCol === '__period'
+    ? (forcedPeriod ? forcedPeriod[0].toUpperCase() + forcedPeriod.slice(1) : 'Period')
+    : groupCol
   return {
     labels: groupOrder,
     series,
     legend: series.map((s) => ({ label: s.label, color: s.color })),
-    aggregatedBy: groupCol, stackBy: stackCol,
+    aggregatedBy: groupName, stackBy: stackCol,
     aggregation: doCount ? 'count' : agg,
     valueCol: doCount ? 'Count' : valueCol,
     ...(filterName ? { filteredBy: filterName } : {}),
@@ -868,8 +1201,8 @@ export function refreshLayerData(layer, table) {
   // line-chart series also ride on data.series and rebuild flat.
   const stacked = !!d.stackBy && Array.isArray(d.series) && d.series.length > 0
   const fresh = stacked
-    ? buildStackedData(bp, table, { groupCol: d.aggregatedBy, stackCol: d.stackBy })
-    : tableChartData(bp, table)
+    ? buildStackedData(bp, table, { groupCol: d.aggregatedBy, stackCol: d.stackBy, metricCol: d.valueCol })
+    : tableChartData(bp, table, { metricCol: d.valueCol })
   if (!fresh || !Array.isArray(fresh.labels) || !fresh.labels.length) return null
   const colorByLabel = new Map()
   ;(d.labels || []).forEach((lb, i) => { if (d.pointColors?.[i]) colorByLabel.set(String(lb), d.pointColors[i]) })
@@ -1568,10 +1901,20 @@ export function ruleBasedPatch(scene, prompt, datasets = [], images = []) {
   const { table: editTable, tableSwitch } = resolveEditTable(scene, datasets, prompt)
   // Regroup intent: axis/group/count/aggregate/top-N/ignore-column asks
   // rebuild the layer data even when the chart type stays the same.
+  // Two-dimensional asks ("break down by month showing countries side by
+  // side") and derived months ("by month" with week/date columns) regroup
+  // even when no classic group/count word is present.
+  const twoDimAsk = !!editTable && !!parseTwoDim(ntNoTable, editTable, editTable.rows)
+  const periodAsk = !!editTable && (() => {
+    const per = periodWordIn(ntNoTable)
+    return per && !!derivePeriodLabels(editTable, editTable.rows, per)
+  })()
+  const orderSort = parseSort(p)
   const regroupIntent = !!editTable && (/\bgroup(?:ed|ing)?\s+(?:by|per)\b|\bcount\b|how many/.test(p) || !!parseAxisHint(p, editTable)
-    || !!matchColumn(editTable, (p.match(/\bby\s+([a-z][a-z &]*?)(?:\s+reference|\s+sheet|\s+data|\s+for\s|\s+based|\s+from\s|,|\s+total|\s+amount|$)/)?.[1] || ''))
-    || /average|avg|mean|\bsum\b|total|count|how many|number of|top\s+\d+|bottom\s+\d+|largest|smallest|highest|lowest|biggest|sort(?:ed|ing)?\b|alphabetical|ignor(?:e|ing)|exclud(?:e|ing)|without|drop(?:ping)?|skip(?:ping)?/.test(p)
+    || !!matchColumn(editTable, groupHead((p.match(/\bby\s+([a-z][a-z &()]*?)(?:\s+reference|\s+sheet|\s+data|\s+for\s|\s+based|\s+from\s|,|\s+total|\s+amount|$)/)?.[1] || '')))
+    || /average|avg|mean|\bsum\b|total|count|how many|number of|top\s+\d+|bottom\s+\d+|largest|smallest|highest|lowest|biggest|sort(?:ed|ing)?\b|alphabetical|\basc(?:ending)?\b|\bdesc(?:ending)?\b|chronolog|\breverse\b|order\s+by|ignor(?:e|ing)|exclud(?:e|ing)|without|drop(?:ping)?|skip(?:ping)?/.test(p)
     || wantsStacked(ntNoTable) || wantsUnstacked(ntNoTable)
+    || twoDimAsk || periodAsk
     || findValueMentions(ntNoTable, editTable).length > 0)
     && !axisOnlyAsk
   const autoName = (n) => !n || !String(n).trim() || /^(layer\s*\d+|data chart|untitled)$/i.test(String(n).trim())
@@ -1582,6 +1925,31 @@ export function ruleBasedPatch(scene, prompt, datasets = [], images = []) {
       if (!isData) return
       const named = l.name && p.includes(String(l.name).toLowerCase())
       if (namedHit && !named) return
+      // Pure re-order ("sort descending", "reverse order", "order by week
+      // ascending"): no new grouping, filter, metric or shape is asked for,
+      // so sort the layer's current labels/values in place. Rebuilding from
+      // the table here would lose the grouping and plot one bar per row.
+      if (!wantType && !wantMapSwitch && !tableSwitch
+        && !wantsStacked(ntNoTable) && !wantsUnstacked(ntNoTable) && !twoDimAsk && !periodAsk
+        && !/group(?:ed|ing)?\s+(?:by|per)\b|\bcount\b|how many|average|avg|mean|\bsum\b|number of|top\s+\d+|bottom\s+\d+|largest|smallest|highest|lowest|biggest|ignor(?:e|ing)|exclud(?:e|ing)|without|drop(?:ping)?|skip(?:ping)?/.test(p)
+        && findValueMentions(ntNoTable, editTable).length === 0
+        && (orderSort.explicit || orderSort.flip)) {
+        const reordered = reorderLayerData(l.data, orderSort, editTable)
+        if (reordered) {
+          const cur = l.data || {}
+          const sameL = cur.labels.length === reordered.labels.length
+            && cur.labels.every((x, i) => String(x) === String(reordered.labels[i]))
+          const curV = Array.isArray(cur.values) ? cur.values : null
+          const newV = Array.isArray(reordered.values) ? reordered.values : null
+          const sameV = curV && newV && curV.length === newV.length && curV.every((x, i) => Number(x) === Number(newV[i]))
+          // Identical order: stay silent (no churn, no history entry) —
+          // the empty-patch diagnosis confirms or asks for specifics.
+          if (!(sameL && (sameV || (!curV && !newV)))) patch.push({ op: 'replace', path: `/layers/${li}/data`, value: reordered })
+          return
+        }
+        // Not reorderable in place (or a different column was named) —
+        // fall through to the table rebuild below.
+      }
       // Data chart -> bubble map (or map rebuilt from a new table).
       if (wantMapSwitch && (isDataChart(l.type) || (l.type === 'map_bubbles' && (tableSwitch || regroupIntent)))) {
         const built = buildMapLayer(p, editTable, scene)
@@ -1605,7 +1973,8 @@ export function ruleBasedPatch(scene, prompt, datasets = [], images = []) {
         }
         return
       }
-      const stackAsk = wantsStacked(ntNoTable) && !wantsUnstacked(ntNoTable) && !wantMapSwitch
+      const twoDim = !wantMapSwitch && editTable ? parseTwoDim(ntNoTable, editTable, editTable.rows) : null
+      const stackAsk = (wantsStacked(ntNoTable) || !!twoDim) && !wantsUnstacked(ntNoTable) && !wantMapSwitch
       const unstackAsk = wantsUnstacked(ntNoTable) && !wantMapSwitch
       const hasSeries = Array.isArray(l.data?.series) && l.data.series.length > 0
       // Stacked bars: rebuild with the two-dimensional shape when asked, or
@@ -1617,15 +1986,19 @@ export function ruleBasedPatch(scene, prompt, datasets = [], images = []) {
       if (wantStackedShape) {
         const stackP = stackAsk ? p : `${p} stacked by ${l.data?.stackBy || ''}`
         // Stacked from flat: keep the layer's existing grouping unless the
-        // prompt names a new one (it usually only names the split).
-        const keepAxes = stackAsk
-          ? { groupCol: l.data?.aggregatedBy }
-          : { groupCol: l.data?.aggregatedBy, stackCol: l.data?.stackBy }
+        // prompt names a new one (it usually only names the split). A
+        // two-dimensional ask carries both axes explicitly, including
+        // derived months ('__period' + groupPeriod).
+        const keepAxes = twoDim
+          ? { groupCol: twoDim.groupCol || '__period', stackCol: twoDim.splitCol, groupPeriod: twoDim.groupPeriod || undefined, metricCol: l.data?.valueCol }
+          : stackAsk
+            ? { groupCol: l.data?.aggregatedBy, metricCol: l.data?.valueCol }
+            : { groupCol: l.data?.aggregatedBy, stackCol: l.data?.stackBy, metricCol: l.data?.valueCol }
         // No flat fallback here: a failed stack must ask for clarification,
         // not silently produce an unstacked chart nobody requested.
         built = buildStackedLayer(stackP, editTable, scene, keepAxes)
       } else {
-        built = buildTableChartLayer(p, editTable, scene)
+        built = buildTableChartLayer(p, editTable, scene, { metricCol: l.data?.valueCol })
       }
       if (!built) return
       const data = { ...built.data }
@@ -1650,7 +2023,10 @@ export function ruleBasedPatch(scene, prompt, datasets = [], images = []) {
       if (targetType !== l.type) patch.push({ op: 'replace', path: `/layers/${li}/type`, value: targetType })
       if (!sameData) {
         patch.push({ op: 'replace', path: `/layers/${li}/data`, value: data })
-        if (autoName(l.name)) patch.push({ op: 'replace', path: `/layers/${li}/name`, value: built.name })
+        // Auto-generated "<metric> by <old group>" names go stale on a
+        // regroup — follow the new axes, but never touch custom titles.
+        const staleAuto = cur.valueCol && cur.aggregatedBy && l.name === `${cur.valueCol} by ${cur.aggregatedBy}`
+        if (autoName(l.name) || staleAuto) patch.push({ op: 'replace', path: `/layers/${li}/name`, value: built.name })
       }
       if (/horizontal|vertical/.test(p)) {
         if (built.orientation) patch.push({ op: 'replace', path: `/layers/${li}/orientation`, value: built.orientation })
@@ -1772,6 +2148,25 @@ export async function generateScene(prompt, opts = {}) {
   return ruleBasedScene(prompt, undefined, datasets, opts.images || [])
 }
 
+// Scoping: when the user picks one layer in the Revise dropdown, drop
+// every layer-indexed op that targets anything else. Scene-level ops
+// (/background, /backgroundImage…) and appends (add at the end) always
+// apply — they don't belong to a layer. Covers LLM and offline patches.
+export function filterPatchToLayer(patch, scene, targetId) {
+  if (!targetId || !Array.isArray(patch)) return patch
+  const layers = (scene && scene.layers) || []
+  const idx = layers.findIndex((l) => l && l.id === targetId)
+  if (idx < 0) return patch
+  return patch.filter((o) => {
+    if (!o || typeof o.path !== 'string') return true
+    const m = o.path.match(/^\/layers\/(\d+)(?:\/|$)/)
+    if (!m) return true
+    const n = Number(m[1])
+    if (o.op === 'add' && n >= layers.length) return true
+    return n === idx
+  })
+}
+
 export async function editScene(scene, prompt, opts = {}) {
   let system = opts.systemEdit ||  'Return ONLY a JSON Patch array: [{op:replace|add|remove, path:/layers/N/... , value?}]. orientation horizontal|vertical re-orients bars; showTitle/showLegend false hides the title/legend; an image_layer value with imageName adds an attached image; /backgroundImage sets the scene backdrop and /backgroundImageOpacity (0-1) its opacity. Pacing: /layers/N/data/reveal and /data/stagger set per-point timing; text/image entrances set keyframes/0 off-canvas (x ±1400, y ±900, opacity 0) ending at rest.'
   // Type/data switches stay in scope even for user-tweaked Advanced prompts
@@ -1786,20 +2181,28 @@ export async function editScene(scene, prompt, opts = {}) {
   const editPromptFull = editContext
     ? `${prompt}\n\n${editContext}\n\nIf the request names a dataset, use that dataset's labels/values for the rebuilt layer data.`
     : prompt
-  const full = `${system}\nCurrent scene:\n${JSON.stringify(scene)}\nEdit request: ${editPromptFull}`
+  // Layer scoping (Revise dropdown): steer the model at the chosen layer
+  // and filter every backend's patch to it, so a second chart on the
+  // slide is never touched.
+  const targetIdx = opts.targetLayerId ? (scene.layers || []).findIndex((l) => l && l.id === opts.targetLayerId) : -1
+  const scopeNote = targetIdx >= 0
+    ? `\nScope: only modify layer ${targetIdx} ("${scene.layers[targetIdx].name || scene.layers[targetIdx].type}"). Leave every other layer exactly as it is.`
+    : ''
+  const full = `${system}\nCurrent scene:\n${JSON.stringify(scene)}\nEdit request: ${editPromptFull}${scopeNote}`
+  const scoped = (p) => filterPatchToLayer(p, scene, opts.targetLayerId)
   const stage = opts.onStage || (() => {})
   stage('Contacting local engine…')
   try {
     const out = await tryEngine([{ role: 'system', content: system }, { role: 'user', content: full }])
-    if (Array.isArray(out)) return out
-    if (out.patch) return out.patch
+    if (Array.isArray(out)) return scoped(out)
+    if (out.patch) return scoped(out.patch)
   } catch { /* fall through */ }
   if (opts.provider === 'ollama' || (!opts.apiKey && !opts.provider)) {
     stage('Local engine unavailable — trying Ollama…')
     try {
       const out = await tryOllama(full, system, opts.model || 'llama3.1', opts.ollamaUrl)
-      if (Array.isArray(out)) return out
-      if (out.patch) return out.patch
+      if (Array.isArray(out)) return scoped(out)
+      if (out.patch) return scoped(out.patch)
     } catch { /* fallback */ }
   }
   if (opts.apiKey) {
@@ -1813,11 +2216,11 @@ export async function editScene(scene, prompt, opts = {}) {
       if (res.ok) {
         const data = await res.json()
         const parsed = JSON.parse(data.choices[0].message.content)
-        if (Array.isArray(parsed)) return parsed
-        if (parsed.patch) return parsed.patch
+        if (Array.isArray(parsed)) return scoped(parsed)
+        if (parsed.patch) return scoped(parsed.patch)
       }
     } catch { /* fallback */ }
   }
   stage('No model reachable — editing with offline rules…')
-  return ruleBasedPatch(scene, prompt, opts.datasets || [], opts.images || [])
+  return scoped(ruleBasedPatch(scene, prompt, opts.datasets || [], opts.images || []))
 }

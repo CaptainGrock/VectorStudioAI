@@ -1921,6 +1921,11 @@ export default function App() {
   // Stages 2 + 3 start collapsed to save room; a finished Generate pops
   // Stage 2 open, Stage 3 stays manual.
   const [revCollapsed, setRevCollapsed] = useState(true)
+  // Revise scoping: 'all' touches the whole slide (previous behavior); a
+  // layer id restricts the revision to that chart/text/shape so a second
+  // chart on the slide is never touched. Resets to 'all' when the layer
+  // is gone (validated at use, not by effect, so edits never reset it).
+  const [revTarget, setRevTarget] = useState('all')
   const [assetsCollapsed, setAssetsCollapsed] = useState(true)
   const [activityCollapsed, setActivityCollapsed] = useState(true)
   const [histCollapsed, setHistCollapsed] = useState(false)
@@ -2307,6 +2312,54 @@ export default function App() {
     setBusy(false)
   }
 
+  // Add-to-slide: same generation as onGenerate, but the fresh chart/media
+  // layers are appended to the live slide (new ids, ends extended to the
+  // current duration so they hold for the whole slide) instead of replacing
+  // it. Canvas, backdrop and existing layers are untouched; one undo step
+  // removes the whole addition, and the active history entry auto-syncs.
+  async function onGenerateAdd() {
+    setBusy(true)
+    setStatus('Starting generation…')
+    try {
+      const usedPrompt = prompt || 'Q3 Review title, bar chart July 120 Aug 180 Sep 250, bank slides in from left'
+      let genDatasets = datasets
+      const pasted = parseMarkdownTable(usedPrompt) || parseDelimitedTable(usedPrompt)
+      if (pasted && !datasets.some((d) => d.rows.length === pasted.rows.length && d.columns.join('|') === pasted.columns.join('|'))) {
+        const full = { id: `ds_${Date.now().toString(36)}`, name: 'pasted table', ...pasted }
+        attachDataset(full)
+        genDatasets = [...datasets, full]
+      }
+      const next = await generateScene(usedPrompt, { ...llmOpts, datasets: genDatasets })
+      setStatus('Validating scene…')
+      const received = Array.isArray(next?.layers) ? next.layers.map((l) => l?.type || '?').join(', ') : 'no layers array'
+      pushLog(`Received from ${getLastSource()}: ${received}`)
+      let valid
+      try {
+        valid = validateScene(normalizeScene(next))
+      } catch (e) {
+        throw new Error(`Scene failed validation (${e.message}). Try again or simplify the prompt.`)
+      }
+      if (!valid.layers.length) throw new Error(`The ${getLastSource()} returned an empty scene (0 layers). Try again, simplify the prompt, or tweak the instructions in Advanced settings.`)
+      const targetDur = scene.durationInFrames || 300
+      const stamp = Date.now().toString(36)
+      const fresh = valid.layers.map((l, i) => {
+        const copy = JSON.parse(JSON.stringify(l))
+        copy.id = `layer_gen_${stamp}_${i}_${Math.floor(Math.random() * 1e6).toString(36)}`
+        if ((Number(copy.endFrame) || 0) < targetDur) copy.endFrame = targetDur
+        return copy
+      })
+      setScene({ ...scene, layers: [...scene.layers, ...fresh] })
+      selectLayer(fresh[0]?.id || null); clearPreview?.(); jumpTo(0)
+      const n = fresh.length
+      setStatus(`Added ${n} layer${n === 1 ? '' : 's'} to the current slide via ${getLastSource()}.`, 'done')
+      pushLog(`Added ${n} layer(s) to current slide via ${getLastSource()}.`)
+      setGenCollapsed(true)
+      pushRev('assistant', `Added ${n} layer${n === 1 ? '' : 's'} to your current slide via ${getLastSource()}. Describe revisions below — e.g. "make it smaller" or "move it right".`)
+      setRevCollapsed(false)
+    } catch (e) { setStatus(`Generate failed: ${e.message}`, 'error'); pushLog(`Generate failed: ${e.message}`); pushRev('assistant', `Generate failed: ${e.message}`) }
+    setBusy(false)
+  }
+
   // Blank slide: reset to an empty canvas (canvas dims kept), undoable via
   // the scene past, and checkpointed into History so it can't be lost.
   function onNewSlide() {
@@ -2422,6 +2475,10 @@ export default function App() {
     setStatus(`Described ${tables.length} table${tables.length === 1 ? '' : 's'}.`, 'done')
   }
 
+  const revTargetId = scene.layers.some((l) => l.id === revTarget) ? revTarget : 'all'
+  const revTargetName = revTargetId !== 'all'
+    ? (scene.layers.find((l) => l.id === revTargetId)?.name || 'selected layer')
+    : null
   async function onEdit() {
     if (!editPrompt.trim()) { setStatus('Describe the change first — e.g. "convert it to a pie chart".', 'error'); return }
     if (/what\s+(are|is|are\s+the)|\bwhich\b.*\b(column|field|header|data|metric)|\blist\b.*\b(column|field|header|data)|\b(columns?|fields?|headers?)\b.*\?|what (data|columns|fields)|show me the (data|columns|fields)|describe.*\bdata\b|what can i (plot|chart|show|group)/i.test(editPrompt)) {
@@ -2434,14 +2491,15 @@ export default function App() {
     pushRev('user', editPrompt)
     try {
       const beforeLayers = scene.layers
-      const patch = await editScene(scene, editPrompt, llmOpts)
+      const patch = await editScene(scene, editPrompt, { ...llmOpts, ...(revTargetId !== 'all' ? { targetLayerId: revTargetId } : {}) })
+      const scopeSuffix = revTargetName ? ` to “${revTargetName}”` : ''
       // If the regroup ran on a truncated embedded copy (reload with no
       // re-attach), say so and prompt the re-attach — counts may be off.
       const { truncated: editTruncated } = resolveEditTable(scene, datasets, editPrompt)
       const truncNote = editTruncated && patch?.some((o) => String(o.path || '').includes('/data'))
         ? ` Note: regrouped from the first ${scene.layers.map(tableFromLayer).find((t) => t && t.truncated)?.rows.length} rows kept in the saved scene — re-attach the file for exact counts.` : ''
-      if (patch?.length) { setStatus('Applying revision…'); patchScene(patch); setStatus(`Done — applied ${patch.length} change${patch.length === 1 ? '' : 's'}. Preview updated.`, 'done'); pushLog(`Edit patch: ${JSON.stringify(patch).slice(0, 220)}`); pushRev('assistant', `Applied ${patch.length} change${patch.length === 1 ? '' : 's'}: ${summarizePatch(patch, beforeLayers)}. Preview updated.${truncNote}`) }
-      else { setStatus('No change matched — I asked for details below instead of guessing.', 'error'); pushLog('No patch produced; asked for clarification.'); pushRev('assistant', diagnoseNoPatch(scene, datasets, editPrompt) || 'I couldn\u2019t match that to a change, so I\u2019d rather ask than guess and get it wrong. I can: switch chart type (bar / line / pie / area / scatter / histogram / waterfall / funnel / radar / map), re-orient bars (horizontal / vertical), group by a column, stack bars by a second column ("stack by topping"), count / average / sum a metric, take the top N, filter to values ("only Cup and Waffle Cone"), ignore a column, connect the dots on a line ("connect the dots") or restore its wipe, swap in an attached or pasted dataset, recolor, retime, or move/restyle titles. Reply with specifics — e.g. "group by vessel and count the states".') }
+      if (patch?.length) { setStatus('Applying revision…'); patchScene(patch); setStatus(`Done — applied ${patch.length} change${patch.length === 1 ? '' : 's'}${scopeSuffix}. Preview updated.`, 'done'); pushLog(`Edit patch: ${JSON.stringify(patch).slice(0, 220)}`); pushRev('assistant', `Applied ${patch.length} change${patch.length === 1 ? '' : 's'}${scopeSuffix}: ${summarizePatch(patch, beforeLayers)}. Preview updated.${truncNote}`) }
+      else { setStatus('No change matched — I asked for details below instead of guessing.', 'error'); pushLog('No patch produced; asked for clarification.'); pushRev('assistant', diagnoseNoPatch(scene, datasets, editPrompt) || 'I couldn\u2019t match that to a change, so I\u2019d rather ask than guess and get it wrong. I can: switch chart type (bar / line / pie / area / scatter / histogram / waterfall / funnel / radar / map), re-orient bars (horizontal / vertical), group by a column ("by month" works off week/date columns too), break down two ways ("break down by month showing countries side by side"), stack bars by a second column ("stack by topping"), count / average / sum a metric, take the top N, reorder ("order by week ascending", "sort descending", "reverse order"), filter to values ("only Cup and Waffle Cone"), ignore a column, connect the dots on a line ("connect the dots") or restore its wipe, swap in an attached or pasted dataset, recolor, retime, or move/restyle titles. Reply with specifics — e.g. "group by vessel and count the states".') }
     } catch (e) { setStatus(`Edit failed: ${e.message}`, 'error'); pushLog(`Edit failed: ${e.message}`); pushRev('assistant', `That revision failed: ${e.message}`) }
     setBusy(false)
   }
@@ -2485,10 +2543,51 @@ export default function App() {
   // degraded auto-save) are cleared with a per-layer re-attach list.
   // The result checkpoints into History as its own entry — current work
   // is never overwritten, and the import itself is one click from Trash.
+  // Multi-file import: each JSON becomes its own History entry (current
+  // work is never overwritten); the last successful import takes the stage.
+  async function onImportFiles(files) {
+    const list = [...(files || [])].filter(Boolean)
+    if (!list.length) return
+    setBusy(true)
+    let ok = 0, fail = 0
+    let lastTitle = '', lastScene = null, lastId = null, lastBits = [], lastMissing = 0
+    for (let i = 0; i < list.length; i++) {
+      const file = list[i]
+      if (list.length > 1) setStatus(`Importing ${i + 1}/${list.length}: “${file.name}”…`)
+      try {
+        const { title, scene, missing, bits } = await importOneScene(file, list.length === 1)
+        const item = useStudio.getState().addConversation(title, scene)
+        lastTitle = title; lastScene = scene; lastId = item.id; lastBits = bits; lastMissing = missing.length; ok++
+        if (!missing.length) pushLog(`Imported “${title}” (${bits.join(', ')}).`)
+        else {
+          pushLog(`Imported “${title}” (${bits.join(', ')}) — needs attention:`)
+          missing.forEach((m) => pushLog(`· ${m}`))
+        }
+      } catch (e) { fail++; pushLog(`Import failed for “${file.name}”: ${e.message}`) }
+    }
+    if (lastId) {
+      useStudio.getState().setActiveConvo(lastId)
+      setScene(lastScene)
+      selectLayer(null); clearPreview?.(); jumpTo(0)
+    }
+    if (list.length > 1) {
+      if (ok && !fail) setStatus(`Imported ${ok} slide${ok === 1 ? '' : 's'} — each saved to History.`, 'done')
+      else if (ok) setStatus(`Imported ${ok} of ${list.length} files (${fail} failed) — see Activity Log.`, 'done')
+      else setStatus(`Import failed: none of the ${list.length} files loaded — see Activity Log.`, 'error')
+    } else if (ok) {
+      if (!lastMissing) setStatus(`Imported “${lastTitle}” — ${lastBits.join(', ')}. Saved to History.`, 'done')
+      else setStatus(`Imported “${lastTitle}” with ${lastMissing} file${lastMissing === 1 ? '' : 's'} to re-attach — see Activity Log.`, 'done')
+    } else if (fail) {
+      setStatus(`Import failed — see Activity Log.`, 'error')
+    }
+    setBusy(false)
+  }
   async function onImportFile(file) {
     if (!file) return
-    setBusy(true)
-    setStatus(`Reading “${file.name}”…`)
+    return onImportFiles([file])
+  }
+  async function importOneScene(file, announce) {
+    if (announce) setStatus(`Reading “${file.name}”…`)
     try {
       const text = await file.text()
       let parsed = null
@@ -2551,23 +2650,11 @@ export default function App() {
         if (r.missing) missing.push('Background image not readable here — re-pick it in Stage 3')
       }
       const title = `Imported: ${String(file.name).replace(/\.json$/i, '')}`.slice(0, 80)
-      const item = useStudio.getState().addConversation(title, scene)
-      useStudio.getState().setActiveConvo(item.id)
-      setScene(scene)
-      selectLayer(null); clearPreview?.(); jumpTo(0)
       const bits = [`${scene.layers.length} layer${scene.layers.length === 1 ? '' : 's'}`]
       if (linked) bits.push(`${linked} remote file${linked === 1 ? '' : 's'} embedded`)
       if (relinked) bits.push(`${relinked} re-linked from attached files`)
-      if (!missing.length) {
-        setStatus(`Imported “${title}” — ${bits.join(', ')}. Saved to History.`, 'done')
-        pushLog(`Imported “${title}” (${bits.join(', ')}).`)
-      } else {
-        setStatus(`Imported “${title}” with ${missing.length} file${missing.length === 1 ? '' : 's'} to re-attach — see Activity Log.`, 'done')
-        pushLog(`Imported “${title}” (${bits.join(', ')}) — needs attention:`)
-        missing.forEach((m) => pushLog(`· ${m}`))
-      }
-    } catch (e) { setStatus(`Import failed: ${e.message}`, 'error'); pushLog(`Import failed: ${e.message}`) }
-    setBusy(false)
+      return { title, scene, missing, bits }
+    } catch (e) { throw e }
   }
 
   // One-click MP4: the local server writes scene.json and runs the Remotion
@@ -2648,13 +2735,13 @@ export default function App() {
               <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 4px)', background: 'var(--vs-pop)', border: '1px solid var(--vs-border)', borderRadius: 8, padding: 4, minWidth: 190, zIndex: 61, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
                 <button onClick={() => { setExportOpen(false); onExportMp4() }} disabled={rendering || busy} title={seqMode ? 'Render the whole sequence reel to one MP4 on the local server, then download it' : 'Render the current scene to MP4 on the local server, then download it (first render fetches a headless browser and takes a few minutes)'} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-text)' }}>{rendering ? 'Rendering MP4…' : seqMode ? '🎬 Export sequence MP4' : '🎬 Export MP4'}</button>
                 {!isSimple && <button onClick={() => { setExportOpen(false); onExport() }} title="Download scene.json (re-importable project file)" style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-text)' }}>📄 Export JSON</button>}
-                {!isSimple && <button onClick={() => { setExportOpen(false); importJsonRef.current?.click() }} title="Load a scene.json backup — validates first, embeds what it can, lists files to re-attach" style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-text)' }}>📥 Import JSON</button>}
+                {!isSimple && <button onClick={() => { setExportOpen(false); importJsonRef.current?.click() }} title="Load scene.json backups (pick one or many) — validates first, embeds what it can, lists files to re-attach" style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px', cursor: 'pointer', color: 'var(--vs-text)' }}>📥 Import JSON</button>}
               </div>
             </>
           )}
         </div>
         <button onClick={() => { setSettingsTab('models'); setShowSettings(true) }} title="Settings — models, text-to-speech, engine" style={{ fontSize: 15, padding: '2px 8px' }}>⚙</button>
-        <input ref={importJsonRef} type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onImportFile(f) }} />
+        <input ref={importJsonRef} type="file" accept="application/json,.json" multiple style={{ display: 'none' }} onChange={(e) => { const fs = [...(e.target.files || [])]; e.target.value = ''; if (fs.length) onImportFiles(fs) }} />
       </div>
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
         <div style={{ width: 340, borderRight: '1px solid var(--vs-line)', padding: 12, overflowY: 'auto', background: 'var(--vs-rail)' }}>
@@ -2680,13 +2767,27 @@ export default function App() {
               <button onClick={() => removeDataset(d.id)}>✕</button>
             </div>
           ))}
-          <button disabled={busy} onClick={onGenerate} style={{ marginTop: 8, width: '100%' }}>{busy ? 'Working…' : 'Generate scene'}</button>
+          <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+            <button disabled={busy} onClick={onGenerate} title="Generate a brand-new slide from the prompt (saved to History)" style={{ flex: 1 }}>{busy ? 'Working…' : '✨ Generate new slide'}</button>
+            <button disabled={busy} onClick={onGenerateAdd} title="Generate from the prompt and append the chart/media layers to the slide you're already working on" style={{ flex: 1 }}>{busy ? 'Working…' : '＋ Add to current slide'}</button>
+          </div>
           <CanvasSize />
           </>)}
           <button onClick={onAddText} style={{ marginTop: 6, width: '100%' }} title="Add an animatable text layer (font, size, color, keyframes)">＋ Add text layer</button>
           <button onClick={() => setRevCollapsed((c) => !c)} title={revCollapsed ? 'Expand the Revise section' : 'Collapse the Revise section'} style={{ width: '100%', marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, background: revCollapsed ? '#4a2e8a' : '#6d3fd1', border: '1px solid #7c5cd6', borderLeft: revCollapsed ? '1px solid #7c5cd6' : '3px solid #ffd166', borderRadius: 8, padding: '9px 10px', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: '#fff' }}><span style={{ background: 'var(--vs-accent-solid)', color: '#fff', borderRadius: 6, padding: '1px 7px', fontSize: 11 }}>2</span><span style={{ flex: 1, textAlign: 'left' }}>Revise chart</span><span style={{ fontSize: 11, fontWeight: 400, opacity: 0.7 }}>{revCollapsed ? (revThread.length ? `${revThread.length} msgs · expand ▸` : 'expand ▸') : '▾'}</span></button>
           {revCollapsed && (<div style={{ fontSize: 11, opacity: 0.6, margin: '4px 2px 6px' }}>{revThread.length ? `${revThread.length} message${revThread.length === 1 ? '' : 's'} in the revision chat — expand to continue.` : 'Generate first — then revise here.'}</div>)}
           {!revCollapsed && (<>
+          {scene.layers.length > 1 && (
+            <div style={{ display: 'flex', gap: 6, marginBottom: 6, alignItems: 'center' }}>
+              <span style={{ fontSize: 11, opacity: 0.6, whiteSpace: 'nowrap' }} title="Revisions touch every layer by default — pick one chart to leave the others alone (backdrop changes still apply)">Apply to:</span>
+              <select value={revTargetId} onChange={(e) => setRevTarget(e.target.value)} title="Whole slide revises every layer; picking one layer scopes the revision to it" style={{ flex: 1, minWidth: 0, background: 'var(--vs-deep)', color: 'var(--vs-text)', border: '1px solid var(--vs-border)', borderRadius: 6, padding: '6px 8px', fontSize: 12 }}>
+                <option value="all">Whole slide (all layers)</option>
+                {scene.layers.map((l, i) => (
+                  <option key={l.id} value={l.id}>{`${i + 1} · ${l.name || l.type} — ${(l.type || '').replace(/_/g, ' ')} · ${l.startFrame}–${l.endFrame}f`}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <textarea value={editPrompt} onChange={(e) => setEditPrompt(e.target.value)} rows={3} style={{ width: '100%', background: 'var(--vs-deep)', color: 'var(--vs-text)', border: '1px solid var(--vs-border)', borderRadius: 6, padding: 8 }} placeholder="Describe the change conversationally — I'll ask if I need details…" />
           <button disabled={busy} onClick={onEdit} style={{ marginTop: 8, width: '100%' }}>Revise chart</button>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6, alignItems: 'center' }}>
