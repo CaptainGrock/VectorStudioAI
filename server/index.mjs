@@ -19,6 +19,7 @@ import {
   ROOT, LLAMA_PORT, engineOptions, findExistingRunner, engineInstallState,
   startEngineInstall, runnerStatus, startRunner, stopRunner, loadedModels, engineChat,
 } from "./engine.mjs";
+import { loadProject, saveProject } from "./project.mjs";
 
 const PORT = Number(process.env.VS_PORT) || 3120;
 
@@ -311,6 +312,15 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && url.pathname === "/api/engine/stop") return send(res, 200, stopRunner());
     if (req.method === "POST" && url.pathname === "/api/settings") {
       return send(res, 200, { ok: true, settings: saveSettings(body) });
+    }
+    // Full-fidelity project auto-save (no 5MB cap): the client POSTs the
+    // whole history + sequence + scene here, debounced, and GETs it back
+    // on startup so restarts restore media localStorage had to strip.
+    if (req.method === "GET" && url.pathname === "/api/project") {
+      return send(res, 200, loadProject(ROOT));
+    }
+    if (req.method === "POST" && url.pathname === "/api/project") {
+      return send(res, 200, saveProject(ROOT, body));
     }
     if (req.method === "POST" && url.pathname === "/api/render") {
       return send(res, 200, startRender(body));

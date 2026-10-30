@@ -683,4 +683,50 @@ export const useStudio = create((set, get) => ({
   setPrompt: (prompt) => set({ prompt }),
   setEditPrompt: (editPrompt) => set({ editPrompt }),
   pushLog: (msg) => set((s) => ({ log: [...s.log, msg] })),
+  // Server auto-save restore: replaces History / sequence / scene with the
+  // full-fidelity copies from data/project.json (media intact — no 5MB
+  // cap). Invalid slides are skipped, never fatal; localStorage gets the
+  // compact versions so the next boot is consistent either way.
+  hydrateProject: (project) => set((s) => {
+    try {
+      const p = project && typeof project === 'object' ? project : null
+      if (!p) return s
+      const convos = []
+      for (const c of (Array.isArray(p.conversations) ? p.conversations : [])) {
+        try {
+          if (!c || !c.id || !c.scene || !Array.isArray(c.scene.layers)) continue
+          const scene = validateScene(normalizeScene(c.scene))
+          convos.push({ id: c.id, title: String(c.title || 'Untitled').slice(0, 80), prompt: typeof c.prompt === 'string' ? c.prompt : '', scene, createdAt: c.createdAt || new Date().toISOString(), layerCount: scene.layers.length })
+        } catch { /* skip one bad slide, keep the rest */ }
+      }
+      let sequence = s.sequence
+      try {
+        const items = []
+        for (const it of (p.sequence && Array.isArray(p.sequence.items) ? p.sequence.items : [])) {
+          try {
+            if (!it || !it.id || !it.scene || !Array.isArray(it.scene.layers)) continue
+            items.push({ ...it, scene: validateScene(normalizeScene(it.scene)) })
+          } catch { /* skip one bad clip */ }
+        }
+        sequence = { items: items.slice(0, 40), music: p.sequence?.music || null }
+      } catch { /* keep current sequence */ }
+      let scene = s.scene
+      let activeConvoId = s.activeConvoId
+      try {
+        if (p.scene && typeof p.scene === 'object' && Array.isArray(p.scene.layers)) scene = validateScene(normalizeScene(p.scene))
+      } catch { /* keep current scene */ }
+      if (typeof p.activeConvoId === 'string' && convos.some((c) => c.id === p.activeConvoId)) activeConvoId = p.activeConvoId
+      else if (convos.length && !convos.some((c) => c.id === activeConvoId)) activeConvoId = null
+      persistConvos(convos)
+      persistSequence(sequence)
+      persistScene(scene)
+      try {
+        if (activeConvoId) localStorage.setItem(ACTIVE_KEY, activeConvoId)
+        else localStorage.removeItem(ACTIVE_KEY)
+      } catch { /* ignore */ }
+      return { conversations: convos, sequence, scene, sceneRev: s.sceneRev + 1, activeConvoId, log: [...s.log, `Restored ${convos.length} slide${convos.length === 1 ? '' : 's'} from auto-save (media intact).`] }
+    } catch {
+      return s
+    }
+  }),
 }))

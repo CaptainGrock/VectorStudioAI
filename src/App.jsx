@@ -1778,6 +1778,7 @@ export default function App() {
   const seqLay = React.useMemo(() => seqLayout(sequence), [sequence])
   const seqCan = React.useMemo(() => seqCanvas(sequence), [sequence])
   const editingSeqItem = editingSeqId ? sequence.items.find((x) => x.id === editingSeqId) || null : null
+  const activeConvoId = useStudio(s => s.activeConvoId)
   const loadConversation = useStudio(s => s.loadConversation)
   const deleteConversation = useStudio(s => s.deleteConversation)
   const renameConversation = useStudio(s => s.renameConversation)
@@ -1899,6 +1900,61 @@ export default function App() {
     try { useStudio.getState().probeStorageHealth() } catch {}
     return () => window.removeEventListener('pagehide', flush)
   }, [])
+  // Server auto-save: the full project (media bytes included — no 5MB
+  // cap) is POSTed to /api/project debounced, and the saved copy is
+  // pulled back on startup so restarts restore full slides instead of
+  // the media-stripped localStorage versions. Failures are silent —
+  // localStorage remains the fallback when the server isn't running.
+  const serverRestored = React.useRef(false)
+  React.useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const r = await fetch('/api/project', { signal: AbortSignal.timeout(8000) })
+        if (!r.ok || cancelled) return
+        const body = await r.json()
+        if (cancelled || !body?.ok || body.empty || !body.project) return
+        const srv = body.project
+        const srvCount = Array.isArray(srv.conversations) ? srv.conversations.length : 0
+        if (!srvCount) return
+        const st = useStudio.getState()
+        const localCount = st.conversations.length
+        let localBytes = 0
+        try { localBytes = JSON.stringify(st.conversations).length } catch { localBytes = 0 }
+        let srvBytes = 0
+        try { srvBytes = JSON.stringify(srv.conversations).length } catch { srvBytes = 0 }
+        const degraded = !!st.saveHealth?.degraded
+        // Restore when the server clearly has more: empty local history,
+        // a degraded (media-stripped) local save, or a substantially
+        // larger server copy. Otherwise the live session wins.
+        if (localCount === 0 || degraded || srvBytes > localBytes * 1.1) {
+          st.hydrateProject(srv)
+          setStatus(`Restored ${srvCount} slide${srvCount === 1 ? '' : 's'} from auto-save (media intact).`, 'done')
+        }
+      } catch { /* server offline — localStorage stands in */ }
+      serverRestored.current = true
+    })()
+    return () => { cancelled = true }
+  }, [])
+  // Debounced push of the full project after any history/sequence/scene
+  // change (2s idle). Skips until the startup restore has run once, so a
+  // fresh boot never overwrites the good server copy with an empty shell.
+  const projPush = React.useRef(null)
+  React.useEffect(() => {
+    if (!serverRestored.current) return
+    clearTimeout(projPush.current)
+    projPush.current = setTimeout(() => {
+      try {
+        const st = useStudio.getState()
+        fetch('/api/project', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ conversations: st.conversations, sequence: st.sequence, scene: st.scene, activeConvoId: st.activeConvoId }),
+          signal: AbortSignal.timeout(30000),
+        }).catch(() => {})
+      } catch { /* offline — next change retries */ }
+    }, 2000)
+    return () => clearTimeout(projPush.current)
+  }, [conversations, sequence, scene, activeConvoId])
   const fileRef = React.useRef(null)
   const importJsonRef = React.useRef(null)
   // Space plays/pauses the preview whenever focus isn't in an editable
