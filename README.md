@@ -59,7 +59,7 @@ Press **🎬 Sequence** to chain saved history conversations into one reel:
 - **Right-click a clip to jump back into the scene editor** for that clip.
 - Global **▶/⏸**, Space, and Home/End drive the reel; the red-line grab strip scrubs like the scene timeline.
 - The reel auto-saves to the browser (up to 40 clips) and exports via **File ▾ → Export sequence MP4**.
-- **Server auto-save:** while the local server is running, the full project (History, sequence, scene — audio/image bytes included, no 5MB cap) is saved to `data/project.json` a couple seconds after every change and restored on startup, so restarts bring back full slides instead of media-stripped versions. The browser copy remains the offline fallback.
+- **Server auto-save:** while the local server is running, the full project (History, sequence, scene — audio/image bytes included, no 5MB cap) is saved to `data/project.json` a couple seconds after every change (plus a final save when the tab closes/hides, so quick close-and-stop cycles are covered) and restored on startup, so restarts bring back full slides instead of media-stripped versions. The header shows **✓ Server backup + time** once it lands — wait for it before closing if you just imported. The browser copy remains the offline fallback. `data/` is git-ignored.
 
 ## Shapes
 

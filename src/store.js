@@ -291,6 +291,11 @@ export const useStudio = create((set, get) => ({
   // drives the persistent header chip — separate from the transient
   // status line so later actions can't overwrite the warning.
   saveHealth: null,
+  // Server auto-save state: idle | saving | saved | error. Updated by
+  // the App's debounced /api/project push — the header shows it so a
+  // landed backup is visible before closing the browser.
+  serverBackup: { state: 'idle', at: null },
+  setServerBackup: (patch) => set((s) => ({ serverBackup: { ...s.serverBackup, ...patch } })),
   // Startup footprint check: warns early when the ~5MB localStorage
   // budget is nearly spent (TTS audio + images add up fast). Runs once
   // at launch; every mutation re-reports via saveDurable after that.

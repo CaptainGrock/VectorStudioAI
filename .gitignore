@@ -15,6 +15,7 @@ out/
 *.log
 scene.json
 sequence.json
+data/
 
 .vs-render-entry.jsx
 test-frame*.png

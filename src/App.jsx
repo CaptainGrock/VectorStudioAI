@@ -79,17 +79,31 @@ function KeyframeDiamond({ frame, duration, onScrub, onCommit }) {
 // warns DURING the session, never as a surprise after a refresh.
 function SaveHealth() {
   const health = useStudio(s => s.saveHealth)
-  if (!health || (health.ok && !health.degraded)) return null
+  const backup = useStudio(s => s.serverBackup)
+  const backupChip = backup && backup.state !== 'idle' ? (
+    <span title={backup.state === 'saved' ? `Full project backed up on disk${backup.at ? ` at ${backup.at}` : ''} — safe to close.` : backup.state === 'saving' ? 'Backing up the full project to disk…' : 'Server backup failed — the browser copy is all there is. Export JSON to be safe.'}
+      style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', borderRadius: 7, padding: '3px 10px', flexShrink: 0,
+        color: backup.state === 'error' ? '#ff9090' : backup.state === 'saved' ? '#3ddc84' : '#ffd166',
+        border: `1px solid ${backup.state === 'error' ? '#6e2a33' : backup.state === 'saved' ? '#1e5a3a' : '#6e5a1e'}`,
+        background: backup.state === 'error' ? '#2a1418' : backup.state === 'saved' ? '#142a1e' : '#2a2114' }}>
+      {backup.state === 'saving' ? '● Server backup…' : backup.state === 'saved' ? `✓ Server backup${backup.at ? ` ${backup.at}` : ''}` : '○ Server backup failed'}
+    </span>
+  ) : null
+  if ((!health || (health.ok && !health.degraded)) && !backupChip) return null
+  if (!health || (health.ok && !health.degraded)) return backupChip
   const failing = !health.ok
   return (
-    <span title={`${health.detail || 'Auto-save trouble.'} Back up via Export → JSON.`}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700,
-        color: failing ? '#ff9090' : '#ffd166', whiteSpace: 'nowrap',
-        border: `1px solid ${failing ? '#6e2a33' : '#6e5a1e'}`, borderRadius: 7,
-        padding: '3px 10px', background: failing ? '#2a1418' : '#2a2114', flexShrink: 0,
-      }}>
-      {failing ? '⚠ Auto-save FAILING' : '⚠ Auto-save degraded'}
+    <span style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+      <span title={`${health.detail || 'Auto-save trouble.'} Back up via Export → JSON.`}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700,
+          color: failing ? '#ff9090' : '#ffd166', whiteSpace: 'nowrap',
+          border: `1px solid ${failing ? '#6e2a33' : '#6e5a1e'}`, borderRadius: 7,
+          padding: '3px 10px', background: failing ? '#2a1418' : '#2a2114', flexShrink: 0,
+        }}>
+        {failing ? '⚠ Auto-save FAILING' : '⚠ Auto-save degraded'}
+      </span>
+      {backupChip}
     </span>
   )
 }
@@ -1895,10 +1909,7 @@ export default function App() {
   // one-time storage-footprint check — TTS audio + images can fill the
   // ~5MB localStorage budget, and a full budget used to fail silently.
   React.useEffect(() => {
-    const flush = () => { try { useStudio.getState().flushSync() } catch {} }
-    window.addEventListener('pagehide', flush)
     try { useStudio.getState().probeStorageHealth() } catch {}
-    return () => window.removeEventListener('pagehide', flush)
   }, [])
   // Server auto-save: the full project (media bytes included — no 5MB
   // cap) is POSTed to /api/project debounced, and the saved copy is
@@ -1906,6 +1917,37 @@ export default function App() {
   // the media-stripped localStorage versions. Failures are silent —
   // localStorage remains the fallback when the server isn't running.
   const serverRestored = React.useRef(false)
+  const pendingPush = React.useRef(false) // changes made before restore finished
+  const projPush = React.useRef(null)
+  // Single full-project push used by the debounced effect AND the
+  // pagehide/visibility flush, so a quick close can't lose the 2s window.
+  // keepalive lets the browser finish the POST during page unload.
+  const pushProjectNow = React.useCallback(async ({ keepalive = false } = {}) => {
+    const st = useStudio.getState()
+    if (!st.conversations.length && !st.sequence.items.length) return // empty shell — never clobber the disk copy
+    st.setServerBackup({ state: 'saving' })
+    try {
+      const r = await fetch('/api/project', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ conversations: st.conversations, sequence: st.sequence, scene: st.scene, activeConvoId: st.activeConvoId }),
+        signal: keepalive ? undefined : AbortSignal.timeout(30000),
+        keepalive,
+      })
+      const body = await r.json().catch(() => null)
+      if (!r.ok || !body?.ok) throw new Error(body?.error || `HTTP ${r.status}`)
+      const at = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      st.setServerBackup({ state: 'saved', at })
+    } catch {
+      // Offline counts as idle, not failure: the browser copy stands in
+      // and the next change retries. Only a hard server rejection shows.
+      try {
+        await fetch('/api/health', { signal: AbortSignal.timeout(3000) })
+        useStudio.getState().setServerBackup({ state: 'idle', at: null })
+      } catch {
+        useStudio.getState().setServerBackup({ state: 'idle', at: null })
+      }
+    }
+  }, [])
   React.useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -1932,29 +1974,38 @@ export default function App() {
           setStatus(`Restored ${srvCount} slide${srvCount === 1 ? '' : 's'} from auto-save (media intact).`, 'done')
         }
       } catch { /* server offline — localStorage stands in */ }
+      if (cancelled) return
       serverRestored.current = true
+      // Changes made during the restore flight were held (see below) —
+      // push them now instead of dropping them on the floor.
+      if (pendingPush.current) { pendingPush.current = false; pushProjectNow() }
     })()
     return () => { cancelled = true }
-  }, [])
+  }, [pushProjectNow])
   // Debounced push of the full project after any history/sequence/scene
-  // change (2s idle). Skips until the startup restore has run once, so a
-  // fresh boot never overwrites the good server copy with an empty shell.
-  const projPush = React.useRef(null)
+  // change (2s idle). Changes before the startup restore finishes are
+  // HELD (pendingPush) and flushed right after — the old code returned
+  // early and dropped them, so fast imports after boot never reached disk.
   React.useEffect(() => {
-    if (!serverRestored.current) return
+    if (!serverRestored.current) { pendingPush.current = true; return }
     clearTimeout(projPush.current)
-    projPush.current = setTimeout(() => {
-      try {
-        const st = useStudio.getState()
-        fetch('/api/project', {
-          method: 'POST', headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ conversations: st.conversations, sequence: st.sequence, scene: st.scene, activeConvoId: st.activeConvoId }),
-          signal: AbortSignal.timeout(30000),
-        }).catch(() => {})
-      } catch { /* offline — next change retries */ }
-    }, 2000)
+    projPush.current = setTimeout(() => { pushProjectNow() }, 2000)
     return () => clearTimeout(projPush.current)
-  }, [conversations, sequence, scene, activeConvoId])
+  }, [conversations, sequence, scene, activeConvoId, pushProjectNow])
+  // Close/tab-hide flush: the debounce above can hold up to 2s of work,
+  // and that window used to die with the page. keepalive POSTs the live
+  // in-memory project (full media) synchronously on the way out.
+  React.useEffect(() => {
+    const flush = () => {
+      try { useStudio.getState().flushSync() } catch {}
+      clearTimeout(projPush.current)
+      try { pushProjectNow({ keepalive: true }) } catch {}
+    }
+    const onVis = () => { if (document.visibilityState === 'hidden') flush() }
+    window.addEventListener('pagehide', flush)
+    document.addEventListener('visibilitychange', onVis)
+    return () => { window.removeEventListener('pagehide', flush); document.removeEventListener('visibilitychange', onVis) }
+  }, [pushProjectNow])
   const fileRef = React.useRef(null)
   const importJsonRef = React.useRef(null)
   // Space plays/pauses the preview whenever focus isn't in an editable
